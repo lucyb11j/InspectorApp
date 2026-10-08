@@ -1,1 +1,10 @@
-node_modules/\n.env\n.DS_Store\nvenv/\n__pycache__/\nbuild/\ndist/\n.dart_tool/\n.flutter-plugins\n.flutter-plugins-dependencies
+node_modules/
+.env
+.DS_Store
+venv/
+__pycache__/
+build/
+dist/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
