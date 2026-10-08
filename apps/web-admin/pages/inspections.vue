@@ -57,7 +57,7 @@
               </span>
             </td>
             <td>
-              <button class="btn-ghost">View</button>
+              <NuxtLink :to="`/inspections/${insp.id}`" class="btn-ghost">View →</NuxtLink>
             </td>
           </tr>
         </tbody>
