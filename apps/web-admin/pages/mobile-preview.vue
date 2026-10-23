@@ -1,6 +1,6 @@
 <template>
   <div class="workspace-viewport">
-    <!-- Header de Campo Nativo -->
+    <!-- Header de Campo Nativo Responsivo -->
     <header class="workspace-header">
       <div class="header-left">
         <!-- Botón Menú Flotante para Administradores / Menú Rápido -->
@@ -18,20 +18,20 @@
           <h2>{{ currentUnit.name }} — {{ currentUnit.project }}</h2>
           <div class="title-meta">
             <span class="meta-tag">Área: <strong>{{ activeArea }}</strong></span>
-            <span class="badge-offline">⚡ SQLite Local (Offline)</span>
+            <span class="badge-offline">⚡ SQLite Local</span>
           </div>
         </div>
       </div>
 
       <div class="header-right">
-        <!-- Switch de Vistas: Pantalla Dividida o Pantalla Completa según dispositivo -->
+        <!-- Switch de Vistas Adaptable -->
         <div class="view-toggles">
           <button 
             type="button" 
-            class="view-btn" 
+            class="view-btn view-split-btn" 
             :class="{ active: viewMode === 'split' }"
             @click="viewMode = 'split'"
-            title="Ver Plano y Observaciones simultáneos (Recomendado para Tablet/PC)"
+            title="Vista dividida simultánea (Plano + Lista)"
           >
             💻 Dividido
           </button>
@@ -40,28 +40,29 @@
             class="view-btn" 
             :class="{ active: viewMode === 'plan-only' }"
             @click="viewMode = 'plan-only'"
-            title="Maximizar Plano de Inspección"
+            title="Solo Plano Táctil"
           >
-            📐 Solo Plano
+            📐 Plano
           </button>
           <button 
             type="button" 
             class="view-btn" 
             :class="{ active: viewMode === 'list-only' }"
             @click="viewMode = 'list-only'"
-            title="Maximizar Lista de Defectos"
+            title="Solo Defectos"
           >
-            📋 Solo Defectos
+            📋 Defectos
           </button>
         </div>
 
         <button type="button" class="btn-primary-action" @click="showNewObsModal = true">
-          + Nuevo Defecto
+          <span class="btn-plus">+</span>
+          <span class="btn-action-text">Defecto</span>
         </button>
       </div>
     </header>
 
-    <!-- Espacio de Trabajo Nativo (Abarca el 100% de la pantalla sin marcos simulados) -->
+    <!-- Espacio de Trabajo Responsivo Universal -->
     <div class="workspace-body" :class="`view-${viewMode}`">
       
       <!-- Panel de Plano Táctil Interactivo -->
@@ -69,10 +70,10 @@
         <div class="plan-toolbar">
           <div class="plan-legend">
             <span class="legend-dot"></span>
-            <span>Haga clic o toque en cualquier zona del plano para situar una no-conformidad</span>
+            <span>Toque en el plano para situar la no-conformidad</span>
           </div>
           <div class="plan-stats">
-            <span>Pins fijados: <strong>{{ markers.length }}</strong></span>
+            <span>Pines: <strong>{{ markers.length }}</strong></span>
           </div>
         </div>
 
@@ -81,19 +82,19 @@
           
           <!-- Plano base estilizado con zonas arquitectónicas -->
           <div class="architectural-blueprint">
-            <div class="room-box room-living">
+            <div class="room-box room-living" :class="{ highlight: activeArea === 'Sala / Comedor' }">
               <span>SALA / COMEDOR</span>
             </div>
-            <div class="room-box room-kitchen">
+            <div class="room-box room-kitchen" :class="{ highlight: activeArea === 'Cocina' }">
               <span>COCINA</span>
             </div>
-            <div class="room-box room-bed-main">
+            <div class="room-box room-bed-main" :class="{ highlight: activeArea === 'Dormitorio Principal' }">
               <span>DORMITORIO PPAL</span>
             </div>
-            <div class="room-box room-bath-main">
+            <div class="room-box room-bath-main" :class="{ highlight: activeArea === 'Baño Principal' }">
               <span>BAÑO PPAL</span>
             </div>
-            <div class="room-box room-balcony">
+            <div class="room-box room-balcony" :class="{ highlight: activeArea === 'Balcón' }">
               <span>BALCÓN</span>
             </div>
           </div>
@@ -140,7 +141,7 @@
         <div class="observations-scroll-pane">
           <div class="pane-header-actions">
             <div>
-              <h3>Defectos en {{ activeArea }}</h3>
+              <h3>Defectos en {{ activeArea }} ({{ filteredObservations.length }})</h3>
               <p class="section-hint">Registros locales con verificación fotográfica SHA-256</p>
             </div>
             <button type="button" class="btn-ghost-sm" @click="showNewObsModal = true">
@@ -308,14 +309,31 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: false // Desactiva el layout general con sidebar exterior: esta es la app nativa a pantalla completa
+  layout: false // Sin layout exterior: ocupa el 100% de la ventana en teléfono, tablet o PC
 })
 
-// Modo de visualización nativo en toda la ventana
+// En pantallas móviles (<768px) por defecto muestra Plano; en Tablet/PC inicia en Split
 const viewMode = ref<'split' | 'plan-only' | 'list-only'>('split')
 const showDrawer = ref(false)
 const showNewObsModal = ref(false)
 const selectedObsId = ref<string | null>(null)
+
+// Detección automática al cargar según el ancho de la pantalla
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    if (window.innerWidth < 768) {
+      viewMode.value = 'plan-only'
+    } else {
+      viewMode.value = 'split'
+    }
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth < 768 && viewMode.value === 'split') {
+        viewMode.value = 'plan-only'
+      }
+    })
+  }
+})
 
 const currentUnit = {
   name: 'Departamento 305',
@@ -441,7 +459,7 @@ const saveNewObservation = () => {
     sha256: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
   })
 
-  // Agregar pin automático cerca del centro del área si no existe
+  // Agregar pin automático
   markers.value.push({
     x: 40 + Math.random() * 20,
     y: 35 + Math.random() * 25,
@@ -472,33 +490,35 @@ const saveNewObservation = () => {
 
 /* Header Nativo de Campo */
 .workspace-header {
-  height: 64px;
+  min-height: 56px;
   background: #161616;
   border-bottom: 1px solid #262626;
-  padding: 0 20px;
+  padding: 0 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  gap: 12px;
 }
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  min-width: 0;
 }
 .btn-menu-drawer {
   background: #222;
   border: 1px solid #333;
   color: #fff;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 .btn-menu-drawer:hover {
   background: #2a2a2a;
@@ -507,34 +527,43 @@ const saveNewObservation = () => {
 .menu-icon {
   font-size: 1.1rem;
 }
+.inspection-title-block {
+  min-width: 0;
+}
 .inspection-title-block h2 {
-  font-size: 1.15rem;
+  font-size: 1rem;
   margin: 0;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .title-meta {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 .meta-tag {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #aaa;
+  white-space: nowrap;
 }
 .badge-offline {
   background: rgba(3, 218, 198, 0.15);
   color: #03dac6;
-  font-size: 0.72rem;
-  padding: 2px 8px;
+  font-size: 0.68rem;
+  padding: 1px 6px;
   border-radius: 4px;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 .view-toggles {
   display: flex;
@@ -547,12 +576,11 @@ const saveNewObservation = () => {
   background: transparent;
   border: none;
   color: #888;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 .view-btn.active {
   background: var(--primary);
@@ -562,22 +590,27 @@ const saveNewObservation = () => {
   background: var(--primary);
   color: #fff;
   border: none;
-  padding: 9px 18px;
+  padding: 8px 14px;
   border-radius: 8px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: bold;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   box-shadow: 0 4px 12px rgba(26,115,232,0.35);
+  flex-shrink: 0;
 }
 
-/* Cuerpo de la Aplicación (Plano + Observaciones) */
+/* Cuerpo de la Aplicación */
 .workspace-body {
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;
 }
 
-/* Modo Dividido */
+/* Modo Dividido (Split) */
 .workspace-body.view-split .plan-section {
   flex: 6;
   border-right: 1.5px solid #222;
@@ -589,9 +622,11 @@ const saveNewObservation = () => {
 /* Modos de Pantalla Completa */
 .workspace-body.view-plan-only .plan-section {
   flex: 1;
+  width: 100%;
 }
 .workspace-body.view-list-only .observations-section {
   flex: 1;
+  width: 100%;
 }
 
 /* Sección de Plano Táctil */
@@ -600,31 +635,37 @@ const saveNewObservation = () => {
   flex-direction: column;
   background: #111;
   position: relative;
+  height: 100%;
 }
 .plan-toolbar {
-  padding: 8px 16px;
+  padding: 6px 12px;
   background: #181818;
   border-bottom: 1px solid #222;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #aaa;
 }
 .plan-legend {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .legend-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: #cf6679;
+  flex-shrink: 0;
 }
 .plan-stats {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: #888;
+  flex-shrink: 0;
 }
 .plan-canvas-area {
   flex: 1;
@@ -641,21 +682,23 @@ const saveNewObservation = () => {
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-  background-size: 28px 28px;
+  background-size: 24px 24px;
 }
 
-/* Plano Arquitectónico Estilizado */
+/* Plano Arquitectónico Responsivo */
 .architectural-blueprint {
-  width: 86%;
-  height: 84%;
-  border: 2px dashed rgba(255,255,255,0.15);
+  width: 90%;
+  height: 86%;
+  max-width: 900px;
+  max-height: 650px;
+  border: 2px dashed rgba(255,255,255,0.18);
   border-radius: 12px;
   position: relative;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: 2fr 1.5fr;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 8px;
   box-sizing: border-box;
 }
 .room-box {
@@ -665,10 +708,18 @@ const saveNewObservation = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: rgba(255,255,255,0.3);
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
+  text-align: center;
+  padding: 4px;
+  transition: all 0.2s ease;
+}
+.room-box.highlight {
+  border-color: rgba(26,115,232,0.6);
+  background: rgba(26,115,232,0.08);
+  color: #4d9eff;
 }
 .room-living { grid-column: 1 / 2; grid-row: 1 / 3; }
 .room-kitchen { grid-column: 2 / 4; grid-row: 1 / 2; }
@@ -683,20 +734,17 @@ const saveNewObservation = () => {
   z-index: 10;
   transition: transform 0.15s ease;
 }
-.interactive-pin:hover {
-  transform: translate(-50%, -115%) scale(1.15);
-}
 .pin-marker-head {
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
 }
 .pin-number {
   background: #cf6679;
   color: #fff;
-  font-size: 0.65rem;
-  padding: 1px 5px;
+  font-size: 0.6rem;
+  padding: 1px 4px;
   border-radius: 4px;
   font-weight: bold;
 }
@@ -724,27 +772,29 @@ const saveNewObservation = () => {
   display: flex;
   flex-direction: column;
   background: #141414;
+  height: 100%;
 }
 .area-navigation-bar {
   display: flex;
   background: #181818;
   border-bottom: 1px solid #262626;
   overflow-x: auto;
-  padding: 0 10px;
+  padding: 0 8px;
+  flex-shrink: 0;
 }
 .area-tab {
   background: transparent;
   border: none;
   color: #888;
-  padding: 12px 14px;
-  font-size: 0.82rem;
+  padding: 10px 12px;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 .area-tab.active {
   color: var(--primary);
@@ -752,32 +802,28 @@ const saveNewObservation = () => {
 }
 .area-badge-count {
   background: rgba(255,255,255,0.08);
-  font-size: 0.68rem;
-  padding: 1px 6px;
+  font-size: 0.65rem;
+  padding: 1px 5px;
   border-radius: 10px;
-}
-.area-tab.active .area-badge-count {
-  background: rgba(26,115,232,0.25);
-  color: #fff;
 }
 
 .observations-scroll-pane {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 14px;
 }
 .pane-header-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .pane-header-actions h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
 }
 .section-hint {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #888;
   margin: 2px 0 0 0;
 }
@@ -785,26 +831,25 @@ const saveNewObservation = () => {
   background: #222;
   border: 1px solid #333;
   color: #fff;
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-/* Tarjetas de Observación */
+/* Tarjetas */
 .observations-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 .observation-card {
   background: #1b1b1b;
   border: 1px solid #2a2a2a;
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: 8px;
+  padding: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 .observation-card:hover, .observation-card.obs-selected {
   border-color: var(--primary);
@@ -817,12 +862,12 @@ const saveNewObservation = () => {
 }
 .obs-tags {
   display: flex;
-  gap: 6px;
+  gap: 4px;
 }
 .tag-severity {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 2px 6px;
   border-radius: 4px;
 }
 .sev-menor { background: rgba(255,193,7,0.15); color: #ffc107; }
@@ -830,94 +875,79 @@ const saveNewObservation = () => {
 .sev-mayor { background: rgba(255,138,0,0.15); color: #ff8a00; }
 .sev-crítica { background: rgba(207,102,121,0.15); color: var(--error); }
 .tag-status {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   background: rgba(255,255,255,0.06);
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-radius: 4px;
   color: #aaa;
 }
 .tag-storage {
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   color: #777;
 }
 .obs-title {
   margin: 0 0 4px 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 .obs-description {
-  margin: 0 0 10px 0;
-  font-size: 0.82rem;
+  margin: 0 0 8px 0;
+  font-size: 0.8rem;
   color: #aaa;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .obs-evidence-box {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #141414;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid #262626;
 }
-.evidence-thumb {
-  font-size: 1.1rem;
-}
-.evidence-meta {
-  display: flex;
-  flex-direction: column;
-}
-.evidence-file {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #ddd;
-}
-.evidence-hash {
-  font-size: 0.65rem;
-  color: #03dac6;
-}
+.evidence-thumb { font-size: 1rem; }
+.evidence-meta { display: flex; flex-direction: column; }
+.evidence-file { font-size: 0.7rem; font-weight: 600; color: #ddd; }
+.evidence-hash { font-size: 0.62rem; color: #03dac6; }
 
-/* Empty State */
+/* Empty */
 .empty-observations {
   text-align: center;
-  padding: 40px 10px;
+  padding: 30px 10px;
   color: #888;
 }
-.empty-icon {
-  font-size: 2.2rem;
-  display: block;
-  margin-bottom: 8px;
-}
+.empty-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
 .btn-preset-primary {
   background: var(--primary);
   color: #fff;
   border: none;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: bold;
-  margin-top: 12px;
+  margin-top: 10px;
   cursor: pointer;
 }
 
-/* Footer de Sección */
+/* Footer de Acción */
 .section-footer {
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: #181818;
   border-top: 1px solid #262626;
+  flex-shrink: 0;
 }
 .btn-generate-report {
   display: block;
   text-align: center;
   background: linear-gradient(135deg, var(--primary), var(--primary-hover));
   color: #fff;
-  padding: 10px;
+  padding: 9px;
   border-radius: 8px;
   text-decoration: none;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: bold;
 }
 
-/* Drawer Lateral (Oculto en Botón para no molestar en pantalla) */
+/* Drawer Lateral */
 .drawer-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -946,10 +976,7 @@ const saveNewObservation = () => {
   align-items: center;
   gap: 10px;
 }
-.drawer-brand h3 {
-  margin: 0;
-  font-size: 1.15rem;
-}
+.drawer-brand h3 { margin: 0; font-size: 1.15rem; }
 .btn-close-drawer {
   background: none;
   border: none;
@@ -973,7 +1000,6 @@ const saveNewObservation = () => {
   border-radius: 8px;
   font-size: 0.88rem;
   font-weight: 500;
-  transition: all 0.2s ease;
 }
 .drawer-item:hover {
   background: rgba(255,255,255,0.06);
@@ -1007,8 +1033,8 @@ const saveNewObservation = () => {
   border: 1px solid #333;
   border-radius: 14px;
   width: 90%;
-  max-width: 520px;
-  padding: 22px;
+  max-width: 500px;
+  padding: 20px;
 }
 .modal-dialog-header {
   display: flex;
@@ -1016,10 +1042,7 @@ const saveNewObservation = () => {
   align-items: center;
   margin-bottom: 12px;
 }
-.modal-dialog-header h3 {
-  margin: 0;
-  font-size: 1.15rem;
-}
+.modal-dialog-header h3 { margin: 0; font-size: 1.1rem; }
 .btn-close-modal {
   background: none;
   border: none;
@@ -1027,11 +1050,7 @@ const saveNewObservation = () => {
   font-size: 1.2rem;
   cursor: pointer;
 }
-.modal-hint {
-  font-size: 0.8rem;
-  color: #888;
-  margin: 0 0 12px 0;
-}
+.modal-hint { font-size: 0.8rem; color: #888; margin: 0 0 12px 0; }
 .preset-pills {
   display: flex;
   flex-wrap: wrap;
@@ -1042,24 +1061,14 @@ const saveNewObservation = () => {
   background: #2a2a2a;
   border: 1px solid #3a3a3a;
   color: #ddd;
-  padding: 5px 10px;
-  border-radius: 14px;
+  padding: 4px 8px;
+  border-radius: 12px;
   font-size: 0.72rem;
   cursor: pointer;
 }
-.preset-pill:hover {
-  border-color: var(--primary);
-  background: #333;
-}
-.form-group {
-  margin-bottom: 12px;
-}
-.form-group label {
-  display: block;
-  font-size: 0.78rem;
-  color: #aaa;
-  margin-bottom: 4px;
-}
+.preset-pill:hover { border-color: var(--primary); background: #333; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 0.78rem; color: #aaa; margin-bottom: 4px; }
 .input-field {
   width: 100%;
   background: #141414;
@@ -1070,23 +1079,15 @@ const saveNewObservation = () => {
   box-sizing: border-box;
   font-size: 0.88rem;
 }
-.input-field:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-.form-row {
-  display: flex;
-  gap: 12px;
-}
-.form-row .col {
-  flex: 1;
-}
+.input-field:focus { outline: none; border-color: var(--primary); }
+.form-row { display: flex; gap: 12px; }
+.form-row .col { flex: 1; }
 .fake-camera-btn {
   background: #141414;
   border: 1px dashed #444;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #03dac6;
   text-align: center;
 }
@@ -1094,13 +1095,13 @@ const saveNewObservation = () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 .btn-cancel {
   background: transparent;
   border: 1px solid #444;
   color: #ccc;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -1108,9 +1109,62 @@ const saveNewObservation = () => {
   background: var(--primary);
   border: none;
   color: #fff;
-  padding: 8px 18px;
+  padding: 7px 16px;
   border-radius: 6px;
   font-weight: bold;
   cursor: pointer;
+}
+
+/* =======================================================
+   ADAPTATIVIDAD RESPONSIVA PARA MOBILE Y TABLET
+   ======================================================= */
+
+/* Modo Móvil / Teléfono (< 768px): La cabecera se compacta y ocultamos el botón Dividido */
+@media (max-width: 767px) {
+  .view-split-btn {
+    display: none !important;
+  }
+  .menu-label {
+    display: none;
+  }
+  .btn-action-text {
+    display: none;
+  }
+  .btn-primary-action {
+    padding: 6px 10px;
+  }
+  .btn-plus {
+    font-size: 1.1rem;
+    line-height: 1;
+  }
+  .meta-tag strong {
+    max-width: 90px;
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+  }
+  .workspace-header {
+    padding: 0 10px;
+  }
+  .architectural-blueprint {
+    width: 96%;
+    height: 92%;
+    font-size: 0.65rem;
+  }
+}
+
+/* Modo Tablet / Pantalla Intermedia (768px a 1024px): Modo Dividido fluido */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .workspace-body.view-split .plan-section {
+    flex: 5.5;
+  }
+  .workspace-body.view-split .observations-section {
+    flex: 4.5;
+  }
+  .architectural-blueprint {
+    width: 94%;
+    height: 90%;
+  }
 }
 </style>
