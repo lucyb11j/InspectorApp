@@ -26,3 +26,4 @@ export default defineEventHandler(async (event) => {
     storedAt: new Date().toISOString()
   }
 })
+

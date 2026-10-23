@@ -2,8 +2,8 @@
   <div class="sync-monitor-page">
     <header class="page-header">
       <div>
-        <h1>Monitor del Motor de Sincronización (Fase 3)</h1>
-        <p class="subtitle">Supervisión de cola Outbox, integridad de fotos por SHA-256 y detección de conflictos concurrentes</p>
+        <h1>Monitor del Motor de Sincronización</h1>
+        <p class="subtitle">Supervisión en tiempo real de cola Outbox, integridad de fotos por SHA-256 y detección de conflictos concurrentes</p>
       </div>
       <div class="header-actions">
         <button class="btn-primary" @click="simulateSyncEngineProcess">▶ Ejecutar Ciclo de Sincronización</button>

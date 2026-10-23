@@ -82,6 +82,8 @@ ALTER TABLE public.inspections ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION public.current_user_org_id()
 RETURNS UUID
 LANGUAGE sql STABLE
+SECURITY DEFINER
+SET search_path = public
 AS $$
   SELECT organization_id FROM public.users WHERE id = auth.uid();
 $$;

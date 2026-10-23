@@ -258,48 +258,55 @@ VALUES (
     )
 ON CONFLICT (id) DO NOTHING;
 -- 0. Auth Users (Para iniciar sesión en desarrollo local)
--- Usuario de prueba:
--- Email: admin@inspector.com
--- Password: password123
+-- Usuarios de prueba:
+-- Admin: admin@inspector.com / password123
+-- Inspector: inspector@inspector.com / password123
+-- Cliente: cliente@inspector.com / password123
+
 INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  recovery_sent_at,
-  last_sign_in_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at,
-  confirmation_token,
-  email_change,
-  email_change_token_new,
-  recovery_token
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, recovery_sent_at, last_sign_in_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, email_change, email_change_token_new, recovery_token
 ) VALUES (
   '00000000-0000-0000-0000-000000000000',
   'aaaaaaaa-0000-0000-0000-000000000001',
-  'authenticated',
-  'authenticated',
-  'admin@inspector.com',
-  crypt('password123', gen_salt('bf')),
-  now(),
-  now(),
-  now(),
+  'authenticated', 'authenticated', 'admin@inspector.com',
+  crypt('password123', gen_salt('bf')), now(), now(), now(),
   '{"provider":"email","providers":["email"]}',
-  '{"full_name":"Administrador Demo"}',
-  now(),
-  now(),
-  '',
-  '',
-  '',
-  ''
-) ON CONFLICT (id) DO NOTHING;
+  '{"full_name":"Administrador General"}',
+  now(), now(), '', '', '', ''
+),
+(
+  '00000000-0000-0000-0000-000000000000',
+  'aaaaaaaa-0000-0000-0000-000000000002',
+  'authenticated', 'authenticated', 'inspector@inspector.com',
+  crypt('password123', gen_salt('bf')), now(), now(), now(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Arq. Roberto Silva"}',
+  now(), now(), '', '', '', ''
+),
+(
+  '00000000-0000-0000-0000-000000000000',
+  'aaaaaaaa-0000-0000-0000-000000000003',
+  'authenticated', 'authenticated', 'cliente@inspector.com',
+  crypt('password123', gen_salt('bf')), now(), now(), now(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Inmobiliaria Panorama / Cliente"}',
+  now(), now(), '', '', '', ''
+) ON CONFLICT (id) DO UPDATE SET
+  encrypted_password = EXCLUDED.encrypted_password,
+  confirmation_token = '',
+  recovery_token = '',
+  email_change = '',
+  email_change_token_new = '';
 
--- Usuario en tabla public.users vinculado a la organización demo
-INSERT INTO public.users (id, organization_id, email, role) VALUES
-  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'admin@inspector.com', 'ADMIN')
-ON CONFLICT (id) DO NOTHING;
+-- Usuarios en tabla public.users vinculados a la organización demo
+INSERT INTO public.users (id, organization_id, email, first_name, last_name, role) VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'admin@inspector.com', 'Admin', 'General', 'ADMIN'),
+  ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000001', 'inspector@inspector.com', 'Roberto', 'Silva', 'INSPECTOR'),
+  ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-0000-0000-0000-000000000001', 'cliente@inspector.com', 'Inmobiliaria', 'Panorama', 'CLIENT')
+ON CONFLICT (id) DO UPDATE SET
+  role = EXCLUDED.role,
+  first_name = EXCLUDED.first_name,
+  last_name = EXCLUDED.last_name;

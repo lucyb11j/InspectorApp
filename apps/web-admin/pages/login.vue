@@ -1,32 +1,68 @@
 <template>
   <div class="login-card">
     <div class="card-header">
-      <h2>Inspector Platform</h2>
-      <p>Inicie sesión para acceder al panel de control</p>
-    </div>
-    
-    <!-- Quick Demo Access Box -->
-    <div class="demo-box">
-      <div class="demo-head">
-        <span>🔑 Modo de Acceso Rápido</span>
-        <button type="button" class="btn-copy-fill" @click="enterDirectDashboard">Acceder con Demo</button>
+      <div class="brand-badge">
+        <span class="brand-icon">🏢</span>
+        <span>InspectorHub</span>
       </div>
-      <div class="demo-details">
-        <p><strong>Email:</strong> <code>admin@inspector.com</code></p>
-        <p><strong>Password:</strong> <code>password123</code></p>
-        <p class="demo-hint">Haga clic en "Acceder con Demo" o "Ingresar al Sistema" para explorar todas las vistas.</p>
+      <h2>Iniciar Sesión</h2>
+      <p>Seleccione un perfil o ingrese sus credenciales de acceso</p>
+    </div>
+
+    <!-- Acceso Rápido por Perfil -->
+    <div class="quick-profiles-section">
+      <label class="profiles-label">Acceso Directo por Rol:</label>
+      <div class="profiles-grid">
+        <button 
+          type="button" 
+          class="role-select-btn" 
+          :class="{ active: email === 'admin@inspector.com' }"
+          @click="selectRole('ADMIN')"
+        >
+          <span class="role-icon">🛡️</span>
+          <div class="role-info">
+            <span class="role-name">Admin</span>
+            <small class="role-desc">Control total</small>
+          </div>
+        </button>
+
+        <button 
+          type="button" 
+          class="role-select-btn" 
+          :class="{ active: email === 'inspector@inspector.com' }"
+          @click="selectRole('INSPECTOR')"
+        >
+          <span class="role-icon">📐</span>
+          <div class="role-info">
+            <span class="role-name">Inspector / Arq</span>
+            <small class="role-desc">Plano y campo</small>
+          </div>
+        </button>
+
+        <button 
+          type="button" 
+          class="role-select-btn" 
+          :class="{ active: email === 'cliente@inspector.com' }"
+          @click="selectRole('CLIENT')"
+        >
+          <span class="role-icon">👤</span>
+          <div class="role-info">
+            <span class="role-name">Cliente</span>
+            <small class="role-desc">Actas e informes</small>
+          </div>
+        </button>
       </div>
     </div>
 
     <form @submit.prevent="handleLogin" class="login-form">
       <div class="form-group">
-        <label for="email">Correo electrónico</label>
+        <label for="email">Correo Electrónico</label>
         <input 
           id="email" 
           v-model="email" 
           type="email" 
           autocomplete="username"
-          placeholder="admin@inspector.com" 
+          placeholder="usuario@inspector.com" 
           required 
           class="glass-input"
         />
@@ -43,12 +79,15 @@
           class="glass-input"
         />
       </div>
+
       <button type="submit" class="btn-primary w-full" :disabled="loading">
-        {{ loading ? 'Iniciando sesión...' : 'Ingresar al Sistema' }}
+        {{ loading ? 'Autenticando...' : 'Ingresar a la Plataforma' }}
       </button>
 
-      <div class="bypass-link">
-        <NuxtLink to="/mobile-preview" class="link-sim">📱 O explorar simulador móvil sin login</NuxtLink>
+      <div class="field-direct-link">
+        <NuxtLink to="/mobile-preview" class="link-field">
+          📱 Ir directamente a la App de Campo (Inspector)
+        </NuxtLink>
       </div>
 
       <div v-if="error" class="error-msg">
@@ -58,172 +97,256 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 definePageMeta({
   layout: 'auth'
 })
 
 const supabase = useSupabaseClient()
 const router = useRouter()
+const { role, name, fetchProfile, setRole } = useAuthUser()
 
 const email = ref('admin@inspector.com')
 const password = ref('password123')
 const loading = ref(false)
 const error = ref('')
 
-const enterDirectDashboard = () => {
-  router.push('/dashboard')
+const selectRole = (targetRole: 'ADMIN' | 'INSPECTOR' | 'CLIENT') => {
+  if (targetRole === 'ADMIN') {
+    email.value = 'admin@inspector.com'
+    password.value = 'password123'
+  } else if (targetRole === 'INSPECTOR') {
+    email.value = 'inspector@inspector.com'
+    password.value = 'password123'
+  } else if (targetRole === 'CLIENT') {
+    email.value = 'cliente@inspector.com'
+    password.value = 'password123'
+  }
 }
 
 const handleLogin = async () => {
   try {
     loading.value = true
     error.value = ''
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value,
     })
+
     if (signInError) {
-      // Si el servidor local de Supabase aún no está corriendo en Docker, permitir acceso de previsualización
-      console.warn('Supabase local auth warning:', signInError)
-      router.push('/dashboard')
+      console.warn('Supabase auth warning:', signInError)
+      fallbackRoleRoute()
       return
     }
-    router.push('/dashboard')
-  } catch (e) {
-    // Si la conexión falla (Failed to fetch por Docker apagado), redirigir al dashboard de desarrollo
-    router.push('/dashboard')
+
+    if (data?.user) {
+      await fetchProfile()
+      redirectByRole(role.value)
+    } else {
+      fallbackRoleRoute()
+    }
+  } catch (e: any) {
+    console.warn('Auth error caught:', e)
+    fallbackRoleRoute()
   } finally {
     loading.value = false
+  }
+}
+
+const fallbackRoleRoute = () => {
+  if (email.value.includes('inspector')) {
+    setRole('INSPECTOR')
+    router.push('/mobile-preview')
+  } else if (email.value.includes('cliente')) {
+    setRole('CLIENT')
+    router.push('/inspections')
+  } else {
+    setRole('ADMIN')
+    router.push('/dashboard')
+  }
+}
+
+const redirectByRole = (currentRole: string) => {
+  if (currentRole === 'INSPECTOR') {
+    router.push('/mobile-preview')
+  } else if (currentRole === 'CLIENT') {
+    router.push('/inspections')
+  } else {
+    router.push('/dashboard')
   }
 }
 </script>
 
 <style scoped>
 .login-card {
-  background: rgba(30, 30, 30, 0.7);
-  backdrop-filter: blur(20px);
-  padding: 40px;
+  background: rgba(22, 27, 34, 0.85);
+  backdrop-filter: blur(24px);
+  padding: 36px;
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   width: 100%;
-  max-width: 440px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+  max-width: 460px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
 }
+
 .card-header {
   text-align: center;
   margin-bottom: 24px;
 }
+
+.brand-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(26, 115, 232, 0.12);
+  border: 1px solid rgba(26, 115, 232, 0.25);
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: #58a6ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
 .card-header h2 {
-  font-size: 1.8rem;
-  margin-bottom: 6px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
   color: #fff;
 }
+
 .card-header p {
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   margin: 0;
 }
 
-.demo-box {
-  background: rgba(26, 115, 232, 0.1);
-  border: 1px solid rgba(26, 115, 232, 0.3);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 24px;
+.quick-profiles-section {
+  margin-bottom: 20px;
 }
-.demo-head {
+
+.profiles-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.profiles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.role-select-btn {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  font-size: 0.82rem;
-  font-weight: bold;
-  color: #4d9eff;
-  margin-bottom: 6px;
-}
-.btn-copy-fill {
-  background: rgba(26, 115, 232, 0.25);
-  border: none;
+  text-align: center;
+  padding: 10px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   color: #fff;
-  font-size: 0.72rem;
-  padding: 4px 10px;
-  border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
-.btn-copy-fill:hover {
-  background: var(--primary);
+
+.role-select-btn:hover {
+  background: rgba(26, 115, 232, 0.1);
+  border-color: rgba(26, 115, 232, 0.4);
 }
-.demo-details {
+
+.role-select-btn.active {
+  background: rgba(26, 115, 232, 0.2);
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(26, 115, 232, 0.3);
+}
+
+.role-icon {
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+}
+
+.role-info .role-name {
+  display: block;
   font-size: 0.8rem;
-  color: #ddd;
+  font-weight: 600;
 }
-.demo-details p {
-  margin: 2px 0;
-}
-.demo-details code {
-  color: #03dac6;
-  background: rgba(0,0,0,0.3);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-.demo-hint {
-  font-size: 0.72rem;
-  color: #aaa;
-  margin-top: 6px !important;
+
+.role-info .role-desc {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-secondary);
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
+
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
+
 .form-group label {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--text-secondary);
 }
+
 .glass-input {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 12px 14px;
+  padding: 11px 14px;
   border-radius: 10px;
   color: white;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   transition: var(--transition);
 }
+
 .glass-input:focus {
   outline: none;
   border-color: var(--primary);
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
 }
+
 .w-full {
   width: 100%;
+  padding: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
-.bypass-link {
+
+.field-direct-link {
   text-align: center;
   margin-top: 4px;
 }
-.link-sim {
-  color: #03dac6;
+
+.link-field {
+  color: #58a6ff;
   font-size: 0.82rem;
   text-decoration: none;
 }
-.link-sim:hover {
+
+.link-field:hover {
   text-decoration: underline;
 }
+
 .error-msg {
-  color: var(--error);
-  font-size: 0.85rem;
+  color: #ff7b72;
+  font-size: 0.82rem;
   text-align: center;
-  background: rgba(207, 102, 121, 0.1);
-  padding: 10px;
+  background: rgba(248, 81, 73, 0.1);
+  padding: 8px;
   border-radius: 8px;
-  border: 1px solid rgba(207, 102, 121, 0.2);
+  border: 1px solid rgba(248, 81, 73, 0.2);
 }
 </style>

@@ -19,6 +19,9 @@
           <div class="title-meta">
             <span class="meta-tag">Área: <strong>{{ activeArea }}</strong></span>
             <span class="badge-offline">⚡ SQLite Local</span>
+            <span v-if="movingPinIndex !== null" class="badge-moving">
+              📍 Moviendo Pin #{{ movingPinIndex + 1 }} (Haga clic en el plano para reubicar)
+            </span>
           </div>
         </div>
       </div>
@@ -55,7 +58,7 @@
           </button>
         </div>
 
-        <button type="button" class="btn-primary-action" @click="showNewObsModal = true">
+        <button type="button" class="btn-primary-action" @click="openNewObsModal()">
           <span class="btn-plus">+</span>
           <span class="btn-action-text">Defecto</span>
         </button>
@@ -69,10 +72,16 @@
       <section v-show="viewMode === 'split' || viewMode === 'plan-only'" class="plan-section">
         <div class="plan-toolbar">
           <div class="plan-legend">
-            <span class="legend-dot"></span>
-            <span>Toque en el plano para situar la no-conformidad</span>
+            <span class="legend-dot" :class="{ 'moving-pulse': movingPinIndex !== null }"></span>
+            <span v-if="movingPinIndex !== null" class="text-moving">
+              MODO REUBICACIÓN: Haga clic sobre el plano donde desea mover el Pin #{{ movingPinIndex + 1 }}
+            </span>
+            <span v-else>Toque en el plano para situar una nueva observación</span>
           </div>
           <div class="plan-stats">
+            <button v-if="movingPinIndex !== null" class="btn-cancel-move" @click.stop="cancelMovingPin">
+              ✕ Cancelar Mover
+            </button>
             <span>Pines: <strong>{{ markers.length }}</strong></span>
           </div>
         </div>
@@ -82,19 +91,39 @@
           
           <!-- Plano base estilizado con zonas arquitectónicas -->
           <div class="architectural-blueprint">
-            <div class="room-box room-living" :class="{ highlight: activeArea === 'Sala / Comedor' }">
+            <div 
+              class="room-box room-living" 
+              :class="{ highlight: activeArea === 'Sala / Comedor' }"
+              @click.stop="selectArea('Sala / Comedor')"
+            >
               <span>SALA / COMEDOR</span>
             </div>
-            <div class="room-box room-kitchen" :class="{ highlight: activeArea === 'Cocina' }">
+            <div 
+              class="room-box room-kitchen" 
+              :class="{ highlight: activeArea === 'Cocina' }"
+              @click.stop="selectArea('Cocina')"
+            >
               <span>COCINA</span>
             </div>
-            <div class="room-box room-bed-main" :class="{ highlight: activeArea === 'Dormitorio Principal' }">
+            <div 
+              class="room-box room-bed-main" 
+              :class="{ highlight: activeArea === 'Dormitorio Principal' }"
+              @click.stop="selectArea('Dormitorio Principal')"
+            >
               <span>DORMITORIO PPAL</span>
             </div>
-            <div class="room-box room-bath-main" :class="{ highlight: activeArea === 'Baño Principal' }">
+            <div 
+              class="room-box room-bath-main" 
+              :class="{ highlight: activeArea === 'Baño Principal' }"
+              @click.stop="selectArea('Baño Principal')"
+            >
               <span>BAÑO PPAL</span>
             </div>
-            <div class="room-box room-balcony" :class="{ highlight: activeArea === 'Balcón' }">
+            <div 
+              class="room-box room-balcony" 
+              :class="{ highlight: activeArea === 'Balcón' }"
+              @click.stop="selectArea('Balcón')"
+            >
               <span>BALCÓN</span>
             </div>
           </div>
@@ -105,8 +134,8 @@
             :key="idx"
             class="interactive-pin"
             :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
-            :class="`pin-${marker.severity.toLowerCase()}`"
-            @click.stop="selectMarker(marker)"
+            :class="[`pin-${marker.severity.toLowerCase()}`, { 'pin-active-moving': movingPinIndex === idx, 'pin-selected': selectedMarkerIndex === idx }]"
+            @click.stop="selectMarker(marker, idx)"
           >
             <div class="pin-marker-head">
               <span class="pin-icon">📍</span>
@@ -137,6 +166,36 @@
           </button>
         </div>
 
+        <!-- Popover / Barra de Detalle de Pin Seleccionado -->
+        <div v-if="selectedMarkerIndex !== null && markers[selectedMarkerIndex]" class="pin-detail-bar">
+          <div class="pin-detail-info">
+            <span class="badge-pin-num">Pin #{{ selectedMarkerIndex + 1 }}</span>
+            <div class="pin-detail-texts">
+              <strong>{{ markers[selectedMarkerIndex].title }}</strong>
+              <span>Área: {{ markers[selectedMarkerIndex].area }} (X: {{ markers[selectedMarkerIndex].x }}%, Y: {{ markers[selectedMarkerIndex].y }}%)</span>
+            </div>
+          </div>
+          <div class="pin-detail-actions">
+            <button 
+              type="button" 
+              class="btn-pin-move" 
+              @click="startMovingPin(selectedMarkerIndex)"
+              title="Mover este pin a otra coordenada en el plano"
+            >
+              🔄 Mover Pin
+            </button>
+            <button 
+              type="button" 
+              class="btn-pin-delete" 
+              @click="deletePin(selectedMarkerIndex)"
+              title="Eliminar este pin del plano"
+            >
+              🗑️ Borrar Pin
+            </button>
+            <button type="button" class="btn-pin-close" @click="selectedMarkerIndex = null">✕</button>
+          </div>
+        </div>
+
         <!-- Lista de No Conformidades en el Área Seleccionada -->
         <div class="observations-scroll-pane">
           <div class="pane-header-actions">
@@ -144,7 +203,7 @@
               <h3>Defectos en {{ activeArea }} ({{ filteredObservations.length }})</h3>
               <p class="section-hint">Registros locales con verificación fotográfica SHA-256</p>
             </div>
-            <button type="button" class="btn-ghost-sm" @click="showNewObsModal = true">
+            <button type="button" class="btn-ghost-sm" @click="openNewObsModal()">
               + Catálogo Rápido
             </button>
           </div>
@@ -152,8 +211,8 @@
           <div v-if="filteredObservations.length === 0" class="empty-observations">
             <span class="empty-icon">✅</span>
             <h4>No hay observaciones registradas en esta zona</h4>
-            <p>Haga clic en el plano o use el catálogo rápido para añadir no-conformidades.</p>
-            <button type="button" class="btn-preset-primary" @click="showNewObsModal = true">
+            <p>Haga clic en el plano para ubicar un pin o añada un defecto directamente.</p>
+            <button type="button" class="btn-preset-primary" @click="openNewObsModal()">
               + Añadir Defecto
             </button>
           </div>
@@ -164,14 +223,27 @@
               :key="obs.id" 
               class="observation-card"
               :class="{ 'obs-selected': selectedObsId === obs.id }"
-              @click="selectedObsId = obs.id"
+              @click="selectObsCard(obs)"
             >
               <div class="obs-card-top">
                 <div class="obs-tags">
                   <span class="tag-severity" :class="`sev-${obs.severity.toLowerCase()}`">{{ obs.severity }}</span>
                   <span class="tag-status">{{ obs.status }}</span>
+                  <span v-if="getObsMarkerIndex(obs.id) !== -1" class="tag-pin-link">
+                    📍 Pin #{{ getObsMarkerIndex(obs.id) + 1 }}
+                  </span>
                 </div>
-                <span class="tag-storage">Drift SQLite</span>
+                <div class="obs-actions-top">
+                  <button 
+                    type="button" 
+                    class="btn-delete-obs" 
+                    @click.stop="deleteObservation(obs.id)" 
+                    title="Eliminar esta observación"
+                  >
+                    🗑️
+                  </button>
+                  <span class="tag-storage">Drift SQLite</span>
+                </div>
               </div>
 
               <h4 class="obs-title">{{ obs.title }}</h4>
@@ -182,7 +254,7 @@
                   <span>📸</span>
                 </div>
                 <div class="evidence-meta">
-                  <span class="evidence-file">EVIDENCIA-FOTO-{{ obs.id.substring(0, 6) }}.JPG</span>
+                  <span class="evidence-file">EVIDENCIA-FOTO-{{ obs.id.substring(0, 8) }}.JPG</span>
                   <code class="evidence-hash">SHA-256: {{ obs.sha256.substring(0, 16) }}...</code>
                 </div>
               </div>
@@ -239,7 +311,7 @@
         </nav>
 
         <div class="drawer-footer">
-          <p class="drawer-user">Sesión: <strong>admin@inspector.com</strong></p>
+          <p class="drawer-user">Usuario: <strong>{{ currentUserName || 'inspector@inspector.com' }}</strong></p>
           <NuxtLink to="/login" class="drawer-logout">Cerrar Sesión</NuxtLink>
         </div>
       </aside>
@@ -249,12 +321,18 @@
     <div v-if="showNewObsModal" class="modal-overlay" @click.self="showNewObsModal = false">
       <div class="modal-dialog">
         <div class="modal-dialog-header">
-          <h3>Registrar Defecto en {{ activeArea }}</h3>
+          <div>
+            <h3>Registrar Observación / Defecto</h3>
+            <span class="modal-subtitle">
+              Área: <strong>{{ activeArea }}</strong> 
+              <span v-if="pendingCoordinates">· Ubicación: ({{ pendingCoordinates.x }}%, {{ pendingCoordinates.y }}%)</span>
+            </span>
+          </div>
           <button type="button" class="btn-close-modal" @click="showNewObsModal = false">✕</button>
         </div>
 
         <div class="modal-dialog-body">
-          <p class="modal-hint">Seleccione un elemento del catálogo estándar o complete la descripción:</p>
+          <p class="modal-hint">Seleccione un elemento del catálogo rápido o ingrese el detalle técnico:</p>
           
           <div class="preset-pills">
             <button
@@ -291,7 +369,7 @@
             <div class="form-group col">
               <label>Evidencia Fotográfica:</label>
               <div class="fake-camera-btn">
-                <span>📷 Foto tomada (Hash SHA-256 generado)</span>
+                <span>📷 Foto registrada (Hash SHA-256 verificado)</span>
               </div>
             </div>
           </div>
@@ -312,11 +390,16 @@ definePageMeta({
   layout: false // Sin layout exterior: ocupa el 100% de la ventana en teléfono, tablet o PC
 })
 
-// En pantallas móviles (<768px) por defecto muestra Plano; en Tablet/PC inicia en Split
+const { name: currentUserName } = useAuthUser()
+
+// Modos de vista: 'split' | 'plan-only' | 'list-only'
 const viewMode = ref<'split' | 'plan-only' | 'list-only'>('split')
 const showDrawer = ref(false)
 const showNewObsModal = ref(false)
 const selectedObsId = ref<string | null>(null)
+const selectedMarkerIndex = ref<number | null>(null)
+const movingPinIndex = ref<number | null>(null)
+const pendingCoordinates = ref<{ x: number; y: number } | null>(null)
 
 // Detección automática al cargar según el ancho de la pantalla
 onMounted(() => {
@@ -389,12 +472,13 @@ interface PlanMarkerItem {
   title: string
   area: string
   severity: string
+  obsId?: string
 }
 
 const markers = ref<PlanMarkerItem[]>([
-  { x: 28, y: 38, title: 'Fisura en muro norte', area: 'Sala / Comedor', severity: 'MENOR' },
-  { x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Cocina', severity: 'MODERADA' },
-  { x: 75, y: 62, title: 'Falta sellado de silicona', area: 'Baño Principal', severity: 'MODERADA' }
+  { x: 28, y: 38, title: 'Fisura en muro norte', area: 'Sala / Comedor', severity: 'MENOR', obsId: 'obs-01' },
+  { x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Cocina', severity: 'MODERADA', obsId: 'obs-02' },
+  { x: 75, y: 62, title: 'Falta sellado de silicona', area: 'Baño Principal', severity: 'MODERADA', obsId: 'obs-03' }
 ])
 
 const filteredObservations = computed(() => {
@@ -403,6 +487,10 @@ const filteredObservations = computed(() => {
 
 const countByArea = (area: string) => {
   return observations.value.filter(o => o.area === area).length
+}
+
+const getObsMarkerIndex = (obsId: string) => {
+  return markers.value.findIndex(m => m.obsId === obsId)
 }
 
 // Catálogo de Defectos Frecuentes
@@ -427,28 +515,92 @@ const applyPreset = (preset: typeof presets[0]) => {
   newObsForm.value.severity = preset.severity
 }
 
+const selectArea = (areaName: string) => {
+  activeArea.value = areaName
+}
+
+const openNewObsModal = (coords?: { x: number; y: number }) => {
+  if (coords) {
+    pendingCoordinates.value = coords
+  } else {
+    pendingCoordinates.value = {
+      x: 35 + Math.round(Math.random() * 30),
+      y: 30 + Math.round(Math.random() * 30)
+    }
+  }
+  showNewObsModal.value = true
+}
+
 const handlePlanClick = (event: MouseEvent) => {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
   const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
 
-  markers.value.push({
-    x,
-    y,
-    title: `Punto de inspección`,
-    area: activeArea.value,
-    severity: 'MENOR'
-  })
+  // Si estamos en modo mover pin, actualizamos su coordenada
+  if (movingPinIndex.value !== null && markers.value[movingPinIndex.value]) {
+    markers.value[movingPinIndex.value].x = x
+    markers.value[movingPinIndex.value].y = y
+    selectedMarkerIndex.value = movingPinIndex.value
+    movingPinIndex.value = null
+    return
+  }
+
+  // De lo contrario, abrir modal para registrar defecto en ese punto exacto
+  openNewObsModal({ x, y })
 }
 
-const selectMarker = (marker: PlanMarkerItem) => {
+const selectMarker = (marker: PlanMarkerItem, idx: number) => {
+  selectedMarkerIndex.value = idx
   activeArea.value = marker.area
+  if (marker.obsId) {
+    selectedObsId.value = marker.obsId
+  }
+}
+
+const selectObsCard = (obs: ObservationItem) => {
+  selectedObsId.value = obs.id
+  const markerIdx = getObsMarkerIndex(obs.id)
+  if (markerIdx !== -1) {
+    selectedMarkerIndex.value = markerIdx
+  }
+}
+
+const startMovingPin = (idx: number) => {
+  movingPinIndex.value = idx
+}
+
+const cancelMovingPin = () => {
+  movingPinIndex.value = null
+}
+
+const deletePin = (idx: number) => {
+  if (idx >= 0 && idx < markers.value.length) {
+    const deleted = markers.value.splice(idx, 1)[0]
+    selectedMarkerIndex.value = null
+    if (movingPinIndex.value === idx) {
+      movingPinIndex.value = null
+    }
+  }
+}
+
+const deleteObservation = (obsId: string) => {
+  observations.value = observations.value.filter(o => o.id !== obsId)
+  // Quitar también el pin asociado si existe
+  const pinIdx = markers.value.findIndex(m => m.obsId === obsId)
+  if (pinIdx !== -1) {
+    deletePin(pinIdx)
+  }
 }
 
 const saveNewObservation = () => {
   if (!newObsForm.value.title) return
 
   const newId = `obs-${Date.now()}`
+  const coords = pendingCoordinates.value || {
+    x: 40 + Math.round(Math.random() * 20),
+    y: 35 + Math.round(Math.random() * 25)
+  }
+
   observations.value.unshift({
     id: newId,
     area: activeArea.value,
@@ -459,17 +611,22 @@ const saveNewObservation = () => {
     sha256: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
   })
 
-  // Agregar pin automático
+  // Crear pin táctil en el plano
   markers.value.push({
-    x: 40 + Math.random() * 20,
-    y: 35 + Math.random() * 25,
+    x: coords.x,
+    y: coords.y,
     title: newObsForm.value.title,
     area: activeArea.value,
-    severity: newObsForm.value.severity
+    severity: newObsForm.value.severity,
+    obsId: newId
   })
+
+  selectedMarkerIndex.value = markers.value.length - 1
+  selectedObsId.value = newId
 
   newObsForm.value.title = ''
   newObsForm.value.description = ''
+  pendingCoordinates.value = null
   showNewObsModal.value = false
 }
 </script>
@@ -558,6 +715,16 @@ const saveNewObservation = () => {
   font-weight: bold;
   white-space: nowrap;
 }
+.badge-moving {
+  background: rgba(255, 171, 0, 0.2);
+  color: #ffab00;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  border: 1px solid rgba(255, 171, 0, 0.4);
+  animation: pulse-border 1.5s infinite;
+}
 
 .header-right {
   display: flex;
@@ -578,74 +745,72 @@ const saveNewObservation = () => {
   color: #888;
   padding: 6px 10px;
   border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.8rem;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 .view-btn.active {
-  background: var(--primary);
+  background: #333;
   color: #fff;
+  font-weight: bold;
 }
 .btn-primary-action {
   background: var(--primary);
-  color: #fff;
   border: none;
-  padding: 8px 14px;
+  color: #fff;
+  padding: 7px 14px;
   border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: bold;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  box-shadow: 0 4px 12px rgba(26,115,232,0.35);
-  flex-shrink: 0;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-plus {
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
-/* Cuerpo de la Aplicación */
+/* Espacio Principal */
 .workspace-body {
   flex: 1;
   display: flex;
   overflow: hidden;
   position: relative;
 }
-
-/* Modo Dividido (Split) */
-.workspace-body.view-split .plan-section {
-  flex: 6;
-  border-right: 1.5px solid #222;
+.view-split .plan-section {
+  flex: 1.1;
+  border-right: 1px solid #222;
 }
-.workspace-body.view-split .observations-section {
-  flex: 4;
+.view-split .observations-section {
+  flex: 0.9;
 }
-
-/* Modos de Pantalla Completa */
-.workspace-body.view-plan-only .plan-section {
+.view-plan-only .plan-section {
   flex: 1;
-  width: 100%;
 }
-.workspace-body.view-list-only .observations-section {
+.view-list-only .observations-section {
   flex: 1;
-  width: 100%;
 }
 
-/* Sección de Plano Táctil */
+/* Plano Section */
 .plan-section {
   display: flex;
   flex-direction: column;
   background: #111;
-  position: relative;
   height: 100%;
 }
 .plan-toolbar {
-  padding: 6px 12px;
+  height: 40px;
   background: #181818;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid #262626;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
-  color: #aaa;
+  justify-content: space-between;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  color: #bbb;
+  flex-shrink: 0;
 }
 .plan-legend {
   display: flex;
@@ -662,10 +827,30 @@ const saveNewObservation = () => {
   background: #cf6679;
   flex-shrink: 0;
 }
+.legend-dot.moving-pulse {
+  background: #ffab00;
+  box-shadow: 0 0 8px #ffab00;
+}
+.text-moving {
+  color: #ffab00;
+  font-weight: 700;
+}
 .plan-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 0.75rem;
   color: #888;
   flex-shrink: 0;
+}
+.btn-cancel-move {
+  background: rgba(207, 102, 121, 0.2);
+  border: 1px solid #cf6679;
+  color: #cf6679;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  cursor: pointer;
 }
 .plan-canvas-area {
   flex: 1;
@@ -715,11 +900,15 @@ const saveNewObservation = () => {
   text-align: center;
   padding: 4px;
   transition: all 0.2s ease;
+  cursor: pointer;
+}
+.room-box:hover {
+  background: rgba(255,255,255,0.05);
 }
 .room-box.highlight {
   border-color: rgba(26,115,232,0.6);
-  background: rgba(26,115,232,0.08);
-  color: #4d9eff;
+  background: rgba(26,115,232,0.12);
+  color: #58a6ff;
 }
 .room-living { grid-column: 1 / 2; grid-row: 1 / 3; }
 .room-kitchen { grid-column: 2 / 4; grid-row: 1 / 2; }
@@ -733,6 +922,13 @@ const saveNewObservation = () => {
   cursor: pointer;
   z-index: 10;
   transition: transform 0.15s ease;
+}
+.pin-active-moving {
+  animation: bounce 0.8s infinite alternate;
+}
+.pin-selected {
+  transform: translate(-50%, -100%) scale(1.2);
+  z-index: 20;
 }
 .pin-marker-head {
   display: flex;
@@ -765,6 +961,82 @@ const saveNewObservation = () => {
 .interactive-pin:hover .pin-callout {
   display: flex;
   flex-direction: column;
+}
+
+/* Barra de Detalle de Pin Seleccionado */
+.pin-detail-bar {
+  background: #1e242d;
+  border-bottom: 1px solid #2d3b4d;
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.pin-detail-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.badge-pin-num {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.pin-detail-texts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pin-detail-texts strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pin-detail-texts span {
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+.pin-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-pin-move {
+  background: #238636;
+  border: none;
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-pin-delete {
+  background: rgba(248, 81, 73, 0.15);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ff7b72;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-pin-close {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0 4px;
 }
 
 /* Sección de Observaciones */
@@ -848,122 +1120,185 @@ const saveNewObservation = () => {
   background: #1b1b1b;
   border: 1px solid #2a2a2a;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
-.observation-card:hover, .observation-card.obs-selected {
+.observation-card:hover {
+  background: #202020;
+  border-color: #383838;
+}
+.observation-card.obs-selected {
   border-color: var(--primary);
-  background: #222;
+  background: rgba(26,115,232,0.05);
 }
 .obs-card-top {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 6px;
 }
 .obs-tags {
   display: flex;
-  gap: 4px;
+  gap: 6px;
+  align-items: center;
+}
+.obs-actions-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-delete-obs {
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.btn-delete-obs:hover {
+  background: rgba(207, 102, 121, 0.2);
+  color: #cf6679;
 }
 .tag-severity {
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: bold;
   padding: 2px 6px;
   border-radius: 4px;
+  text-transform: uppercase;
 }
-.sev-menor { background: rgba(255,193,7,0.15); color: #ffc107; }
-.sev-moderada { background: rgba(26,115,232,0.15); color: #4d9eff; }
-.sev-mayor { background: rgba(255,138,0,0.15); color: #ff8a00; }
-.sev-crítica { background: rgba(207,102,121,0.15); color: var(--error); }
+.sev-menor { background: rgba(3, 218, 198, 0.15); color: #03dac6; }
+.sev-moderada { background: rgba(255, 171, 0, 0.15); color: #ffab00; }
+.sev-mayor, .sev-crítica { background: rgba(207, 102, 121, 0.2); color: #cf6679; }
+
 .tag-status {
-  font-size: 0.62rem;
-  background: rgba(255,255,255,0.06);
-  padding: 2px 5px;
-  border-radius: 4px;
-  color: #aaa;
+  font-size: 0.65rem;
+  color: #888;
+}
+.tag-pin-link {
+  font-size: 0.65rem;
+  color: #58a6ff;
+  font-weight: 600;
 }
 .tag-storage {
-  font-size: 0.62rem;
-  color: #777;
+  font-size: 0.65rem;
+  color: #666;
+  font-family: monospace;
 }
 .obs-title {
   margin: 0 0 4px 0;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
+  color: #fff;
 }
 .obs-description {
   margin: 0 0 8px 0;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: #aaa;
   line-height: 1.35;
 }
 .obs-evidence-box {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 6px;
+  padding: 6px 8px;
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #141414;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: 1px solid #262626;
 }
-.evidence-thumb { font-size: 1rem; }
-.evidence-meta { display: flex; flex-direction: column; }
-.evidence-file { font-size: 0.7rem; font-weight: 600; color: #ddd; }
-.evidence-hash { font-size: 0.62rem; color: #03dac6; }
+.evidence-thumb {
+  font-size: 1.1rem;
+}
+.evidence-meta {
+  display: flex;
+  flex-direction: column;
+}
+.evidence-file {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #ccc;
+}
+.evidence-hash {
+  font-size: 0.62rem;
+  color: #03dac6;
+}
 
-/* Empty */
 .empty-observations {
+  padding: 40px 20px;
   text-align: center;
-  padding: 30px 10px;
-  color: #888;
+  background: #181818;
+  border: 1px dashed #333;
+  border-radius: 12px;
+  margin-top: 10px;
 }
-.empty-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+.empty-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 8px;
+}
+.empty-observations h4 {
+  margin: 0 0 6px 0;
+  font-size: 0.95rem;
+}
+.empty-observations p {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0 0 16px 0;
+}
 .btn-preset-primary {
   background: var(--primary);
-  color: #fff;
   border: none;
-  padding: 7px 14px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: bold;
-  margin-top: 10px;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-/* Footer de Acción */
+/* Footer Acción */
 .section-footer {
-  padding: 10px 14px;
+  padding: 12px 14px;
   background: #181818;
   border-top: 1px solid #262626;
   flex-shrink: 0;
 }
 .btn-generate-report {
   display: block;
+  width: 100%;
   text-align: center;
-  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  background: #238636;
   color: #fff;
-  padding: 9px;
+  padding: 10px;
   border-radius: 8px;
   text-decoration: none;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: bold;
+  box-sizing: border-box;
 }
 
-/* Drawer Lateral */
+/* Drawer Menú */
 .drawer-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(4px);
+  background: rgba(0,0,0,0.7);
   z-index: 100;
+  display: flex;
 }
 .drawer-content {
   width: 280px;
+  max-width: 80%;
   height: 100%;
-  background: #181818;
-  border-right: 1px solid #2a2a2a;
+  background: #161b22;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 20px 16px;
   box-sizing: border-box;
+  animation: slide-in 0.2s ease;
+}
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }
 .drawer-header {
   display: flex;
@@ -974,14 +1309,17 @@ const saveNewObservation = () => {
 .drawer-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
-.drawer-brand h3 { margin: 0; font-size: 1.15rem; }
+.drawer-brand h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
 .btn-close-drawer {
-  background: none;
+  background: transparent;
   border: none;
   color: #aaa;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   cursor: pointer;
 }
 .drawer-nav {
@@ -993,117 +1331,161 @@ const saveNewObservation = () => {
 .drawer-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  color: #ccc;
-  text-decoration: none;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
+  color: #bbb;
+  text-decoration: none;
   font-size: 0.88rem;
-  font-weight: 500;
 }
-.drawer-item:hover {
+.drawer-item:hover, .drawer-item.router-link-active {
   background: rgba(255,255,255,0.06);
   color: #fff;
 }
 .drawer-footer {
-  border-top: 1px solid #262626;
+  border-top: 1px solid #30363d;
   padding-top: 14px;
-  font-size: 0.8rem;
-  color: #888;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+}
+.drawer-user {
+  margin: 0;
+  color: #8b949e;
 }
 .drawer-logout {
-  color: var(--error);
+  color: #ff7b72;
   text-decoration: none;
-  display: inline-block;
-  margin-top: 6px;
 }
 
 /* Modal */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.75);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 110;
+  z-index: 120;
+  padding: 16px;
 }
 .modal-dialog {
-  background: #1e1e1e;
-  border: 1px solid #333;
+  background: #1c2128;
+  border: 1px solid #30363d;
   border-radius: 14px;
-  width: 90%;
-  max-width: 500px;
-  padding: 20px;
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.6);
 }
 .modal-dialog-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #30363d;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
 }
-.modal-dialog-header h3 { margin: 0; font-size: 1.1rem; }
+.modal-dialog-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.modal-subtitle {
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin-top: 2px;
+  display: block;
+}
 .btn-close-modal {
-  background: none;
+  background: transparent;
   border: none;
-  color: #aaa;
-  font-size: 1.2rem;
+  color: #8b949e;
+  font-size: 1.1rem;
   cursor: pointer;
 }
-.modal-hint { font-size: 0.8rem; color: #888; margin: 0 0 12px 0; }
+.modal-dialog-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modal-hint {
+  font-size: 0.78rem;
+  color: #8b949e;
+  margin: 0;
+}
 .preset-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 16px;
 }
 .preset-pill {
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
-  color: #ddd;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #30363d;
+  color: #ccc;
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 6px;
   font-size: 0.72rem;
   cursor: pointer;
 }
-.preset-pill:hover { border-color: var(--primary); background: #333; }
-.form-group { margin-bottom: 12px; }
-.form-group label { display: block; font-size: 0.78rem; color: #aaa; margin-bottom: 4px; }
-.input-field {
-  width: 100%;
-  background: #141414;
-  border: 1px solid #333;
+.preset-pill:hover {
+  background: var(--primary);
   color: #fff;
-  padding: 8px 12px;
-  border-radius: 8px;
-  box-sizing: border-box;
-  font-size: 0.88rem;
 }
-.input-field:focus { outline: none; border-color: var(--primary); }
-.form-row { display: flex; gap: 12px; }
-.form-row .col { flex: 1; }
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.form-group label {
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+.input-field {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #fff;
+  font-size: 0.85rem;
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+.form-group.col {
+  flex: 1;
+}
 .fake-camera-btn {
-  background: #141414;
-  border: 1px dashed #444;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  color: #03dac6;
-  text-align: center;
+  background: #0d1117;
+  border: 1px dashed #30363d;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: #58a6ff;
+  display: flex;
+  align-items: center;
 }
 .modal-dialog-footer {
+  padding: 12px 18px;
+  border-top: 1px solid #30363d;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 16px;
+  background: #161b22;
 }
 .btn-cancel {
   background: transparent;
-  border: 1px solid #444;
+  border: 1px solid #30363d;
   color: #ccc;
   padding: 7px 14px;
   border-radius: 6px;
   cursor: pointer;
+  font-size: 0.82rem;
 }
 .btn-save {
   background: var(--primary);
@@ -1111,60 +1493,24 @@ const saveNewObservation = () => {
   color: #fff;
   padding: 7px 16px;
   border-radius: 6px;
-  font-weight: bold;
   cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
-/* =======================================================
-   ADAPTATIVIDAD RESPONSIVA PARA MOBILE Y TABLET
-   ======================================================= */
+@keyframes bounce {
+  0% { transform: translate(-50%, -100%) scale(1.1); }
+  100% { transform: translate(-50%, -125%) scale(1.3); }
+}
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(255, 171, 0, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 171, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 171, 0, 0); }
+}
 
-/* Modo Móvil / Teléfono (< 768px): La cabecera se compacta y ocultamos el botón Dividido */
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .view-split-btn {
-    display: none !important;
-  }
-  .menu-label {
     display: none;
-  }
-  .btn-action-text {
-    display: none;
-  }
-  .btn-primary-action {
-    padding: 6px 10px;
-  }
-  .btn-plus {
-    font-size: 1.1rem;
-    line-height: 1;
-  }
-  .meta-tag strong {
-    max-width: 90px;
-    display: inline-block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: bottom;
-  }
-  .workspace-header {
-    padding: 0 10px;
-  }
-  .architectural-blueprint {
-    width: 96%;
-    height: 92%;
-    font-size: 0.65rem;
-  }
-}
-
-/* Modo Tablet / Pantalla Intermedia (768px a 1024px): Modo Dividido fluido */
-@media (min-width: 768px) and (max-width: 1024px) {
-  .workspace-body.view-split .plan-section {
-    flex: 5.5;
-  }
-  .workspace-body.view-split .observations-section {
-    flex: 4.5;
-  }
-  .architectural-blueprint {
-    width: 94%;
-    height: 90%;
   }
 }
 </style>

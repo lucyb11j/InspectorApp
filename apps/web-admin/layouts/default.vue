@@ -86,19 +86,18 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient()
 const router = useRouter()
+const { role: currentRole, name: currentUserName, setRole, fetchProfile } = useAuthUser()
+
+// Inicializar perfil si el usuario ya está conectado
+onMounted(() => {
+  fetchProfile()
+})
 
 // Estado de colapso de la barra lateral (recordado en memoria/local)
 const isCollapsed = ref(false)
 
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
-}
-
-// Control de Permisos y Rol Actual (ADMIN, INSPECTOR, CLIENT)
-const currentRole = ref<'ADMIN' | 'INSPECTOR' | 'CLIENT'>('ADMIN')
-
-const setRole = (role: 'ADMIN' | 'INSPECTOR' | 'CLIENT') => {
-  currentRole.value = role
 }
 
 // Configuración de rutas y permisos RBAC

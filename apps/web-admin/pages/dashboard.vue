@@ -6,7 +6,7 @@
         <p class="subtitle">Bienvenido al Panel de Inspección Técnica. Hoy es {{ today }}.</p>
       </div>
       <div class="quick-status">
-        <span class="badge-role">ORGANIZACIÓN: INSPECTORHUB DEMO</span>
+        <span class="badge-role">ORGANIZACIÓN: INSPECTORHUB</span>
       </div>
     </header>
 
@@ -43,8 +43,8 @@
       <NuxtLink to="/mobile-preview" class="quick-link-box">
         <span class="q-icon">📱</span>
         <div>
-          <h4>Simulador Inspector Móvil (Fase 2)</h4>
-          <p>Pruebe el catálogo de defectos y marcadores sobre planos táctiles</p>
+          <h4>Inspector de Campo</h4>
+          <p>Herramienta técnica de marcación sobre planos y catálogo de defectos</p>
         </div>
         <span class="q-arrow">→</span>
       </NuxtLink>
@@ -59,8 +59,8 @@
       <NuxtLink to="/sync-monitor" class="quick-link-box">
         <span class="q-icon">⚡</span>
         <div>
-          <h4>Monitor de Sincronización (Fase 3)</h4>
-          <p>Supervise la cola Outbox y la integridad de hashes SHA-256</p>
+          <h4>Supervisión de Sincronización</h4>
+          <p>Monitoree la cola Outbox y la integridad de hashes SHA-256</p>
         </div>
         <span class="q-arrow">→</span>
       </NuxtLink>

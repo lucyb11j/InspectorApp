@@ -2,10 +2,12 @@
   <div class="inspections-page">
     <header class="page-header">
       <div>
-        <h1>Inspections</h1>
-        <p class="subtitle">Gestione y supervise todas las inspecciones técnicas</p>
+        <h1>Inspecciones Técnicas</h1>
+        <p class="subtitle">Gestione, programe y supervise las visitas y actas de recepción</p>
       </div>
-      <button class="btn-primary">+ Nueva Inspección</button>
+      <button v-if="role !== 'CLIENT'" class="btn-primary" @click="showNewModal = true">
+        + Nueva Inspección
+      </button>
     </header>
 
     <!-- Filters -->
@@ -59,11 +61,83 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Modal para Crear Nueva Inspección -->
+    <div v-if="showNewModal" class="modal-overlay" @click.self="showNewModal = false">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3>Nueva Inspección Técnica</h3>
+            <p class="modal-sub">Defina cliente, propiedad y ambientes a inspeccionar</p>
+          </div>
+          <button type="button" class="btn-close" @click="showNewModal = false">✕</button>
+        </div>
+
+        <form @submit.prevent="createInspection" class="modal-form">
+          <div class="form-group">
+            <label>Proyecto / Inmueble:</label>
+            <select v-model="form.project" class="modal-input" required>
+              <option value="Condominio Los Cedros">Condominio Los Cedros</option>
+              <option value="Edificio Miramar">Edificio Miramar</option>
+              <option value="Torres del Sol">Torres del Sol</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label>Número de Unidad / Dpto:</label>
+              <input v-model="form.unit" type="text" class="modal-input" placeholder="Ej: Unidad 402" required />
+            </div>
+            <div class="form-group col">
+              <label>Torre / Bloque:</label>
+              <input v-model="form.tower" type="text" class="modal-input" placeholder="Ej: Torre B" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Cliente / Propietario:</label>
+            <input v-model="form.client" type="text" class="modal-input" placeholder="Nombre completo del cliente" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col">
+              <label>Fecha y Hora:</label>
+              <input v-model="form.scheduledDate" type="datetime-local" class="modal-input" required />
+            </div>
+            <div class="form-group col">
+              <label>Estado Inicial:</label>
+              <select v-model="form.status" class="modal-input">
+                <option value="SCHEDULED">SCHEDULED (Programada)</option>
+                <option value="IN_PROGRESS">IN_PROGRESS (En Curso)</option>
+                <option value="DRAFT">DRAFT (Borrador)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Áreas / Ambientes Iniciales de Inspección:</label>
+            <div class="areas-chips-box">
+              <span v-for="area in form.areas" :key="area" class="area-chip-badge">
+                {{ area }}
+              </span>
+            </div>
+            <small class="hint-text">Se configurará plano táctil predeterminado con estas zonas.</small>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-cancel" @click="showNewModal = false">Cancelar</button>
+            <button type="submit" class="btn-primary">Crear Inspección</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { role } = useAuthUser()
 const activeFilter = ref('ALL')
+const showNewModal = ref(false)
 
 const filters = [
   { label: 'Todas',        value: 'ALL'        },
@@ -82,6 +156,16 @@ const fallbackData = [
 
 const inspections = ref(fallbackData)
 
+const form = ref({
+  project: 'Condominio Los Cedros',
+  unit: '',
+  tower: 'Torre A',
+  client: '',
+  scheduledDate: '2026-10-25T10:00',
+  status: 'SCHEDULED',
+  areas: ['Sala / Comedor', 'Cocina', 'Dormitorio Principal', 'Baño Principal', 'Balcón']
+})
+
 const filtered = computed(() => {
   if (activeFilter.value === 'ALL') return inspections.value
   return inspections.value.filter(i => i.status === activeFilter.value)
@@ -90,6 +174,27 @@ const filtered = computed(() => {
 const getCount = (status: string) => {
   if (status === 'ALL') return inspections.value.length
   return inspections.value.filter(i => i.status === status).length
+}
+
+const createInspection = () => {
+  if (!form.value.unit || !form.value.client) return
+
+  const formattedDate = form.value.scheduledDate.replace('T', ', ')
+  const newId = `55555555-0000-0000-${Date.now().toString().slice(-12)}`
+
+  inspections.value.unshift({
+    id: newId,
+    unit: form.value.unit,
+    project: `${form.value.project} - ${form.value.tower}`,
+    client: form.value.client,
+    scheduledDate: formattedDate,
+    status: form.value.status
+  })
+
+  // Reset form
+  form.value.unit = ''
+  form.value.client = ''
+  showNewModal.value = false
 }
 </script>
 
@@ -158,56 +263,159 @@ const getCount = (status: string) => {
   border-bottom: 1px solid var(--border-color);
 }
 .table-row {
+  border-bottom: 1px solid var(--border-color);
   transition: var(--transition);
 }
+.table-row:last-child {
+  border-bottom: none;
+}
 .table-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
 }
 .data-table td {
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
   font-size: 0.95rem;
 }
 .cell-primary {
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 .cell-secondary {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  font-size: 0.82rem;
-  margin-top: 2px;
 }
 .status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.status-completed  { background: rgba(3, 218, 198, 0.15); color: #03dac6; }
-.status-in_progress { background: rgba(26,115,232, 0.15); color: #4d9eff; }
-.status-scheduled  { background: rgba(255,193,7, 0.15); color: #ffc107; }
-.status-draft      { background: rgba(160,160,160, 0.1); color: #888; }
-.status-cancelled  { background: rgba(207,102,121, 0.15); color: var(--error); }
-.btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 6px 14px;
-  border-radius: 6px;
-  text-decoration: none;
-  display: inline-block;
-  transition: var(--transition);
-  font-size: 0.85rem;
-}
-.btn-ghost:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-}
+.status-completed   { background: rgba(3, 218, 198, 0.1);  color: var(--secondary); }
+.status-in_progress { background: rgba(26, 115, 232, 0.1); color: var(--primary);   }
+.status-scheduled   { background: rgba(255, 171, 0, 0.1);  color: #ffab00;          }
+.status-draft       { background: rgba(255, 255, 255, 0.05); color: var(--text-secondary); }
+
 .empty-state {
   text-align: center;
-  padding: 60px;
+  padding: 48px;
   color: var(--text-secondary);
+  background: var(--surface-dark);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+.modal-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 540px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #30363d;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #fff;
+}
+.modal-sub {
+  margin: 4px 0 0 0;
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+.btn-close {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.modal-form {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8b949e;
+}
+.modal-input {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+.modal-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+.form-group.col {
+  flex: 1;
+}
+.areas-chips-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.area-chip-badge {
+  background: rgba(26, 115, 232, 0.15);
+  border: 1px solid rgba(26, 115, 232, 0.3);
+  color: #58a6ff;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.hint-text {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+.modal-footer {
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #30363d;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.btn-cancel {
+  background: transparent;
+  border: 1px solid #30363d;
+  color: #ccc;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
 }
 </style>

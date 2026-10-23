@@ -38,3 +38,4 @@ describe('Fase 4 — Reports Engine', () => {
     expect(counts['MAYOR']).toBeUndefined()
   })
 })
+
