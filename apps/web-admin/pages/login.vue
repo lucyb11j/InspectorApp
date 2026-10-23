@@ -25,6 +25,7 @@
           id="email" 
           v-model="email" 
           type="email" 
+          autocomplete="username"
           placeholder="admin@inspector.com" 
           required 
           class="glass-input"
@@ -36,6 +37,7 @@
           id="password" 
           v-model="password" 
           type="password" 
+          autocomplete="current-password"
           placeholder="••••••••" 
           required 
           class="glass-input"

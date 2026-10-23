@@ -301,5 +301,5 @@ INSERT INTO auth.users (
 
 -- Usuario en tabla public.users vinculado a la organización demo
 INSERT INTO public.users (id, organization_id, email, role) VALUES
-  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'admin@inspector.com', 'admin')
+  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'admin@inspector.com', 'ADMIN')
 ON CONFLICT (id) DO NOTHING;

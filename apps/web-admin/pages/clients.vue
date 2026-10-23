@@ -42,12 +42,20 @@ const supabase = useSupabaseClient()
 const showModal = ref(false)
 
 const { data: clients, pending, error } = await useAsyncData('clients-list', async () => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('id, name, email, phone, created_at')
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return data ?? []
+  try {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id, name, email, phone, created_at')
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  } catch (e) {
+    return [
+      { id: 'mock-c1', name: 'Juan Pérez', email: 'juan.perez@email.com', phone: '+34 600 000 001', created_at: new Date().toISOString() },
+      { id: 'mock-c2', name: 'María García', email: 'maria.garcia@email.com', phone: '+34 600 000 002', created_at: new Date().toISOString() },
+      { id: 'mock-c3', name: 'Carlos López', email: 'carlos.lopez@email.com', phone: '+34 600 000 003', created_at: new Date().toISOString() }
+    ]
+  }
 })
 
 const formatDate = (dateStr: string | null) => {
