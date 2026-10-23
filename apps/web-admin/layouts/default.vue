@@ -34,35 +34,11 @@
           </NuxtLink>
         </template>
 
-        <!-- Selector Rápido de Rol en Barra Lateral -->
-        <div v-if="!isCollapsed" class="role-switcher">
-          <span class="role-switcher-title">Vista según Rol:</span>
-          <div class="role-chips">
-            <button 
-              type="button"
-              class="role-chip" 
-              :class="{ active: currentRole === 'ADMIN' }"
-              @click="setRole('ADMIN')"
-            >
-              Admin
-            </button>
-            <button 
-              type="button"
-              class="role-chip" 
-              :class="{ active: currentRole === 'INSPECTOR' }"
-              @click="setRole('INSPECTOR')"
-            >
-              Técnico/Arq
-            </button>
-            <button 
-              type="button"
-              class="role-chip" 
-              :class="{ active: currentRole === 'CLIENT' }"
-              @click="setRole('CLIENT')"
-            >
-              Cliente
-            </button>
-          </div>
+        <!-- Perfil de Usuario y Rol -->
+        <div v-if="!isCollapsed" class="user-profile-info">
+          <span class="user-profile-label">Conectado como:</span>
+          <span class="user-profile-name">{{ currentUserName }}</span>
+          <span class="user-profile-role-tag" :class="'role-' + currentRole.toLowerCase()">{{ currentRole }}</span>
         </div>
 
         <button 
@@ -271,43 +247,43 @@ const logout = async () => {
   width: 100%;
 }
 
-/* Selector de Rol */
-.role-switcher {
+/* Información de Perfil de Usuario */
+.user-profile-info {
   margin-top: 18px;
   padding: 12px;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.35);
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
-.role-switcher-title {
-  display: block;
-  font-size: 0.7rem;
-  color: #888;
-  margin-bottom: 8px;
+.user-profile-label {
+  font-size: 0.68rem;
+  color: #8b949e;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.role-chips {
-  display: flex;
-  gap: 4px;
-}
-.role-chip {
-  flex: 1;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid #333;
-  color: #aaa;
-  padding: 5px 0;
-  border-radius: 6px;
-  font-size: 0.68rem;
+.user-profile-name {
+  font-size: 0.84rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.role-chip.active {
-  background: var(--primary);
-  border-color: var(--primary);
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.user-profile-role-tag {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.role-admin { background: rgba(26, 115, 232, 0.2); color: #58a6ff; border: 1px solid rgba(26, 115, 232, 0.4); }
+.role-inspector { background: rgba(35, 134, 54, 0.2); color: #3fb950; border: 1px solid rgba(35, 134, 54, 0.4); }
+.role-client { background: rgba(255, 171, 0, 0.2); color: #ffab00; border: 1px solid rgba(255, 171, 0, 0.4); }
 
 /* Estado Colapsado */
 .sidebar-collapsed .sidebar {

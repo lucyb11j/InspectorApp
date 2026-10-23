@@ -104,7 +104,7 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const router = useRouter()
-const { role, name, fetchProfile, setRole } = useAuthUser()
+const { role, name, fetchProfile, setRole, setName } = useAuthUser()
 
 const email = ref('admin@inspector.com')
 const password = ref('password123')
@@ -115,12 +115,18 @@ const selectRole = (targetRole: 'ADMIN' | 'INSPECTOR' | 'CLIENT') => {
   if (targetRole === 'ADMIN') {
     email.value = 'admin@inspector.com'
     password.value = 'password123'
+    setRole('ADMIN')
+    setName('Administrador General')
   } else if (targetRole === 'INSPECTOR') {
     email.value = 'inspector@inspector.com'
     password.value = 'password123'
+    setRole('INSPECTOR')
+    setName('Arq. Roberto Silva')
   } else if (targetRole === 'CLIENT') {
     email.value = 'cliente@inspector.com'
     password.value = 'password123'
+    setRole('CLIENT')
+    setName('Inmobiliaria Panorama / Cliente')
   }
 }
 
@@ -128,6 +134,18 @@ const handleLogin = async () => {
   try {
     loading.value = true
     error.value = ''
+
+    // Asignar rol esperado antes de la llamada
+    if (email.value.includes('inspector')) {
+      setRole('INSPECTOR')
+      setName('Arq. Roberto Silva')
+    } else if (email.value.includes('cliente')) {
+      setRole('CLIENT')
+      setName('Inmobiliaria Panorama / Cliente')
+    } else {
+      setRole('ADMIN')
+      setName('Administrador General')
+    }
 
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.value,

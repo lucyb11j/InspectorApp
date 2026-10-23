@@ -94,37 +94,37 @@
             <div 
               class="room-box room-living" 
               :class="{ highlight: activeArea === 'Sala / Comedor' }"
-              @click.stop="selectArea('Sala / Comedor')"
+              @click="handleAreaClick($event, 'Sala / Comedor')"
             >
-              <span>SALA / COMEDOR</span>
+              <span class="room-name">SALA / COMEDOR</span>
             </div>
             <div 
               class="room-box room-kitchen" 
               :class="{ highlight: activeArea === 'Cocina' }"
-              @click.stop="selectArea('Cocina')"
+              @click="handleAreaClick($event, 'Cocina')"
             >
-              <span>COCINA</span>
+              <span class="room-name">COCINA</span>
             </div>
             <div 
               class="room-box room-bed-main" 
               :class="{ highlight: activeArea === 'Dormitorio Principal' }"
-              @click.stop="selectArea('Dormitorio Principal')"
+              @click="handleAreaClick($event, 'Dormitorio Principal')"
             >
-              <span>DORMITORIO PPAL</span>
+              <span class="room-name">DORMITORIO PPAL</span>
             </div>
             <div 
               class="room-box room-bath-main" 
               :class="{ highlight: activeArea === 'Baño Principal' }"
-              @click.stop="selectArea('Baño Principal')"
+              @click="handleAreaClick($event, 'Baño Principal')"
             >
-              <span>BAÑO PPAL</span>
+              <span class="room-name">BAÑO PPAL</span>
             </div>
             <div 
               class="room-box room-balcony" 
               :class="{ highlight: activeArea === 'Balcón' }"
-              @click.stop="selectArea('Balcón')"
+              @click="handleAreaClick($event, 'Balcón')"
             >
-              <span>BALCÓN</span>
+              <span class="room-name">BALCÓN</span>
             </div>
           </div>
 
@@ -517,6 +517,28 @@ const applyPreset = (preset: typeof presets[0]) => {
 
 const selectArea = (areaName: string) => {
   activeArea.value = areaName
+}
+
+const handleAreaClick = (event: MouseEvent, areaName: string) => {
+  activeArea.value = areaName
+  // Delegar al canvas plan click para capturar coordenadas exactas
+  const canvas = document.querySelector('.plan-canvas-area') as HTMLElement
+  if (canvas) {
+    const rect = canvas.getBoundingClientRect()
+    const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
+    const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
+
+    if (movingPinIndex.value !== null && markers.value[movingPinIndex.value]) {
+      markers.value[movingPinIndex.value].x = x
+      markers.value[movingPinIndex.value].y = y
+      markers.value[movingPinIndex.value].area = areaName
+      selectedMarkerIndex.value = movingPinIndex.value
+      movingPinIndex.value = null
+      return
+    }
+
+    openNewObsModal({ x, y })
+  }
 }
 
 const openNewObsModal = (coords?: { x: number; y: number }) => {
