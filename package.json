@@ -1,15 +1,14 @@
 {
   "name": "inspector_app",
   "version": "1.0.0",
-  "description": "",
+  "description": "Plataforma de Inspección Técnica Inmobiliaria",
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
     "build": "pnpm -r run build",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
-    "db:status": "supabase status",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:status": "supabase status"
   },
   "keywords": [],
   "author": "",
