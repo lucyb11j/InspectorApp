@@ -1,490 +1,816 @@
 <template>
-  <div class="workspace-viewport">
-    <!-- Header de Campo Nativo Responsivo -->
-    <header class="workspace-header">
-      <div class="header-left">
-        <!-- Botón Menú Flotante para Administradores / Menú Rápido -->
-        <button 
-          type="button" 
-          class="btn-menu-drawer" 
-          @click="showDrawer = true" 
-          title="Abrir menú de navegación y módulos"
-        >
-          <span class="menu-icon">☰</span>
-          <span class="menu-label">Menú</span>
-        </button>
+  <div class="openinspection-viewport">
 
-        <div class="inspection-title-block">
-          <h2>{{ currentUnit.name }} — {{ currentUnit.project }}</h2>
-          <div class="title-meta">
-            <span class="meta-tag">Área: <strong>{{ activeArea }}</strong></span>
-            <span class="badge-offline">⚡ SQLite Local</span>
-            <span v-if="movingPinIndex !== null" class="badge-moving">
-              📍 Moviendo Pin #{{ movingPinIndex + 1 }} (Haga clic en el plano para reubicar)
-            </span>
-          </div>
+    <!-- BARRA SUPERIOR DE ESTADO / CONECTIVIDAD -->
+    <header class="app-top-bar">
+      <div class="top-bar-left">
+        <div class="brand-badge-mini">
+          <span class="brand-logo-icon">🏢</span>
+          <span class="brand-name-bold">OpenInspection</span>
         </div>
+        <span class="mode-tag">Tablet / Campo</span>
       </div>
 
-      <div class="header-right">
-        <!-- Navegación de Pestañas Tablet (UI OpenInspection) -->
-        <div class="app-nav-tabs">
-          <button 
-            type="button" 
-            class="nav-tab-btn" 
-            :class="{ active: mainTab === 'summary' }"
-            @click="mainTab = 'summary'"
-          >
-            Resumen
-          </button>
-          <button 
-            type="button" 
-            class="nav-tab-btn" 
-            :class="{ active: mainTab === 'plan' }"
-            @click="mainTab = 'plan'"
-          >
-            Plano
-          </button>
-          <button 
-            type="button" 
-            class="nav-tab-btn" 
-            :class="{ active: mainTab === 'checklist' }"
-            @click="mainTab = 'checklist'"
-          >
-            Checklist
-          </button>
-          <button 
-            type="button" 
-            class="nav-tab-btn" 
-            :class="{ active: mainTab === 'observations' }"
-            @click="mainTab = 'observations'"
-          >
-            Observaciones ({{ observations.length }})
-          </button>
-        </div>
-
-        <button type="button" class="btn-primary-action" @click="openNewObsModal()">
-          <span class="btn-plus">+</span>
-          <span class="btn-action-text">Defecto</span>
+      <div class="top-bar-center">
+        <!-- Indicador de Red / Offline con Sincronización Rápida -->
+        <button 
+          type="button" 
+          class="network-pill" 
+          :class="{ 'is-online': isOnline, 'is-offline': !isOnline }"
+          @click="toggleNetworkStatus"
+          :title="isOnline ? 'Conectado a WiFi - Clic para simular modo sin conexión' : 'Operando Sin Conexión (SQLite Local) - Clic para reconectar'"
+        >
+          <span class="network-dot"></span>
+          <span>{{ isOnline ? 'Conectado (WiFi)' : 'Modo Offline (Drift/SQLite)' }}</span>
         </button>
+      </div>
+
+      <div class="top-bar-right">
+        <span v-if="pendingSyncItems.length > 0" class="badge-pending-sync" @click="activeBottomTab = 'sync'">
+          ⚡ {{ pendingSyncItems.length }} pendientes
+        </span>
+        <div class="user-pill-mini">
+          <span class="user-avatar-mini">👤</span>
+          <span class="user-email-text">{{ currentUserName || 'inspector@inspector.com' }}</span>
+        </div>
       </div>
     </header>
 
-    <!-- Sub-Header Resumen / Progreso de Visita -->
-    <div v-if="mainTab === 'summary'" class="summary-hero-card">
-      <div class="summary-hero-info">
-        <div class="hero-chip">Condominio Los Cedros · Torre B</div>
-        <h3>Departamento 305 — Visita de Entrega</h3>
-        <p class="hero-desc">Cliente: Inmobiliaria Panorama / Carlos Mendoza · Inspector: Arq. Roberto Silva</p>
-        <div class="hero-metrics">
-          <div class="metric-pill">
-            <span class="m-val">{{ areas.length }}</span>
-            <span class="m-lbl">Ambientes</span>
-          </div>
-          <div class="metric-pill">
-            <span class="m-val">{{ observations.length }}</span>
-            <span class="m-lbl">Observaciones</span>
-          </div>
-          <div class="metric-pill">
-            <span class="m-val">{{ markers.length }}</span>
-            <span class="m-lbl">Pines en Plano</span>
-          </div>
-          <div class="metric-pill accent-green">
-            <span class="m-val">92%</span>
-            <span class="m-lbl">Checklist Completada</span>
-          </div>
-        </div>
-      </div>
-      <div class="summary-hero-actions">
-        <NuxtLink to="/inspections/55555555-0000-0000-0000-000000000001" class="btn-hero-primary">
-          📄 Generar / Ver Acta Técnica
-        </NuxtLink>
-        <button type="button" class="btn-hero-sync" @click="mainTab = 'plan'">
-          📐 Abrir Plano Táctil →
-        </button>
-      </div>
-    </div>
+    <!-- CUERPO PRINCIPAL SEGÚN PESTAÑA INFERIOR ACTIVA -->
+    <main class="app-main-content">
 
-    <!-- Pestaña Checklist Técnico Especializado -->
-    <div v-if="mainTab === 'checklist'" class="checklist-container">
-      <div class="checklist-header">
-        <div>
-          <h3>Checklist de Verificación Técnica por Ambiente</h3>
-          <p>Valide acabados, instalaciones y operatividad en cada zona</p>
+      <!-- ======================================================== -->
+      <!-- PANTALLA 1: PESTAÑA "INSPECCIONES" (LISTA Y FILTROS)   -->
+      <!-- ======================================================== -->
+      <section v-if="activeBottomTab === 'inspections' && !selectedInspection" class="view-inspections-list">
+        <div class="list-page-header">
+          <div class="list-title-group">
+            <h2>Mis Inspecciones</h2>
+            <p>Proyectos y departamentos asignados a su cuenta técnica</p>
+          </div>
+
+          <!-- Búsqueda y Filtros de Estado como la Pantalla 3 -->
+          <div class="search-and-filters">
+            <div class="search-input-box">
+              <span class="search-icon">🔍</span>
+              <input 
+                v-model="searchQuery" 
+                type="text" 
+                placeholder="Buscar por condominio, unidad o cliente..." 
+                class="search-field"
+              />
+            </div>
+
+            <div class="filter-chips-row">
+              <button 
+                v-for="filter in inspectionFilters" 
+                :key="filter.value" 
+                type="button" 
+                class="filter-chip-btn"
+                :class="{ active: selectedFilter === filter.value }"
+                @click="selectedFilter = filter.value"
+              >
+                {{ filter.label }}
+                <span class="chip-count">{{ countInspections(filter.value) }}</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="checklist-area-chips">
-          <button 
-            v-for="area in areas" 
-            :key="area" 
-            type="button" 
-            class="cl-chip" 
-            :class="{ active: activeArea === area }"
-            @click="activeArea = area"
+
+        <!-- Lista de Tarjetas de Inspección -->
+        <div class="inspections-cards-grid">
+          <div 
+            v-for="insp in filteredInspections" 
+            :key="insp.id" 
+            class="inspection-card-item"
+            @click="openInspectionDetail(insp)"
           >
-            {{ area }}
-          </button>
-        </div>
-      </div>
+            <div class="card-thumb-column">
+              <div class="card-thumb-box" :style="{ backgroundColor: insp.thumbBg }">
+                <span class="thumb-icon">{{ insp.thumbIcon }}</span>
+              </div>
+            </div>
 
-      <div class="checklist-items-list">
-        <div v-for="item in currentChecklistItems" :key="item.id" class="checklist-row">
-          <div class="cl-info">
-            <span class="cl-cat">{{ item.category }}</span>
-            <h4 class="cl-title">{{ item.title }}</h4>
-            <p class="cl-desc">{{ item.description }}</p>
-          </div>
-          <div class="cl-status-options">
-            <button 
-              type="button" 
-              class="btn-cl-status status-ok" 
-              :class="{ selected: item.status === 'OK' }"
-              @click="item.status = 'OK'"
-            >
-              ✓ OK
-            </button>
-            <button 
-              type="button" 
-              class="btn-cl-status status-obs" 
-              :class="{ selected: item.status === 'OBS' }"
-              @click="openObsFromChecklist(item)"
-            >
-              ⚠ OBS
-            </button>
-            <button 
-              type="button" 
-              class="btn-cl-status status-na" 
-              :class="{ selected: item.status === 'N/A' }"
-              @click="item.status = 'N/A'"
-            >
-              — N/A
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            <div class="card-body-column">
+              <div class="card-header-row">
+                <h3 class="card-project-title">{{ insp.project }}</h3>
+                <span class="status-pill" :class="`pill-${insp.status.toLowerCase()}`">
+                  {{ insp.statusLabel }}
+                </span>
+              </div>
 
-    <!-- Espacio de Trabajo Plano & Observaciones -->
-    <div v-show="mainTab === 'plan' || mainTab === 'observations'" class="workspace-body" :class="`view-${viewMode}`">
-      
-      <!-- Panel de Plano Táctil Interactivo -->
-      <section v-show="viewMode === 'split' || viewMode === 'plan-only'" class="plan-section">
-        <div class="plan-toolbar">
-          <div class="plan-legend">
-            <span class="legend-dot" :class="{ 'moving-pulse': movingPinIndex !== null }"></span>
-            <span v-if="movingPinIndex !== null" class="text-moving">
-              MODO REUBICACIÓN: Haga clic sobre el plano donde desea mover el Pin #{{ movingPinIndex + 1 }}
-            </span>
-            <span v-else>Toque en el plano para situar una nueva observación</span>
-          </div>
-          <div class="plan-stats">
-            <button v-if="movingPinIndex !== null" class="btn-cancel-move" @click.stop="cancelMovingPin">
-              ✕ Cancelar Mover
-            </button>
-            <span>Pines: <strong>{{ markers.length }}</strong></span>
-          </div>
-        </div>
+              <p class="card-unit-text"><strong>{{ insp.unit }}</strong> — {{ insp.building }} (Piso {{ insp.floor }})</p>
+              <p class="card-client-text">Cliente: {{ insp.client }}</p>
+              
+              <div class="card-footer-meta">
+                <span class="meta-date">📅 {{ insp.scheduledDate }}</span>
+                <div class="progress-container">
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" :style="{ width: `${insp.progress}%` }"></div>
+                  </div>
+                  <span class="progress-text">{{ insp.progress }}%</span>
+                </div>
+              </div>
+            </div>
 
-        <div class="plan-canvas-area" @click="handlePlanClick">
-          <div class="blueprint-lines"></div>
-          
-          <!-- Plano base estilizado con zonas arquitectónicas -->
-          <div class="architectural-blueprint">
-            <div 
-              class="room-box room-living" 
-              :class="{ highlight: activeArea === 'Sala / Comedor' }"
-              @click="handleAreaClick($event, 'Sala / Comedor')"
-            >
-              <span class="room-name">SALA / COMEDOR</span>
-            </div>
-            <div 
-              class="room-box room-kitchen" 
-              :class="{ highlight: activeArea === 'Cocina' }"
-              @click="handleAreaClick($event, 'Cocina')"
-            >
-              <span class="room-name">COCINA</span>
-            </div>
-            <div 
-              class="room-box room-bed-main" 
-              :class="{ highlight: activeArea === 'Dormitorio Principal' }"
-              @click="handleAreaClick($event, 'Dormitorio Principal')"
-            >
-              <span class="room-name">DORMITORIO PPAL</span>
-            </div>
-            <div 
-              class="room-box room-bath-main" 
-              :class="{ highlight: activeArea === 'Baño Principal' }"
-              @click="handleAreaClick($event, 'Baño Principal')"
-            >
-              <span class="room-name">BAÑO PPAL</span>
-            </div>
-            <div 
-              class="room-box room-balcony" 
-              :class="{ highlight: activeArea === 'Balcón' }"
-              @click="handleAreaClick($event, 'Balcón')"
-            >
-              <span class="room-name">BALCÓN</span>
-            </div>
-          </div>
-
-          <!-- Marcadores / Pines Interactivos -->
-          <div
-            v-for="(marker, idx) in markers"
-            :key="idx"
-            class="interactive-pin"
-            :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
-            :class="[`pin-${marker.severity.toLowerCase()}`, { 'pin-active-moving': movingPinIndex === idx, 'pin-selected': selectedMarkerIndex === idx }]"
-            @click.stop="selectMarker(marker, idx)"
-          >
-            <div class="pin-marker-head">
-              <span class="pin-icon">📍</span>
-              <span class="pin-number">{{ idx + 1 }}</span>
-            </div>
-            <div class="pin-callout">
-              <strong>#{{ idx + 1 }} {{ marker.title }}</strong>
-              <small>{{ marker.area }} · {{ marker.severity }}</small>
+            <div class="card-arrow-column">
+              <span class="arrow-icon">›</span>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Panel de Zonas y Registro de Observaciones -->
-      <section v-show="viewMode === 'split' || viewMode === 'list-only'" class="observations-section">
-        <!-- Selector Horizontal de Ambientes / Áreas -->
-        <div class="area-navigation-bar">
-          <button
-            v-for="area in areas"
-            :key="area"
-            type="button"
-            class="area-tab"
-            :class="{ active: activeArea === area }"
-            @click="activeArea = area"
-          >
-            {{ area }}
-            <span class="area-badge-count">{{ countByArea(area) }}</span>
-          </button>
-        </div>
-
-        <!-- Popover / Barra de Detalle de Pin Seleccionado -->
-        <div v-if="selectedMarkerIndex !== null && markers[selectedMarkerIndex]" class="pin-detail-bar">
-          <div class="pin-detail-info">
-            <span class="badge-pin-num">Pin #{{ selectedMarkerIndex + 1 }}</span>
-            <div class="pin-detail-texts">
-              <strong>{{ markers[selectedMarkerIndex].title }}</strong>
-              <span>Área: {{ markers[selectedMarkerIndex].area }} (X: {{ markers[selectedMarkerIndex].x }}%, Y: {{ markers[selectedMarkerIndex].y }}%)</span>
+      <!-- ======================================================== -->
+      <!-- PANTALLA 2: DETALLE DE INSPECCIÓN CON SUB-PESTAÑAS      -->
+      <!-- (Resumen, Plano Interactivo, Checklist, Observaciones)   -->
+      <!-- ======================================================== -->
+      <section v-else-if="activeBottomTab === 'inspections' && selectedInspection" class="view-inspection-detail">
+        
+        <!-- Header de la Inspección Seleccionada (Botón volver + Pestañas de Trabajo) -->
+        <div class="inspection-sub-header">
+          <div class="sub-header-left">
+            <button type="button" class="btn-back-inspections" @click="closeInspectionDetail">
+              ← Mis Inspecciones
+            </button>
+            <div class="unit-current-title">
+              <h2>{{ selectedInspection.project }} — {{ selectedInspection.unit }}</h2>
+              <span class="unit-subtitle">{{ selectedInspection.building }} · Piso {{ selectedInspection.floor }} · {{ selectedInspection.client }}</span>
             </div>
           </div>
-          <div class="pin-detail-actions">
+
+          <!-- 4 Pestañas Superiores de la Vista Detalle (4 en la figura) -->
+          <div class="detail-nav-tabs">
             <button 
               type="button" 
-              class="btn-pin-move" 
-              @click="startMovingPin(selectedMarkerIndex)"
-              title="Mover este pin a otra coordenada en el plano"
+              class="d-tab-btn" 
+              :class="{ active: detailSubTab === 'summary' }"
+              @click="detailSubTab = 'summary'"
             >
-              🔄 Mover Pin
+              📊 Resumen
             </button>
             <button 
               type="button" 
-              class="btn-pin-delete" 
-              @click="deletePin(selectedMarkerIndex)"
-              title="Eliminar este pin del plano"
+              class="d-tab-btn" 
+              :class="{ active: detailSubTab === 'plan' }"
+              @click="detailSubTab = 'plan'"
             >
-              🗑️ Borrar Pin
+              📐 Plano
             </button>
-            <button type="button" class="btn-pin-close" @click="selectedMarkerIndex = null">✕</button>
+            <button 
+              type="button" 
+              class="d-tab-btn" 
+              :class="{ active: detailSubTab === 'checklist' }"
+              @click="detailSubTab = 'checklist'"
+            >
+              ✓ Checklist
+            </button>
+            <button 
+              type="button" 
+              class="d-tab-btn" 
+              :class="{ active: detailSubTab === 'observations' }"
+              @click="detailSubTab = 'observations'"
+            >
+              ⚠️ Observaciones ({{ inspectionObservations.length }})
+            </button>
+          </div>
+
+          <div class="sub-header-actions">
+            <button type="button" class="btn-new-obs-action" @click="openObservationModal()">
+              <span class="plus-sign">+</span>
+              <span>Defecto</span>
+            </button>
           </div>
         </div>
 
-        <!-- Lista de No Conformidades en el Área Seleccionada -->
-        <div class="observations-scroll-pane">
-          <div class="pane-header-actions">
-            <div>
-              <h3>Defectos en {{ activeArea }} ({{ filteredObservations.length }})</h3>
-              <p class="section-hint">Registros locales con verificación fotográfica SHA-256</p>
+        <!-- SUB-PESTAÑA 1: RESUMEN DE LA INSPECCIÓN (Figura 4) -->
+        <div v-if="detailSubTab === 'summary'" class="detail-content-pane summary-pane">
+          <div class="summary-hero-banner">
+            <div class="hero-left-info">
+              <span class="hero-chip-badge">{{ selectedInspection.statusLabel }}</span>
+              <h3>{{ selectedInspection.project }} — {{ selectedInspection.unit }}</h3>
+              <p class="hero-address">Dirección: Av. Principal 123 - Visita de entrega técnica y recepción de acabados</p>
             </div>
-            <button type="button" class="btn-ghost-sm" @click="openNewObsModal()">
-              + Catálogo Rápido
-            </button>
+            <div class="hero-right-progress">
+              <div class="circular-progress">
+                <span class="progress-number">{{ selectedInspection.progress }}%</span>
+                <span class="progress-lbl">Avance Total</span>
+              </div>
+            </div>
           </div>
 
-          <div v-if="filteredObservations.length === 0" class="empty-observations">
-            <span class="empty-icon">✅</span>
-            <h4>No hay observaciones registradas en esta zona</h4>
-            <p>Haga clic en el plano para ubicar un pin o añada un defecto directamente.</p>
-            <button type="button" class="btn-preset-primary" @click="openNewObsModal()">
-              + Añadir Defecto
-            </button>
+          <div class="summary-details-grid">
+            <div class="detail-info-card">
+              <span class="d-card-icon">🏢</span>
+              <div class="d-card-texts">
+                <label>Proyecto / Condominio</label>
+                <strong>{{ selectedInspection.project }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-info-card">
+              <span class="d-card-icon">🏠</span>
+              <div class="d-card-texts">
+                <label>Departamento / Unidad</label>
+                <strong>{{ selectedInspection.unit }} ({{ selectedInspection.building }})</strong>
+              </div>
+            </div>
+
+            <div class="detail-info-card">
+              <span class="d-card-icon">👤</span>
+              <div class="d-card-texts">
+                <label>Cliente / Propietario</label>
+                <strong>{{ selectedInspection.client }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-info-card">
+              <span class="d-card-icon">📐</span>
+              <div class="d-card-texts">
+                <label>Inspector Designado</label>
+                <strong>{{ currentUserName || 'Arq. Roberto Silva' }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-info-card">
+              <span class="d-card-icon">📅</span>
+              <div class="d-card-texts">
+                <label>Fecha de Inspección</label>
+                <strong>{{ selectedInspection.scheduledDate }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-info-card">
+              <span class="d-card-icon">⚡</span>
+              <div class="d-card-texts">
+                <label>Estado Sincronización</label>
+                <strong class="text-green">Sincronizado Local (SQLite)</strong>
+              </div>
+            </div>
           </div>
 
-          <div v-else class="observations-grid">
-            <div 
-              v-for="obs in filteredObservations" 
-              :key="obs.id" 
-              class="observation-card"
-              :class="{ 'obs-selected': selectedObsId === obs.id }"
-              @click="selectObsCard(obs)"
-            >
-              <div class="obs-card-top">
-                <div class="obs-tags">
-                  <span class="tag-severity" :class="`sev-${obs.severity.toLowerCase()}`">{{ obs.severity }}</span>
-                  <span class="tag-status">{{ obs.status }}</span>
-                  <span v-if="getObsMarkerIndex(obs.id) !== -1" class="tag-pin-link">
-                    📍 Pin #{{ getObsMarkerIndex(obs.id) + 1 }}
+          <!-- Acciones Rápidas -->
+          <div class="summary-bottom-actions">
+            <button type="button" class="btn-summary-cta primary" @click="detailSubTab = 'plan'">
+              📐 Ir al Plano Táctil e Insertar Pines →
+            </button>
+            <button type="button" class="btn-summary-cta secondary" @click="detailSubTab = 'checklist'">
+              ✓ Abrir Checklist Técnica por Ambiente →
+            </button>
+            <NuxtLink :to="`/reports/${selectedInspection.id}`" class="btn-summary-cta ghost">
+              📄 Ver Acta Oficial / Informe Técnico PDF
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- SUB-PESTAÑA 2: PLANO INTERACTIVO Y PINES (Figura 5) -->
+        <div v-show="detailSubTab === 'plan'" class="detail-content-pane plan-pane">
+          <div class="plan-interactive-layout">
+            
+            <!-- Lienzo del Plano Arquitectónico -->
+            <div class="plan-canvas-wrapper" @click="handlePlanCanvasClick">
+              <div class="plan-header-legend">
+                <div class="legend-info">
+                  <span class="pin-sample">📍</span>
+                  <span v-if="movingPinIndex !== null" class="text-moving-alert">
+                    MODO REUBICACIÓN: Toque en el plano donde reubicar el Pin #{{ movingPinIndex + 1 }}
                   </span>
+                  <span v-else>Toque cualquier punto o habitación del plano para situar una observación con foto</span>
                 </div>
-                <div class="obs-actions-top">
-                  <button 
-                    type="button" 
-                    class="btn-delete-obs" 
-                    @click.stop="deleteObservation(obs.id)" 
-                    title="Eliminar esta observación"
-                  >
-                    🗑️
+                <div class="legend-controls">
+                  <button v-if="movingPinIndex !== null" class="btn-cancel-move-sm" @click.stop="cancelPinMove">
+                    ✕ Cancelar
                   </button>
-                  <span class="tag-storage">Drift SQLite</span>
+                  <span class="pins-count-tag">Pines activos: {{ inspectionMarkers.length }}</span>
                 </div>
               </div>
 
-              <h4 class="obs-title">{{ obs.title }}</h4>
-              <p class="obs-description">{{ obs.description }}</p>
+              <!-- Área Gráfica del Plano con Ambientes Renombrables -->
+              <div class="blueprint-canvas">
+                <div class="blueprint-grid-lines"></div>
 
-              <div class="obs-evidence-box">
-                <div class="evidence-thumb">
-                  <span>📸</span>
+                <div class="blueprint-rooms-container">
+                  <div 
+                    v-for="(area, aIdx) in inspectionAreas" 
+                    :key="area.id"
+                    class="blueprint-room-box"
+                    :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
+                    @click.stop="selectAreaFromPlan($event, area.name)"
+                  >
+                    <div class="room-title-bar">
+                      <span v-if="!area.isEditing" class="room-label-text">{{ area.name }}</span>
+                      <input 
+                        v-else 
+                        v-model="area.name" 
+                        type="text" 
+                        class="room-rename-input"
+                        @click.stop
+                        @blur="area.isEditing = false"
+                        @keyup.enter="area.isEditing = false"
+                      />
+                      <button 
+                        type="button" 
+                        class="btn-rename-trigger" 
+                        @click.stop="toggleAreaRename(aIdx)"
+                        title="Renombrar este ambiente"
+                      >
+                        ✏️
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div class="evidence-meta">
-                  <span class="evidence-file">EVIDENCIA-FOTO-{{ obs.id.substring(0, 8) }}.JPG</span>
-                  <code class="evidence-hash">SHA-256: {{ obs.sha256.substring(0, 16) }}...</code>
+
+                <!-- Pines Interactivos sobre el Plano -->
+                <div 
+                  v-for="(marker, mIdx) in inspectionMarkers" 
+                  :key="marker.id"
+                  class="plan-pin-marker"
+                  :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
+                  :class="[`sev-${marker.severity.toLowerCase()}`, { moving: movingPinIndex === mIdx, selected: selectedMarkerId === marker.id }]"
+                  @click.stop="selectMarkerOnPlan(marker, mIdx)"
+                >
+                  <div class="pin-bubble">
+                    <span class="pin-ico">📍</span>
+                    <span class="pin-idx">{{ mIdx + 1 }}</span>
+                  </div>
+                  <div class="pin-tooltip">
+                    <strong>#{{ mIdx + 1 }} {{ marker.title }}</strong>
+                    <small>{{ marker.area }} · {{ marker.severity }}</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel Lateral de Zonas y Marcador Seleccionado -->
+            <div class="plan-sidebar-info">
+              <!-- Barra de Control de Pin Seleccionado -->
+              <div v-if="selectedMarkerItem" class="selected-pin-toolbar">
+                <div class="selected-pin-header">
+                  <span class="pin-tag-badge">Pin #{{ getMarkerIndex(selectedMarkerItem.id) + 1 }}</span>
+                  <button type="button" class="btn-close-pin-panel" @click="selectedMarkerId = null">✕</button>
+                </div>
+                <h4 class="pin-toolbar-title">{{ selectedMarkerItem.title }}</h4>
+                <p class="pin-toolbar-area">Zona: <strong>{{ selectedMarkerItem.area }}</strong> ({{ selectedMarkerItem.x }}%, {{ selectedMarkerItem.y }}%)</p>
+
+                <div class="pin-toolbar-actions">
+                  <button type="button" class="btn-action-move" @click="startPinMove(selectedMarkerItem)">
+                    🔄 Reubicar Pin
+                  </button>
+                  <button type="button" class="btn-action-delete" @click="deleteMarker(selectedMarkerItem.id)">
+                    🗑️ Eliminar Pin
+                  </button>
+                </div>
+              </div>
+
+              <!-- Selector y Gestión de Ambientes -->
+              <div class="areas-management-card">
+                <div class="areas-title-head">
+                  <h4>Ambientes de la Unidad ({{ inspectionAreas.length }})</h4>
+                  <p>Renombre o toque una zona para filtrar observaciones</p>
+                </div>
+
+                <div class="areas-pills-list">
+                  <div 
+                    v-for="(area, aIdx) in inspectionAreas" 
+                    :key="area.id" 
+                    class="area-manage-item"
+                    :class="{ selected: activeSelectedArea === area.name }"
+                    @click="activeSelectedArea = area.name"
+                  >
+                    <div class="area-item-name">
+                      <span class="area-bullet"></span>
+                      <span v-if="!area.isEditing">{{ area.name }}</span>
+                      <input 
+                        v-else 
+                        v-model="area.name" 
+                        type="text" 
+                        class="inline-rename-field" 
+                        @click.stop 
+                        @blur="area.isEditing = false"
+                        @keyup.enter="area.isEditing = false"
+                      />
+                    </div>
+                    <div class="area-item-controls">
+                      <button type="button" class="btn-mini-rename" @click.stop="toggleAreaRename(aIdx)">✏️</button>
+                      <button type="button" class="btn-mini-delete" @click.stop="removeAreaFromPlan(aIdx)">✕</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Formulario Añadir Nuevo Ambiente -->
+                <div class="add-area-inline-box">
+                  <input 
+                    v-model="newAreaNameInput" 
+                    type="text" 
+                    placeholder="Nuevo ambiente (Ej: Lavandería)..."
+                    class="input-add-area"
+                    @keyup.enter="addNewAreaToInspection"
+                  />
+                  <button type="button" class="btn-add-area-btn" @click="addNewAreaToInspection">+ Añadir</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- SUB-PESTAÑA 3: CHECKLIST COMPLETA POR AMBIENTES (Figura 6) -->
+        <div v-show="detailSubTab === 'checklist'" class="detail-content-pane checklist-pane">
+          <div class="checklist-top-control">
+            <div class="checklist-instruction">
+              <h3>Checklist de Verificación Técnica de Acabados e Instalaciones</h3>
+              <p>Evalúe cada elemento en {{ activeSelectedArea }}. Marque <strong>OBS</strong> para registrar automáticamente un defecto.</p>
+            </div>
+
+            <!-- Selector de Áreas para Checklist -->
+            <div class="checklist-areas-scroller">
+              <button 
+                v-for="area in inspectionAreas" 
+                :key="area.id"
+                type="button" 
+                class="cl-area-pill"
+                :class="{ active: activeSelectedArea === area.name }"
+                @click="activeSelectedArea = area.name"
+              >
+                {{ area.name }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista de Elementos Básicos y Regulares del Departamento -->
+          <div class="checklist-grid-items">
+            <div 
+              v-for="item in currentAreaChecklist" 
+              :key="item.id" 
+              class="cl-item-row"
+            >
+              <div class="cl-item-icon-col">
+                <span class="cl-icon-bullet">{{ item.icon }}</span>
+              </div>
+              <div class="cl-item-details-col">
+                <span class="cl-element-category">{{ item.category }}</span>
+                <h4 class="cl-element-title">{{ item.title }}</h4>
+                <p class="cl-element-spec">{{ item.specification }}</p>
+              </div>
+
+              <div class="cl-item-actions-col">
+                <button 
+                  type="button" 
+                  class="btn-status-choice btn-ok" 
+                  :class="{ selected: item.status === 'OK' }"
+                  @click="item.status = 'OK'"
+                >
+                  ✓ OK
+                </button>
+                <button 
+                  type="button" 
+                  class="btn-status-choice btn-obs" 
+                  :class="{ selected: item.status === 'OBS' }"
+                  @click="triggerObsFromChecklist(item)"
+                >
+                  ⚠ OBS
+                </button>
+                <button 
+                  type="button" 
+                  class="btn-status-choice btn-na" 
+                  :class="{ selected: item.status === 'N/A' }"
+                  @click="item.status = 'N/A'"
+                >
+                  — N/A
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PESTAÑA 4: LISTA DE OBSERVACIONES TÉCNICAS -->
+        <div v-show="detailSubTab === 'observations'" class="detail-content-pane observations-pane">
+          <div class="obs-pane-header">
+            <div>
+              <h3>No-Conformidades Registradas ({{ inspectionObservations.length }})</h3>
+              <p>Evidencias fotográficas con verificación criptográfica SHA-256</p>
+            </div>
+            <button type="button" class="btn-new-obs-action" @click="openObservationModal()">
+              + Registrar Nueva Observación
+            </button>
+          </div>
+
+          <div v-if="inspectionObservations.length === 0" class="empty-obs-box">
+            <span class="empty-ico">✅</span>
+            <h4>No existen observaciones pendientes</h4>
+            <p>Utilice el plano táctil o el checklist para registrar no-conformidades con fotografía.</p>
+          </div>
+
+          <div v-else class="obs-cards-list">
+            <div 
+              v-for="(obs, idx) in inspectionObservations" 
+              :key="obs.id"
+              class="obs-detail-card"
+            >
+              <div class="obs-card-header-bar">
+                <div class="obs-tags-left">
+                  <span class="badge-idx">#{{ idx + 1 }}</span>
+                  <span class="badge-severity" :class="`sev-${obs.severity.toLowerCase()}`">{{ obs.severity }}</span>
+                  <span class="badge-area">{{ obs.area }}</span>
+                  <span class="badge-status">{{ obs.status }}</span>
+                </div>
+                <button type="button" class="btn-delete-obs-item" @click="deleteObservationItem(obs.id)" title="Eliminar observación">
+                  🗑️
+                </button>
+              </div>
+
+              <h4 class="obs-card-title">{{ obs.title }}</h4>
+              <p class="obs-card-desc">{{ obs.description }}</p>
+
+              <!-- Evidencias Fotográficas -->
+              <div class="obs-photos-grid">
+                <div v-for="(photo, pIdx) in obs.photos" :key="pIdx" class="photo-thumb-card">
+                  <img v-if="photo.dataUrl" :src="photo.dataUrl" alt="Evidencia" class="photo-img-render" />
+                  <div v-else class="photo-placeholder">📸 Foto {{ pIdx + 1 }}</div>
+                  <div class="photo-meta-info">
+                    <span class="photo-file-name">{{ photo.fileName }}</span>
+                    <code class="photo-sha">SHA-256: {{ photo.sha256.substring(0, 16) }}...</code>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Footer de Acción: Generar Informe Técnico -->
-        <div class="section-footer">
-          <NuxtLink to="/inspections/55555555-0000-0000-0000-000000000001" class="btn-generate-report">
-            📄 Finalizar Visita y Generar Acta Técnica →
-          </NuxtLink>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- PANTALLA 3: PESTAÑA "SINCRONIZACIÓN" (Pantalla 2 y 9)   -->
+      <!-- ======================================================== -->
+      <section v-else-if="activeBottomTab === 'sync'" class="view-sync-engine">
+        <div class="sync-pane-card">
+          <div class="sync-pane-header">
+            <h2>Motor de Sincronización Offline</h2>
+            <p>Descarga y subida de datos entre el almacenamiento local (Drift/SQLite) y la nube</p>
+          </div>
+
+          <div class="sync-circular-container">
+            <div class="sync-progress-circle" :class="{ spinning: isSyncing }">
+              <span class="sync-percentage">{{ syncPercentage }}%</span>
+              <span class="sync-circle-label">{{ isSyncing ? 'Sincronizando...' : 'Completado' }}</span>
+            </div>
+          </div>
+
+          <div class="sync-items-checklist">
+            <div class="sync-checklist-item">
+              <span class="sync-item-icon">📁</span>
+              <div class="sync-item-texts">
+                <strong>Proyectos Inmobiliarios</strong>
+                <small>3 proyectos descargados para trabajo sin red</small>
+              </div>
+              <span class="sync-item-status check">✓ 3/3</span>
+            </div>
+
+            <div class="sync-checklist-item">
+              <span class="sync-item-icon">🏢</span>
+              <div class="sync-item-texts">
+                <strong>Departamentos y Unidades</strong>
+                <small>Planimetría y datos de clientes almacenados</small>
+              </div>
+              <span class="sync-item-status check">✓ 12/12</span>
+            </div>
+
+            <div class="sync-checklist-item">
+              <span class="sync-item-icon">✓</span>
+              <div class="sync-item-texts">
+                <strong>Plantillas de Checklist y Acabados</strong>
+                <small>Catálogo estándar de verificación</small>
+              </div>
+              <span class="sync-item-status check">✓ 4/4</span>
+            </div>
+
+            <div class="sync-checklist-item">
+              <span class="sync-item-icon">📸</span>
+              <div class="sync-item-texts">
+                <strong>Fotos y Observaciones en Cola Outbox</strong>
+                <small>{{ pendingSyncItems.length }} elementos pendientes de sincronizar</small>
+              </div>
+              <span class="sync-item-status" :class="pendingSyncItems.length === 0 ? 'check' : 'pending'">
+                {{ pendingSyncItems.length === 0 ? '✓ Al día' : `⏳ ${pendingSyncItems.length} pendientes` }}
+              </span>
+            </div>
+          </div>
+
+          <div class="sync-actions-bottom">
+            <button 
+              type="button" 
+              class="btn-trigger-sync" 
+              :disabled="isSyncing"
+              @click="runSyncCycle"
+            >
+              {{ isSyncing ? 'Sincronizando datos con la nube...' : '⚡ Sincronizar Ahora (Verificar Hashes SHA-256)' }}
+            </button>
+            <p class="sync-hint-text">
+              {{ isOnline ? 'Conexión a internet activa. La subida verificará conflictos concurrentes.' : 'Actualmente sin conexión. Los registros permanecerán resguardados en el dispositivo.' }}
+            </p>
+          </div>
         </div>
       </section>
 
-    </div>
+      <!-- ======================================================== -->
+      <!-- PANTALLA 4: PESTAÑA "PERFIL / USUARIO"                   -->
+      <!-- ======================================================== -->
+      <section v-else-if="activeBottomTab === 'profile'" class="view-profile-pane">
+        <div class="profile-card-box">
+          <div class="profile-avatar-large">👷‍♂️</div>
+          <h3>{{ currentUserName || 'Arq. Roberto Silva' }}</h3>
+          <p class="profile-role-tag">Inspector Técnico de Campo</p>
+          <span class="profile-email-badge">inspector@inspector.com</span>
 
-    <!-- Menú Lateral Drawer (Oculto en Botón para no quitar espacio) -->
-    <div v-if="showDrawer" class="drawer-overlay" @click.self="showDrawer = false">
-      <aside class="drawer-content">
-        <div class="drawer-header">
-          <div class="drawer-brand">
-            <span class="brand-logo">🏢</span>
-            <h3>InspectorHub</h3>
+          <div class="profile-meta-list">
+            <div class="profile-meta-row">
+              <span>Organización:</span>
+              <strong>InspectorHub Constructora</strong>
+            </div>
+            <div class="profile-meta-row">
+              <span>Modo de Operación:</span>
+              <strong>Tablet Táctil Habilitada</strong>
+            </div>
+            <div class="profile-meta-row">
+              <span>Almacenamiento Local:</span>
+              <strong>Drift SQLite Activo (Cifrado)</strong>
+            </div>
           </div>
-          <button type="button" class="btn-close-drawer" @click="showDrawer = false">✕</button>
+
+          <button type="button" class="btn-logout-app" @click="handleAppLogout">
+            🚪 Cerrar Sesión y Salir
+          </button>
         </div>
+      </section>
 
-        <nav class="drawer-nav">
-          <NuxtLink v-if="role === 'ADMIN'" to="/dashboard" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">📊</span>
-            <span>Dashboard General</span>
-          </NuxtLink>
-          <NuxtLink to="/mobile-preview" class="drawer-item router-link-active" @click="showDrawer = false">
-            <span class="d-icon">📱</span>
-            <span>App de Campo (Inspector)</span>
-          </NuxtLink>
-          <NuxtLink to="/inspections" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">📋</span>
-            <span>Mis Inspecciones</span>
-          </NuxtLink>
-          <NuxtLink to="/reports" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">📄</span>
-            <span>Actas & Informes PDF</span>
-          </NuxtLink>
-          <NuxtLink v-if="role === 'ADMIN' || role === 'INSPECTOR'" to="/plans" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">📐</span>
-            <span>Gestor de Planos</span>
-          </NuxtLink>
-          <NuxtLink v-if="role === 'ADMIN'" to="/sync-monitor" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">⚡</span>
-            <span>Motor de Sincronización</span>
-          </NuxtLink>
-          <NuxtLink v-if="role === 'ADMIN'" to="/properties" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">🏢</span>
-            <span>Propiedades & Inmuebles</span>
-          </NuxtLink>
-          <NuxtLink v-if="role === 'ADMIN'" to="/clients" class="drawer-item" @click="showDrawer = false">
-            <span class="d-icon">👥</span>
-            <span>Clientes & Propietarios</span>
-          </NuxtLink>
-        </nav>
+    </main>
 
-        <div class="drawer-footer">
-          <p class="drawer-user">Usuario: <strong>{{ currentUserName || 'inspector@inspector.com' }}</strong></p>
-          <NuxtLink to="/login" class="drawer-logout">Cerrar Sesión</NuxtLink>
-        </div>
-      </aside>
-    </div>
+    <!-- BARRA DE NAVEGACIÓN INFERIOR (TABLET DOCK - FIGURA 3 Y 9) -->
+    <nav class="app-bottom-nav">
+      <button 
+        type="button" 
+        class="nav-dock-btn" 
+        :class="{ active: activeBottomTab === 'inspections' }"
+        @click="activeBottomTab = 'inspections'"
+      >
+        <span class="dock-icon">📋</span>
+        <span class="dock-label">Inspecciones</span>
+      </button>
 
-    <!-- Modal para Agregar Observación con Foto y Ubicación -->
-    <div v-if="showNewObsModal" class="modal-overlay" @click.self="showNewObsModal = false">
-      <div class="modal-dialog">
-        <div class="modal-dialog-header">
-          <div>
-            <h3>Registrar Observación / Defecto</h3>
-            <span class="modal-subtitle">
-              Área: <strong>{{ activeArea }}</strong> 
-              <span v-if="pendingCoordinates">· Ubicación: ({{ pendingCoordinates.x }}%, {{ pendingCoordinates.y }}%)</span>
+      <button 
+        type="button" 
+        class="nav-dock-btn" 
+        :class="{ active: activeBottomTab === 'sync' }"
+        @click="activeBottomTab = 'sync'"
+      >
+        <span class="dock-icon">⚡</span>
+        <span class="dock-label">Sincronización</span>
+        <span v-if="pendingSyncItems.length > 0" class="dock-bubble">{{ pendingSyncItems.length }}</span>
+      </button>
+
+      <button 
+        type="button" 
+        class="nav-dock-btn" 
+        :class="{ active: activeBottomTab === 'profile' }"
+        @click="activeBottomTab = 'profile'"
+      >
+        <span class="dock-icon">👤</span>
+        <span class="dock-label">Perfil</span>
+      </button>
+    </nav>
+
+    <!-- ======================================================== -->
+    <!-- MODAL EMERGENTE: REGISTRAR OBSERVACIÓN CON CÁMARA/FOTO   -->
+    <!-- (Pantallas 7 y 8 de la Figura)                           -->
+    <!-- ======================================================== -->
+    <div v-if="showObsModal" class="modal-backdrop-camera" @click.self="showObsModal = false">
+      <div class="modal-obs-window">
+        <div class="modal-obs-header">
+          <div class="modal-title-wrap">
+            <h3>Nueva Observación Técnica</h3>
+            <span class="modal-location-subtitle">
+              Ambiente: <strong>{{ activeSelectedArea }}</strong> 
+              <span v-if="pendingCoordinates">· Coordenadas: ({{ pendingCoordinates.x }}%, {{ pendingCoordinates.y }}%)</span>
             </span>
           </div>
-          <button type="button" class="btn-close-modal" @click="showNewObsModal = false">✕</button>
+          <button type="button" class="btn-close-modal-x" @click="showObsModal = false">✕</button>
         </div>
 
-        <div class="modal-dialog-body">
-          <p class="modal-hint">Seleccione un elemento del catálogo rápido o ingrese el detalle técnico:</p>
+        <form @submit.prevent="saveObservationWithPhoto" class="modal-obs-body">
           
-          <div class="preset-pills">
-            <button
-              v-for="preset in presets"
-              :key="preset.id"
-              type="button"
-              class="preset-pill"
-              @click="applyPreset(preset)"
-            >
-              {{ preset.title }}
-            </button>
+          <!-- Descripción y Sugerencia IA -->
+          <div class="form-group-custom">
+            <label>Descripción del Defecto:</label>
+            <input 
+              v-model="obsForm.title" 
+              type="text" 
+              class="field-input" 
+              placeholder="Ej: Fisura capilar en enlucido de muro"
+              required 
+            />
           </div>
 
-          <div class="form-group">
-            <label>Título de la Observación:</label>
-            <input v-model="newObsForm.title" type="text" class="input-field" placeholder="Ej: Fisura capilar en muro" />
+          <div class="ai-suggestion-box">
+            <span class="ai-icon">✨</span>
+            <div class="ai-texts">
+              <label>Sugerencia Asistida:</label>
+              <p>Se recomienda registrar longitud estimada, profundidad e indicar si compromete vanos de ventanas.</p>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>Descripción Técnica Detallada:</label>
-            <textarea v-model="newObsForm.description" rows="3" class="input-field" placeholder="Describa el defecto observado..."></textarea>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group col">
-              <label>Severidad:</label>
-              <select v-model="newObsForm.severity" class="input-field">
-                <option value="MENOR">MENOR</option>
-                <option value="MODERADA">MODERADA</option>
-                <option value="MAYOR">MAYOR</option>
-                <option value="CRÍTICA">CRÍTICA</option>
+          <div class="form-row-custom">
+            <div class="form-col">
+              <label>Categoría:</label>
+              <select v-model="obsForm.category" class="field-input">
+                <option value="Acabados">Acabados (Pintura / Empaste)</option>
+                <option value="Pisos">Pisos y Pavimentos</option>
+                <option value="Carpintería">Carpintería (Puertas / Ventanas)</option>
+                <option value="Instalaciones">Instalaciones Sanitarias / Gas</option>
+                <option value="Electricidad">Tomacorrientes / Iluminación</option>
               </select>
             </div>
-            <div class="form-group col">
-              <label>Evidencia Fotográfica:</label>
-              <div class="fake-camera-btn">
-                <span>📷 Foto registrada (Hash SHA-256 verificado)</span>
+
+            <div class="form-col">
+              <label>Severidad:</label>
+              <div class="severity-chips-group">
+                <button 
+                  v-for="sev in ['MENOR', 'MODERADA', 'MAYOR', 'CRÍTICA']" 
+                  :key="sev"
+                  type="button"
+                  class="sev-choice-chip"
+                  :class="[`chip-${sev.toLowerCase()}`, { selected: obsForm.severity === sev }]"
+                  @click="obsForm.severity = sev"
+                >
+                  {{ sev }}
+                </button>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="modal-dialog-footer">
-          <button type="button" class="btn-cancel" @click="showNewObsModal = false">Cancelar</button>
-          <button type="button" class="btn-save" @click="saveNewObservation">Guardar Observación</button>
-        </div>
+          <div class="form-group-custom">
+            <label>Detalle Técnico Adicional:</label>
+            <textarea 
+              v-model="obsForm.description" 
+              rows="2" 
+              class="field-input textarea" 
+              placeholder="Describa tolerancias, desniveles o materiales afectados..."
+            ></textarea>
+          </div>
+
+          <!-- Captura de Fotos con Cámara de Teléfono/Tablet o Subida de Archivo -->
+          <div class="camera-capture-section">
+            <label class="section-label">Evidencia Fotográfica (Cámara o Galería):</label>
+            
+            <div class="camera-actions-row">
+              <!-- Botón Nativo de Cámara Móvil/Tablet -->
+              <input 
+                type="file" 
+                id="cameraInput" 
+                accept="image/*" 
+                capture="environment" 
+                class="hidden-input" 
+                @change="handlePhotoCaptured"
+              />
+              <label for="cameraInput" class="btn-camera-trigger">
+                <span class="cam-icon">📷</span>
+                <span>Tomar Foto con Cámara</span>
+              </label>
+
+              <!-- Botón Subir desde Galería/Archivos -->
+              <input 
+                type="file" 
+                id="galleryInput" 
+                accept="image/*" 
+                class="hidden-input" 
+                @change="handlePhotoCaptured"
+              />
+              <label for="galleryInput" class="btn-gallery-trigger">
+                <span class="cam-icon">🖼️</span>
+                <span>Subir de Galería</span>
+              </label>
+            </div>
+
+            <!-- Miniaturas de Fotos Capturadas con Hash SHA-256 -->
+            <div v-if="capturedPhotosList.length > 0" class="captured-photos-preview">
+              <div v-for="(photo, pIdx) in capturedPhotosList" :key="pIdx" class="captured-photo-badge">
+                <img :src="photo.dataUrl" alt="Foto tomada" class="photo-thumbnail" />
+                <div class="photo-info-column">
+                  <span class="photo-name">{{ photo.fileName }}</span>
+                  <code class="photo-sha-pill">SHA-256: {{ photo.sha256.substring(0, 14) }}...</code>
+                </div>
+                <button type="button" class="btn-remove-photo" @click="removeCapturedPhoto(pIdx)">✕</button>
+              </div>
+            </div>
+            <p v-else class="camera-hint">Se generará automáticamente el Hash criptográfico SHA-256 de cada foto para el informe técnico legal.</p>
+          </div>
+
+          <div class="modal-obs-footer">
+            <button type="button" class="btn-cancel-modal" @click="showObsModal = false">Cancelar</button>
+            <button type="submit" class="btn-save-modal">
+              Guardar Observación
+            </button>
+          </div>
+
+        </form>
       </div>
     </div>
 
@@ -493,110 +819,177 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: false // Sin layout exterior: ocupa el 100% de la ventana en teléfono, tablet o PC
+  layout: false // Sin layout exterior: ocupa el 100% de la ventana de la tablet o teléfono
 })
 
 const { role, name: currentUserName } = useAuthUser()
+const router = useRouter()
+const supabase = useSupabaseClient()
 
-// Modos de vista: 'split' | 'plan-only' | 'list-only'
-const mainTab = ref<'summary' | 'plan' | 'checklist' | 'observations'>('plan')
-const viewMode = ref<'split' | 'plan-only' | 'list-only'>('split')
+// Estados de Navegación Principal
+const activeBottomTab = ref<'inspections' | 'sync' | 'profile'>('inspections')
+const isOnline = ref(true)
+const isSyncing = ref(false)
+const syncPercentage = ref(100)
 
-const checklistData = ref([
-  { id: 'cl-1', area: 'Sala / Comedor', category: 'Paredes y Pintura', title: 'Empaste y pintura libre de fisuras o manchas', description: 'Revisión con luz rasante sobre tabiquería seca y concreto', status: 'OK' },
-  { id: 'cl-2', area: 'Sala / Comedor', category: 'Pisos', title: 'Nivelación y juntas de dilatación en porcelanato', description: 'Sin piezas desportilladas ni bordes filosos', status: 'OK' },
-  { id: 'cl-3', area: 'Sala / Comedor', category: 'Carpintería y Ventanas', title: 'Cierre hermético y rieles de mampara', description: 'Deslizamiento suave sin trabas ni holgura excesiva', status: 'OBS' },
-  { id: 'cl-4', area: 'Cocina', category: 'Muebles y Mesón', title: 'Sellado de silestone/granito y zócalo', description: 'Sin filtraciones hacia muebles bajos', status: 'OK' },
-  { id: 'cl-5', area: 'Cocina', category: 'Gasfitería', title: 'Presión en grifería y libre de fugas en sifón', description: 'Prueba de llenado y desagüe continuo', status: 'OK' },
-  { id: 'cl-6', area: 'Baño Principal', category: 'Aparatos Sanitarios', title: 'Sellado perimetral con silicona antihongos', description: 'Unión lavamanos e inodoro con piso y muro', status: 'OBS' },
-  { id: 'cl-7', area: 'Dormitorio Principal', category: 'Puertas y Clóset', title: 'Alineación de bisagras y pestillo magnético', description: 'Apertura a 90 grados sin roce con piso', status: 'OK' }
-])
-
-const currentChecklistItems = computed(() => {
-  return checklistData.value.filter(item => item.area === activeArea.value)
-})
-
-const openObsFromChecklist = (item: any) => {
-  item.status = 'OBS'
-  newObsForm.value.title = item.title
-  newObsForm.value.description = `Observación detectada en checklist: ${item.description}`
-  newObsForm.value.severity = 'MODERADA'
-  openNewObsModal()
+const toggleNetworkStatus = () => {
+  isOnline.value = !isOnline.value
 }
 
-const showDrawer = ref(false)
-const showNewObsModal = ref(false)
-const selectedObsId = ref<string | null>(null)
-const selectedMarkerIndex = ref<number | null>(null)
-const movingPinIndex = ref<number | null>(null)
-const pendingCoordinates = ref<{ x: number; y: number } | null>(null)
-
-// Detección automática al cargar según el ancho de la pantalla
-onMounted(() => {
-  if (typeof window !== 'undefined') {
-    if (window.innerWidth < 768) {
-      viewMode.value = 'plan-only'
-    } else {
-      viewMode.value = 'split'
-    }
-
-    window.addEventListener('resize', () => {
-      if (window.innerWidth < 768 && viewMode.value === 'split') {
-        viewMode.value = 'plan-only'
-      }
-    })
-  }
-})
-
-const currentUnit = {
-  name: 'Departamento 305',
-  project: 'Condominio Los Cedros - Torre B'
-}
-
-const areas = ['Sala / Comedor', 'Cocina', 'Dormitorio Principal', 'Baño Principal', 'Balcón']
-const activeArea = ref('Sala / Comedor')
-
-interface ObservationItem {
+// ==============================================================
+// 1. LISTA DE INSPECCIONES
+// ==============================================================
+interface InspectionModel {
   id: string
-  area: string
-  title: string
-  description: string
-  severity: 'MENOR' | 'MODERADA' | 'MAYOR' | 'CRÍTICA'
-  status: string
-  sha256: string
+  project: string
+  unit: string
+  building: string
+  floor: string
+  client: string
+  scheduledDate: string
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'DRAFT'
+  statusLabel: string
+  progress: number
+  thumbBg: string
+  thumbIcon: string
 }
 
-const observations = ref<ObservationItem[]>([
+const inspectionsList = ref<InspectionModel[]>([
   {
-    id: 'obs-01',
-    area: 'Sala / Comedor',
-    title: 'Fisura capilar en muro norte',
-    description: 'Fisura diagonal de 0.4mm sobre enlucido contiguo a ventana principal.',
-    severity: 'MENOR',
-    status: 'PENDIENTE',
-    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    id: '55555555-0000-0000-0000-000000000002',
+    project: 'Condominio Los Cedros',
+    unit: 'Dpto 305',
+    building: 'Torre B',
+    floor: '3',
+    client: 'Inmobiliaria Panorama / María Torres',
+    scheduledDate: '23 Oct. 2026',
+    status: 'IN_PROGRESS',
+    statusLabel: 'En progreso',
+    progress: 68,
+    thumbBg: '#0d2238',
+    thumbIcon: '🏢'
   },
   {
-    id: 'obs-02',
-    area: 'Cocina',
-    title: 'Junta de cerámico desalineada o con holgura',
-    description: 'Separación mayor a 3mm en piso cerámico frente al mesón de granito.',
-    severity: 'MODERADA',
-    status: 'PENDIENTE',
-    sha256: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb'
+    id: '55555555-0000-0000-0000-000000000001',
+    project: 'Edificio Miramar',
+    unit: 'Dpto 201',
+    building: 'Torre A',
+    floor: '2',
+    client: 'Carlos Mendoza',
+    scheduledDate: '24 Oct. 2026',
+    status: 'SCHEDULED',
+    statusLabel: 'Pendiente',
+    progress: 20,
+    thumbBg: '#1e242d',
+    thumbIcon: '🌊'
   },
   {
-    id: 'obs-03',
-    area: 'Baño Principal',
-    title: 'Falta sellado de silicona sanitaria',
-    description: 'Ausencia de cordón perimetral antihongos entre lavamanos y pared.',
-    severity: 'MODERADA',
-    status: 'PENDIENTE',
-    sha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a'
+    id: '55555555-0000-0000-0000-000000000003',
+    project: 'Torres del Sol',
+    unit: 'Dpto 1102',
+    building: 'Torre Única',
+    floor: '11',
+    client: 'Jorge Ramírez',
+    scheduledDate: '20 Oct. 2026',
+    status: 'COMPLETED',
+    statusLabel: 'Cerrada / Conforme',
+    progress: 100,
+    thumbBg: '#0f291e',
+    thumbIcon: '☀️'
   }
 ])
 
-interface PlanMarkerItem {
+const selectedInspection = ref<InspectionModel | null>(null)
+const searchQuery = ref('')
+const selectedFilter = ref('ALL')
+
+const inspectionFilters = [
+  { label: 'Todos', value: 'ALL' },
+  { label: 'Pendientes', value: 'SCHEDULED' },
+  { label: 'En Progreso', value: 'IN_PROGRESS' },
+  { label: 'Cerradas', value: 'COMPLETED' }
+]
+
+const countInspections = (filterVal: string) => {
+  if (filterVal === 'ALL') return inspectionsList.value.length
+  return inspectionsList.value.filter(i => i.status === filterVal).length
+}
+
+const filteredInspections = computed(() => {
+  return inspectionsList.value.filter(i => {
+    const matchesFilter = selectedFilter.value === 'ALL' || i.status === selectedFilter.value
+    const q = searchQuery.value.toLowerCase().trim()
+    const matchesQuery = !q || 
+      i.project.toLowerCase().includes(q) || 
+      i.unit.toLowerCase().includes(q) || 
+      i.client.toLowerCase().includes(q)
+    return matchesFilter && matchesQuery
+  })
+})
+
+const openInspectionDetail = (insp: InspectionModel) => {
+  selectedInspection.value = insp
+  detailSubTab.value = 'summary'
+}
+
+const closeInspectionDetail = () => {
+  selectedInspection.value = null
+}
+
+// ==============================================================
+// 2. DETALLE DE INSPECCIÓN: PESTAÑAS (Resumen, Plano, Checklist, Obs)
+// ==============================================================
+const detailSubTab = ref<'summary' | 'plan' | 'checklist' | 'observations'>('summary')
+
+// Ambientes de la Unidad
+interface AreaItem {
+  id: string
+  name: string
+  cssClass: string
+  isEditing?: boolean
+}
+
+const inspectionAreas = ref<AreaItem[]>([
+  { id: 'a-1', name: 'Sala / Comedor', cssClass: 'room-living' },
+  { id: 'a-2', name: 'Cocina', cssClass: 'room-kitchen' },
+  { id: 'a-3', name: 'Dormitorio Principal', cssClass: 'room-bed-main' },
+  { id: 'a-4', name: 'Baño Principal', cssClass: 'room-bath-main' },
+  { id: 'a-5', name: 'Balcón', cssClass: 'room-balcony' }
+])
+
+const activeSelectedArea = ref('Sala / Comedor')
+const newAreaNameInput = ref('')
+
+const toggleAreaRename = (idx: number) => {
+  if (inspectionAreas.value[idx]) {
+    inspectionAreas.value[idx].isEditing = !inspectionAreas.value[idx].isEditing
+  }
+}
+
+const removeAreaFromPlan = (idx: number) => {
+  if (inspectionAreas.value.length > 1) {
+    inspectionAreas.value.splice(idx, 1)
+  }
+}
+
+const addNewAreaToInspection = () => {
+  const name = newAreaNameInput.value.trim()
+  if (name && !inspectionAreas.value.some(a => a.name === name)) {
+    inspectionAreas.value.push({
+      id: `area-${Date.now()}`,
+      name,
+      cssClass: 'room-custom'
+    })
+    activeSelectedArea.value = name
+    newAreaNameInput.value = ''
+  }
+}
+
+// ==============================================================
+// 3. PINES SOBRE PLANO INTERACTIVO
+// ==============================================================
+interface MarkerItem {
+  id: string
   x: number
   y: number
   title: string
@@ -605,73 +998,217 @@ interface PlanMarkerItem {
   obsId?: string
 }
 
-const markers = ref<PlanMarkerItem[]>([
-  { x: 28, y: 38, title: 'Fisura en muro norte', area: 'Sala / Comedor', severity: 'MENOR', obsId: 'obs-01' },
-  { x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Cocina', severity: 'MODERADA', obsId: 'obs-02' },
-  { x: 75, y: 62, title: 'Falta sellado de silicona', area: 'Baño Principal', severity: 'MODERADA', obsId: 'obs-03' }
+const inspectionMarkers = ref<MarkerItem[]>([
+  { id: 'm-1', x: 28, y: 38, title: 'Fisura capilar en muro norte', area: 'Sala / Comedor', severity: 'MENOR', obsId: 'obs-01' },
+  { id: 'm-2', x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Cocina', severity: 'MODERADA', obsId: 'obs-02' },
+  { id: 'm-3', x: 75, y: 62, title: 'Falta cordón de silicona antihongos', area: 'Baño Principal', severity: 'MODERADA', obsId: 'obs-03' }
 ])
 
-const filteredObservations = computed(() => {
-  return observations.value.filter(o => o.area === activeArea.value)
+const selectedMarkerId = ref<string | null>(null)
+const movingPinIndex = ref<number | null>(null)
+const pendingCoordinates = ref<{ x: number; y: number } | null>(null)
+
+const selectedMarkerItem = computed(() => {
+  return inspectionMarkers.value.find(m => m.id === selectedMarkerId.value)
 })
 
-const countByArea = (area: string) => {
-  return observations.value.filter(o => o.area === area).length
+const getMarkerIndex = (markerId: string) => {
+  return inspectionMarkers.value.findIndex(m => m.id === markerId)
 }
 
-const getObsMarkerIndex = (obsId: string) => {
-  return markers.value.findIndex(m => m.obsId === obsId)
-}
-
-// Catálogo de Defectos Frecuentes
-const presets = [
-  { id: '1', title: 'Fisura en muro', desc: 'Fisura capilar por retracción en empaste o revoque.', severity: 'MENOR' as const },
-  { id: '2', title: 'Descuadre en marco de puerta', desc: 'Holgura asimétrica o fricción en pestillo.', severity: 'MODERADA' as const },
-  { id: '3', title: 'Pieza cerámica hueca', desc: 'Falta de adherencia en baldosa cerámica.', severity: 'MODERADA' as const },
-  { id: '4', title: 'Falta silicona antihongos', desc: 'Sellado ausente en artefactos sanitarios.', severity: 'MENOR' as const },
-  { id: '5', title: 'Mancha en pintura', desc: 'Variación de tono o retoque visible.', severity: 'MENOR' as const },
-  { id: '6', title: 'Goteo en grifería', desc: 'Filtración en flexible o conexión de agua.', severity: 'MAYOR' as const }
-]
-
-const newObsForm = ref({
-  title: '',
-  description: '',
-  severity: 'MENOR' as 'MENOR' | 'MODERADA' | 'MAYOR' | 'CRÍTICA'
-})
-
-const applyPreset = (preset: typeof presets[0]) => {
-  newObsForm.value.title = preset.title
-  newObsForm.value.description = preset.desc
-  newObsForm.value.severity = preset.severity
-}
-
-const selectArea = (areaName: string) => {
-  activeArea.value = areaName
-}
-
-const handleAreaClick = (event: MouseEvent, areaName: string) => {
-  activeArea.value = areaName
-  // Delegar al canvas plan click para capturar coordenadas exactas
-  const canvas = document.querySelector('.plan-canvas-area') as HTMLElement
+const selectAreaFromPlan = (event: MouseEvent, areaName: string) => {
+  activeSelectedArea.value = areaName
+  
+  // Capturar coordenadas exactas del toque
+  const canvas = document.querySelector('.blueprint-canvas') as HTMLElement
   if (canvas) {
     const rect = canvas.getBoundingClientRect()
     const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
     const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
 
-    if (movingPinIndex.value !== null && markers.value[movingPinIndex.value]) {
-      markers.value[movingPinIndex.value].x = x
-      markers.value[movingPinIndex.value].y = y
-      markers.value[movingPinIndex.value].area = areaName
-      selectedMarkerIndex.value = movingPinIndex.value
+    if (movingPinIndex.value !== null && inspectionMarkers.value[movingPinIndex.value]) {
+      inspectionMarkers.value[movingPinIndex.value].x = x
+      inspectionMarkers.value[movingPinIndex.value].y = y
+      inspectionMarkers.value[movingPinIndex.value].area = areaName
+      selectedMarkerId.value = inspectionMarkers.value[movingPinIndex.value].id
       movingPinIndex.value = null
       return
     }
 
-    openNewObsModal({ x, y })
+    openObservationModal({ x, y })
   }
 }
 
-const openNewObsModal = (coords?: { x: number; y: number }) => {
+const handlePlanCanvasClick = (event: MouseEvent) => {
+  const canvas = (event.currentTarget as HTMLElement).querySelector('.blueprint-canvas') as HTMLElement || event.currentTarget as HTMLElement
+  const rect = canvas.getBoundingClientRect()
+  const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
+  const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
+
+  if (movingPinIndex.value !== null && inspectionMarkers.value[movingPinIndex.value]) {
+    inspectionMarkers.value[movingPinIndex.value].x = x
+    inspectionMarkers.value[movingPinIndex.value].y = y
+    selectedMarkerId.value = inspectionMarkers.value[movingPinIndex.value].id
+    movingPinIndex.value = null
+    return
+  }
+
+  openObservationModal({ x, y })
+}
+
+const selectMarkerOnPlan = (marker: MarkerItem, idx: number) => {
+  selectedMarkerId.value = marker.id
+  activeSelectedArea.value = marker.area
+}
+
+const startPinMove = (marker: MarkerItem) => {
+  const idx = inspectionMarkers.value.findIndex(m => m.id === marker.id)
+  if (idx !== -1) {
+    movingPinIndex.value = idx
+  }
+}
+
+const cancelPinMove = () => {
+  movingPinIndex.value = null
+}
+
+const deleteMarker = (markerId: string) => {
+  inspectionMarkers.value = inspectionMarkers.value.filter(m => m.id !== markerId)
+  selectedMarkerId.value = null
+}
+
+// ==============================================================
+// 4. CHECKLIST TÉCNICA DETALLADA POR AMBIENTE
+// ==============================================================
+interface ChecklistItem {
+  id: string
+  area: string
+  category: string
+  title: string
+  specification: string
+  status: 'OK' | 'OBS' | 'N/A'
+  icon: string
+}
+
+const fullChecklistData = ref<ChecklistItem[]>([
+  // Sala / Comedor
+  { id: 'cl-1', area: 'Sala / Comedor', category: 'Paredes y Enlucidos', title: 'Paredes - Fisuras / grietas o desprendimientos', specification: 'Superficie lisa y plomada libre de microfisuras por retracción', status: 'OK', icon: '🧱' },
+  { id: 'cl-2', area: 'Sala / Comedor', category: 'Pisos y Guardapolvos', title: 'Pisos - Estado general y juntas de dilatación', specification: 'Nivelación uniforme sin cejas superiores a 1mm', status: 'OK', icon: '⬛' },
+  { id: 'cl-3', area: 'Sala / Comedor', category: 'Ventanas y Mamparas', title: 'Ventanas - Funcionamiento, felpas y cierre hermético', specification: 'Deslizamiento suave en rieles y estanqueidad perimetral', status: 'OBS', icon: '🪟' },
+  { id: 'cl-4', area: 'Sala / Comedor', category: 'Electricidad', title: 'Tomacorrientes e Interruptores - Pruebas de tensión', specification: 'Placas alineadas y polaridad correcta según norma', status: 'OK', icon: '🔌' },
+
+  // Cocina
+  { id: 'cl-5', area: 'Cocina', category: 'Mobiliario', title: 'Muebles de cocina altos y bajos', specification: 'Bisagras de cierre suave y tiradores fijados', status: 'OK', icon: '🗄️' },
+  { id: 'cl-6', area: 'Cocina', category: 'Mesón y Zócalos', title: 'Encimera de Granito / Cuarzo', specification: 'Sellado hidrófugo en unión muro y artefactos', status: 'OBS', icon: '🍽️' },
+  { id: 'cl-7', area: 'Cocina', category: 'Gasfitería', title: 'Grifería y trampa de desagüe bajo pozo', specification: 'Presión continua de agua fría/caliente sin fugas', status: 'OK', icon: '🚰' },
+
+  // Baño Principal
+  { id: 'cl-8', area: 'Baño Principal', category: 'Aparatos Sanitarios', title: 'Inodoro y Lavamanos - Fijación y sellado', specification: 'Cordón de silicona antihongos continuo y descarga limpia', status: 'OBS', icon: '🚽' },
+  { id: 'cl-9', area: 'Baño Principal', category: 'Revestimiento', title: 'Azulejos y Porcelanato de Ducha', specification: 'Pendiente de escurrimiento hacia sumidero sifonado', status: 'OK', icon: '🚿' },
+
+  // Dormitorio Principal
+  { id: 'cl-10', area: 'Dormitorio Principal', category: 'Carpintería', title: 'Puerta de Ingreso y Cerradura', specification: 'Holgura simétrica de 3mm y pestillo libre de trabas', status: 'OK', icon: '🚪' },
+  { id: 'cl-11', area: 'Dormitorio Principal', category: 'Mobiliario', title: 'Clóset y Cajonería corredera', specification: 'Rieles nivelados y melamine sin astilladuras', status: 'OK', icon: '👔' },
+
+  // Balcón
+  { id: 'cl-12', area: 'Balcón', category: 'Estructura y Baranda', title: 'Baranda metálica o cristal templado', specification: 'Fijaciones periciales de anclaje con pernos inoxidables', status: 'OK', icon: '🏙️' }
+])
+
+const currentAreaChecklist = computed(() => {
+  return fullChecklistData.value.filter(item => item.area === activeSelectedArea.value)
+})
+
+const triggerObsFromChecklist = (item: ChecklistItem) => {
+  item.status = 'OBS'
+  obsForm.value.title = item.title
+  obsForm.value.category = item.category
+  obsForm.value.description = `Hallazgo detectado en checklist: ${item.specification}`
+  obsForm.value.severity = 'MODERADA'
+  openObservationModal()
+}
+
+// ==============================================================
+// 5. OBSERVACIONES CON EVIDENCIAS FOTOGRÁFICAS (CÁMARA / GALERÍA)
+// ==============================================================
+interface PhotoEvidence {
+  fileName: string
+  dataUrl: string
+  sha256: string
+}
+
+interface ObservationRecord {
+  id: string
+  title: string
+  description: string
+  category: string
+  severity: string
+  area: string
+  status: string
+  photos: PhotoEvidence[]
+}
+
+const inspectionObservations = ref<ObservationRecord[]>([
+  {
+    id: 'obs-01',
+    title: 'Fisura capilar en muro norte',
+    description: 'Fisura diagonal de 0.4mm sobre enlucido contiguo a ventana principal.',
+    category: 'Paredes y Enlucidos',
+    severity: 'MENOR',
+    area: 'Sala / Comedor',
+    status: 'PENDIENTE',
+    photos: [
+      {
+        fileName: 'FOTO-01-SALA.JPG',
+        dataUrl: '',
+        sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+      }
+    ]
+  },
+  {
+    id: 'obs-02',
+    title: 'Junta de cerámico desalineada o con holgura',
+    description: 'Separación mayor a 3mm en piso cerámico frente al mesón de granito.',
+    category: 'Pisos y Guardapolvos',
+    severity: 'MODERADA',
+    area: 'Cocina',
+    status: 'PENDIENTE',
+    photos: [
+      {
+        fileName: 'FOTO-02-COCINA.JPG',
+        dataUrl: '',
+        sha256: 'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb'
+      }
+    ]
+  },
+  {
+    id: 'obs-03',
+    title: 'Falta cordón de silicona antihongos',
+    description: 'Ausencia de cordón perimetral entre lavamanos y pared.',
+    category: 'Aparatos Sanitarios',
+    severity: 'MODERADA',
+    area: 'Baño Principal',
+    status: 'PENDIENTE',
+    photos: [
+      {
+        fileName: 'FOTO-03-BANO.JPG',
+        dataUrl: '',
+        sha256: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a'
+      }
+    ]
+  }
+])
+
+const showObsModal = ref(false)
+const capturedPhotosList = ref<PhotoEvidence[]>([])
+
+const obsForm = ref({
+  title: '',
+  description: '',
+  category: 'Acabados',
+  severity: 'MODERADA'
+})
+
+const openObservationModal = (coords?: { x: number; y: number }) => {
   if (coords) {
     pendingCoordinates.value = coords
   } else {
@@ -680,1196 +1217,1559 @@ const openNewObsModal = (coords?: { x: number; y: number }) => {
       y: 30 + Math.round(Math.random() * 30)
     }
   }
-  showNewObsModal.value = true
+  capturedPhotosList.value = []
+  showObsModal.value = true
 }
 
-const handlePlanClick = (event: MouseEvent) => {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
-  const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
+const handlePhotoCaptured = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    const file = target.files[0]
+    
+    // Leer imagen como base64
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string
+      
+      // Calcular hash SHA-256 local
+      const arrayBuffer = await file.arrayBuffer()
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const sha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 
-  // Si estamos en modo mover pin, actualizamos su coordenada
-  if (movingPinIndex.value !== null && markers.value[movingPinIndex.value]) {
-    markers.value[movingPinIndex.value].x = x
-    markers.value[movingPinIndex.value].y = y
-    selectedMarkerIndex.value = movingPinIndex.value
-    movingPinIndex.value = null
-    return
-  }
-
-  // De lo contrario, abrir modal para registrar defecto en ese punto exacto
-  openNewObsModal({ x, y })
-}
-
-const selectMarker = (marker: PlanMarkerItem, idx: number) => {
-  selectedMarkerIndex.value = idx
-  activeArea.value = marker.area
-  if (marker.obsId) {
-    selectedObsId.value = marker.obsId
-  }
-}
-
-const selectObsCard = (obs: ObservationItem) => {
-  selectedObsId.value = obs.id
-  const markerIdx = getObsMarkerIndex(obs.id)
-  if (markerIdx !== -1) {
-    selectedMarkerIndex.value = markerIdx
-  }
-}
-
-const startMovingPin = (idx: number) => {
-  movingPinIndex.value = idx
-}
-
-const cancelMovingPin = () => {
-  movingPinIndex.value = null
-}
-
-const deletePin = (idx: number) => {
-  if (idx >= 0 && idx < markers.value.length) {
-    const deleted = markers.value.splice(idx, 1)[0]
-    selectedMarkerIndex.value = null
-    if (movingPinIndex.value === idx) {
-      movingPinIndex.value = null
+      capturedPhotosList.value.push({
+        fileName: file.name || `FOTO-${Date.now().toString().slice(-4)}.JPG`,
+        dataUrl,
+        sha256
+      })
     }
+    reader.readAsDataURL(file)
   }
 }
 
-const deleteObservation = (obsId: string) => {
-  observations.value = observations.value.filter(o => o.id !== obsId)
-  // Quitar también el pin asociado si existe
-  const pinIdx = markers.value.findIndex(m => m.obsId === obsId)
-  if (pinIdx !== -1) {
-    deletePin(pinIdx)
-  }
+const removeCapturedPhoto = (index: number) => {
+  capturedPhotosList.value.splice(index, 1)
 }
 
-const saveNewObservation = () => {
-  if (!newObsForm.value.title) return
+const saveObservationWithPhoto = () => {
+  if (!obsForm.value.title) return
 
-  const newId = `obs-${Date.now()}`
+  const newObsId = `obs-${Date.now()}`
   const coords = pendingCoordinates.value || {
     x: 40 + Math.round(Math.random() * 20),
     y: 35 + Math.round(Math.random() * 25)
   }
 
-  observations.value.unshift({
-    id: newId,
-    area: activeArea.value,
-    title: newObsForm.value.title,
-    description: newObsForm.value.description,
-    severity: newObsForm.value.severity,
+  // Si no se tomó foto física en la demo, generar una evidencia fotográfica con hash verificado
+  const photos = capturedPhotosList.value.length > 0 
+    ? [...capturedPhotosList.value] 
+    : [
+        {
+          fileName: `EVIDENCIA-${Date.now().toString().slice(-6)}.JPG`,
+          dataUrl: '',
+          sha256: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+        }
+      ]
+
+  // 1. Agregar a Observaciones
+  inspectionObservations.value.unshift({
+    id: newObsId,
+    title: obsForm.value.title,
+    description: obsForm.value.description,
+    category: obsForm.value.category,
+    severity: obsForm.value.severity,
+    area: activeSelectedArea.value,
     status: 'PENDIENTE',
-    sha256: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+    photos
   })
 
-  // Crear pin táctil en el plano
-  markers.value.push({
+  // 2. Colocar Pin en el Plano
+  inspectionMarkers.value.push({
+    id: `m-${Date.now()}`,
     x: coords.x,
     y: coords.y,
-    title: newObsForm.value.title,
-    area: activeArea.value,
-    severity: newObsForm.value.severity,
-    obsId: newId
+    title: obsForm.value.title,
+    area: activeSelectedArea.value,
+    severity: obsForm.value.severity,
+    obsId: newObsId
   })
 
-  selectedMarkerIndex.value = markers.value.length - 1
-  selectedObsId.value = newId
+  // 3. Registrar en cola Outbox para sincronización
+  pendingSyncItems.value.push({
+    id: newObsId,
+    type: 'OBSERVATION',
+    title: obsForm.value.title,
+    sha256: photos[0]?.sha256 || ''
+  })
 
-  newObsForm.value.title = ''
-  newObsForm.value.description = ''
+  // Reset y cerrar modal
+  obsForm.value.title = ''
+  obsForm.value.description = ''
+  capturedPhotosList.value = []
   pendingCoordinates.value = null
-  showNewObsModal.value = false
+  showObsModal.value = false
+}
+
+const deleteObservationItem = (obsId: string) => {
+  inspectionObservations.value = inspectionObservations.value.filter(o => o.id !== obsId)
+  inspectionMarkers.value = inspectionMarkers.value.filter(m => m.obsId !== obsId)
+}
+
+// ==============================================================
+// 6. MOTOR DE SINCRONIZACIÓN OFFLINE / CONFLICTOS
+// ==============================================================
+interface SyncPendingItem {
+  id: string
+  type: string
+  title: string
+  sha256: string
+}
+
+const pendingSyncItems = ref<SyncPendingItem[]>([
+  { id: 'sync-1', type: 'PHOTO', title: 'Evidencia Fotográfica Muro Norte', sha256: 'e3b0c44298fc1c14' },
+  { id: 'sync-2', type: 'OBSERVATION', title: 'Defecto en junta cerámico cocina', sha256: 'ca978112ca1bbdca' }
+])
+
+const runSyncCycle = async () => {
+  if (!isOnline.value) {
+    alert('Modo sin conexión. Conéctese a una red WiFi para sincronizar con la nube.')
+    return
+  }
+
+  isSyncing.value = true
+  syncPercentage.value = 45
+
+  setTimeout(() => {
+    syncPercentage.value = 85
+    setTimeout(() => {
+      syncPercentage.value = 100
+      pendingSyncItems.value = []
+      isSyncing.value = false
+    }, 600)
+  }, 700)
+}
+
+// ==============================================================
+// 7. CIERRE DE SESIÓN
+// ==============================================================
+const handleAppLogout = async () => {
+  await supabase.auth.signOut()
+  router.push('/login')
 }
 </script>
 
 <style scoped>
-.workspace-viewport {
+/* BASE VIEWPORT */
+.openinspection-viewport {
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
-  background: #0d0d0d;
+  background: #090d13;
   color: #fff;
   overflow: hidden;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 50;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Header Nativo de Campo */
-.workspace-header {
-  min-height: 56px;
-  background: #161616;
-  border-bottom: 1px solid #262626;
-  padding: 0 16px;
+/* 1. TOP BAR */
+.app-top-bar {
+  height: 52px;
+  background: #101620;
+  border-bottom: 1px solid #1e2838;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 12px;
-}
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.btn-menu-drawer {
-  background: #222;
-  border: 1px solid #333;
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 0 18px;
   flex-shrink: 0;
 }
-.btn-menu-drawer:hover {
-  background: #2a2a2a;
-  border-color: var(--primary);
-}
-.menu-icon {
-  font-size: 1.1rem;
-}
-.inspection-title-block {
-  min-width: 0;
-}
-.inspection-title-block h2 {
-  font-size: 1rem;
-  margin: 0;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.title-meta {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-top: 2px;
-}
-.meta-tag {
-  font-size: 0.75rem;
-  color: #aaa;
-  white-space: nowrap;
-}
-.badge-offline {
-  background: rgba(3, 218, 198, 0.15);
-  color: #03dac6;
-  font-size: 0.68rem;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: bold;
-  white-space: nowrap;
-}
-.badge-moving {
-  background: rgba(255, 171, 0, 0.2);
-  color: #ffab00;
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 700;
-  border: 1px solid rgba(255, 171, 0, 0.4);
-  animation: pulse-border 1.5s infinite;
-}
-
-.header-right {
+.top-bar-left {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-shrink: 0;
 }
-.view-toggles {
-  display: flex;
-  background: #222;
-  border-radius: 8px;
-  padding: 3px;
-  gap: 2px;
-}
-.view-btn {
-  background: transparent;
-  border: none;
-  color: #888;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.view-btn.active {
-  background: #333;
-  color: #fff;
-  font-weight: bold;
-}
-.btn-primary-action {
-  background: var(--primary);
-  border: none;
-  color: #fff;
-  padding: 7px 14px;
-  border-radius: 8px;
+.brand-badge-mini {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.85rem;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: -0.3px;
+}
+.brand-name-bold {
+  background: linear-gradient(90deg, #58a6ff, #008080);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.mode-tag {
+  background: rgba(255, 255, 255, 0.06);
+  color: #8b949e;
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.network-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
-.btn-plus {
-  font-size: 1.1rem;
-  line-height: 1;
+.network-pill.is-online {
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.3);
+  color: #3fb950;
 }
-
-/* Espacio Principal */
-.workspace-body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  position: relative;
+.network-pill.is-offline {
+  background: rgba(255, 171, 0, 0.15);
+  border-color: rgba(255, 171, 0, 0.3);
+  color: #ffab00;
 }
-.view-split .plan-section {
-  flex: 1.1;
-  border-right: 1px solid #222;
-}
-.view-split .observations-section {
-  flex: 0.9;
-}
-.view-plan-only .plan-section {
-  flex: 1;
-}
-.view-list-only .observations-section {
-  flex: 1;
-}
-
-/* Plano Section */
-.plan-section {
-  display: flex;
-  flex-direction: column;
-  background: #111;
-  height: 100%;
-}
-.plan-toolbar {
-  height: 40px;
-  background: #181818;
-  border-bottom: 1px solid #262626;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 14px;
-  font-size: 0.78rem;
-  color: #bbb;
-  flex-shrink: 0;
-}
-.plan-legend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.legend-dot {
+.network-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #cf6679;
-  flex-shrink: 0;
+  background: currentColor;
 }
-.legend-dot.moving-pulse {
-  background: #ffab00;
-  box-shadow: 0 0 8px #ffab00;
-}
-.text-moving {
-  color: #ffab00;
-  font-weight: 700;
-}
-.plan-stats {
+.top-bar-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.75rem;
-  color: #888;
-  flex-shrink: 0;
 }
-.btn-cancel-move {
-  background: rgba(207, 102, 121, 0.2);
-  border: 1px solid #cf6679;
-  color: #cf6679;
-  padding: 2px 8px;
-  border-radius: 4px;
+.badge-pending-sync {
+  background: rgba(255, 171, 0, 0.2);
+  color: #ffab00;
   font-size: 0.72rem;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 12px;
   cursor: pointer;
 }
-.plan-canvas-area {
+.user-pill-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #161f2e;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  color: #c9d1d9;
+}
+
+/* MAIN CONTENT */
+.app-main-content {
   flex: 1;
-  position: relative;
-  background: #101010;
   overflow: hidden;
-  cursor: crosshair;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================== */
+/* VISTA 1: LISTA DE MIS INSPECCIONES                            */
+/* ============================================================== */
+.view-inspections-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 28px;
+}
+.list-page-header {
+  margin-bottom: 20px;
+}
+.list-title-group h2 {
+  margin: 0 0 4px 0;
+  font-size: 1.5rem;
+  color: #fff;
+}
+.list-title-group p {
+  margin: 0 0 16px 0;
+  color: #8b949e;
+  font-size: 0.88rem;
+}
+.search-and-filters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.search-input-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #131b26;
+  border: 1px solid #212c3d;
+  padding: 8px 14px;
+  border-radius: 10px;
+  width: 320px;
+}
+.search-field {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.85rem;
+  width: 100%;
+}
+.search-field:focus { outline: none; }
+.filter-chips-row {
+  display: flex;
+  gap: 8px;
+}
+.filter-chip-btn {
+  background: #131b26;
+  border: 1px solid #212c3d;
+  color: #8b949e;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.filter-chip-btn.active {
+  background: #003366;
+  border-color: #58a6ff;
+  color: #fff;
+}
+.chip-count {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+}
+
+/* Tarjetas de Inspección */
+.inspections-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+.inspection-card-item {
+  background: #131b26;
+  border: 1px solid #212c3d;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.inspection-card-item:hover {
+  background: #162334;
+  border-color: #388bfd;
+  transform: translateY(-1px);
+}
+.card-thumb-box {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.8rem;
 }
-.blueprint-lines {
+.card-body-column {
+  flex: 1;
+  min-width: 0;
+}
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.card-project-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #fff;
+}
+.status-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+.pill-in_progress { background: rgba(0, 128, 128, 0.2); color: #00a896; border: 1px solid #00a896; }
+.pill-scheduled { background: rgba(255, 171, 0, 0.2); color: #ffab00; border: 1px solid #ffab00; }
+.pill-completed { background: rgba(46, 160, 67, 0.2); color: #3fb950; border: 1px solid #3fb950; }
+
+.card-unit-text {
+  margin: 0 0 2px 0;
+  font-size: 0.9rem;
+  color: #c9d1d9;
+}
+.card-client-text {
+  margin: 0 0 10px 0;
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+.card-footer-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+.progress-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 140px;
+}
+.progress-bar-bg {
+  flex: 1;
+  height: 6px;
+  background: #212c3d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: #008080;
+  border-radius: 3px;
+}
+.progress-text {
+  font-weight: bold;
+  color: #58a6ff;
+  font-size: 0.75rem;
+}
+.card-arrow-column {
+  font-size: 1.8rem;
+  color: #485466;
+}
+
+/* ============================================================== */
+/* VISTA 2: DETALLE DE INSPECCIÓN CON 4 PESTAÑAS                 */
+/* ============================================================== */
+.view-inspection-detail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.inspection-sub-header {
+  height: 60px;
+  background: #101620;
+  border-bottom: 1px solid #1e2838;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  flex-shrink: 0;
+  gap: 12px;
+}
+.sub-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.btn-back-inspections {
+  background: #182230;
+  border: 1px solid #28374d;
+  color: #c9d1d9;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.btn-back-inspections:hover { background: #202c3f; }
+.unit-current-title h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #fff;
+}
+.unit-subtitle {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+/* Tabs Superiores */
+.detail-nav-tabs {
+  display: flex;
+  background: #161f2e;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+}
+.d-tab-btn {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.d-tab-btn.active {
+  background: #003366;
+  color: #fff;
+}
+.btn-new-obs-action {
+  background: #008080;
+  border: none;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.btn-new-obs-action:hover { background: #009688; }
+
+.detail-content-pane {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SUB-TAB 1: RESUMEN */
+.summary-pane {
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.summary-hero-banner {
+  background: linear-gradient(135deg, #101926 0%, #172437 100%);
+  border: 1px solid #23344d;
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.hero-chip-badge {
+  background: rgba(0, 168, 150, 0.2);
+  color: #00a896;
+  border: 1px solid #00a896;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: bold;
+  display: inline-block;
+  margin-bottom: 6px;
+}
+.hero-left-info h3 {
+  margin: 0 0 6px 0;
+  font-size: 1.4rem;
+}
+.hero-address {
+  margin: 0;
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+.circular-progress {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 6px solid #008080;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0b131e;
+}
+.progress-number {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+}
+.progress-lbl {
+  font-size: 0.62rem;
+  color: #8b949e;
+  text-transform: uppercase;
+}
+
+.summary-details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.detail-info-card {
+  background: #111823;
+  border: 1px solid #1f2b3c;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.d-card-icon {
+  font-size: 1.6rem;
+}
+.d-card-texts label {
+  display: block;
+  font-size: 0.72rem;
+  color: #8b949e;
+  text-transform: uppercase;
+}
+.d-card-texts strong {
+  font-size: 0.88rem;
+  color: #fff;
+}
+.text-green { color: #3fb950 !important; }
+
+.summary-bottom-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+}
+.btn-summary-cta {
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-summary-cta.primary { background: #003366; color: #fff; }
+.btn-summary-cta.secondary { background: #008080; color: #fff; }
+.btn-summary-cta.ghost { background: #16202e; border: 1px solid #283950; color: #58a6ff; }
+
+/* SUB-TAB 2: PLANO INTERACTIVO */
+.plan-pane {
+  flex: 1;
+}
+.plan-interactive-layout {
+  flex: 1;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+.plan-canvas-wrapper {
+  flex: 1.3;
+  background: #080c12;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-right: 1px solid #1e2838;
+}
+.plan-header-legend {
+  height: 38px;
+  background: #111823;
+  border-bottom: 1px solid #1e2838;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  color: #c9d1d9;
+}
+.legend-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.text-moving-alert {
+  color: #ffab00;
+  font-weight: bold;
+}
+.btn-cancel-move-sm {
+  background: rgba(248, 81, 73, 0.2);
+  border: 1px solid #f85149;
+  color: #ff7b72;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+.pins-count-tag {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+
+.blueprint-canvas {
+  flex: 1;
+  position: relative;
+  background: #090e15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: crosshair;
+}
+.blueprint-grid-lines {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-size: 26px 26px;
 }
-
-/* Plano Arquitectónico Responsivo */
-.architectural-blueprint {
+.blueprint-rooms-container {
   width: 90%;
   height: 86%;
-  max-width: 900px;
-  max-height: 650px;
-  border: 2px dashed rgba(255,255,255,0.18);
+  max-width: 820px;
+  max-height: 580px;
+  border: 2px dashed rgba(88, 166, 255, 0.3);
   border-radius: 12px;
   position: relative;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: 2fr 1.5fr;
-  gap: 6px;
+  gap: 8px;
   padding: 8px;
   box-sizing: border-box;
 }
-.room-box {
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.02);
+.blueprint-room-box {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: rgba(255,255,255,0.3);
-  letter-spacing: 0.8px;
-  text-align: center;
-  padding: 4px;
-  transition: all 0.2s ease;
+  padding: 8px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
 }
-.room-box:hover {
-  background: rgba(255,255,255,0.05);
+.blueprint-room-box:hover {
+  background: rgba(88, 166, 255, 0.08);
 }
-.room-box.highlight {
-  border-color: rgba(26,115,232,0.6);
-  background: rgba(26,115,232,0.12);
-  color: #58a6ff;
+.blueprint-room-box.active {
+  border-color: #58a6ff;
+  background: rgba(0, 51, 102, 0.25);
+  box-shadow: inset 0 0 16px rgba(88, 166, 255, 0.15);
 }
 .room-living { grid-column: 1 / 2; grid-row: 1 / 3; }
 .room-kitchen { grid-column: 2 / 4; grid-row: 1 / 2; }
 .room-bed-main { grid-column: 2 / 3; grid-row: 2 / 3; }
 .room-bath-main { grid-column: 3 / 4; grid-row: 2 / 3; }
 
-/* Pines Táctiles */
-.interactive-pin {
+.room-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.room-label-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #c9d1d9;
+}
+.room-rename-input {
+  background: #000;
+  border: 1px solid #58a6ff;
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.btn-rename-trigger {
+  background: transparent;
+  border: none;
+  font-size: 0.68rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.btn-rename-trigger:hover { opacity: 1; }
+
+/* Pines en el Plano */
+.plan-pin-marker {
   position: absolute;
   transform: translate(-50%, -100%);
   cursor: pointer;
-  z-index: 10;
-  transition: transform 0.15s ease;
-}
-.pin-active-moving {
-  animation: bounce 0.8s infinite alternate;
-}
-.pin-selected {
-  transform: translate(-50%, -100%) scale(1.2);
   z-index: 20;
 }
-.pin-marker-head {
+.pin-bubble {
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
 }
-.pin-number {
+.pin-idx {
   background: #cf6679;
   color: #fff;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
+  font-weight: bold;
   padding: 1px 4px;
   border-radius: 4px;
-  font-weight: bold;
 }
-.pin-callout {
+.plan-pin-marker.sev-menor .pin-idx { background: #00a896; }
+.plan-pin-marker.sev-moderada .pin-idx { background: #ffab00; }
+.plan-pin-marker.sev-mayor .pin-idx, .plan-pin-marker.sev-crítica .pin-idx { background: #cf6679; }
+
+.pin-tooltip {
   display: none;
   position: absolute;
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: #1e1e1e;
-  border: 1px solid #444;
+  background: #161b22;
+  border: 1px solid #30363d;
   padding: 6px 10px;
   border-radius: 6px;
   white-space: nowrap;
   font-size: 0.72rem;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
 }
-.interactive-pin:hover .pin-callout {
+.plan-pin-marker:hover .pin-tooltip { display: flex; flex-direction: column; }
+
+/* Panel Lateral de Zonas */
+.plan-sidebar-info {
+  flex: 0.7;
+  background: #0f151f;
+  padding: 16px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 14px;
 }
-
-/* Barra de Detalle de Pin Seleccionado */
-.pin-detail-bar {
-  background: #1e242d;
-  border-bottom: 1px solid #2d3b4d;
-  padding: 8px 12px;
+.selected-pin-toolbar {
+  background: #162334;
+  border: 1px solid #388bfd;
+  border-radius: 10px;
+  padding: 12px;
+}
+.selected-pin-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  margin-bottom: 6px;
 }
-.pin-detail-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.badge-pin-num {
-  background: var(--primary);
+.pin-tag-badge {
+  background: #003366;
   color: #fff;
-  font-weight: 700;
   font-size: 0.72rem;
+  font-weight: bold;
   padding: 2px 6px;
   border-radius: 4px;
-  white-space: nowrap;
 }
-.pin-detail-texts {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.btn-close-pin-panel {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
 }
-.pin-detail-texts strong {
-  font-size: 0.82rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.pin-toolbar-title {
+  margin: 0 0 4px 0;
+  font-size: 0.88rem;
 }
-.pin-detail-texts span {
-  font-size: 0.7rem;
+.pin-toolbar-area {
+  margin: 0 0 10px 0;
+  font-size: 0.75rem;
   color: #8b949e;
 }
-.pin-detail-actions {
+.pin-toolbar-actions {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 8px;
 }
-.btn-pin-move {
+.btn-action-move {
   background: #238636;
   border: none;
   color: #fff;
-  font-size: 0.72rem;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: bold;
   cursor: pointer;
-  font-weight: 600;
 }
-.btn-pin-delete {
+.btn-action-delete {
   background: rgba(248, 81, 73, 0.15);
   border: 1px solid rgba(248, 81, 73, 0.4);
   color: #ff7b72;
-  font-size: 0.72rem;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 6px;
+  font-size: 0.75rem;
   cursor: pointer;
-  font-weight: 600;
 }
-.btn-pin-close {
+
+.areas-management-card h4 { margin: 0 0 2px 0; font-size: 0.92rem; }
+.areas-management-card p { margin: 0 0 10px 0; font-size: 0.75rem; color: #8b949e; }
+.areas-pills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.area-manage-item {
+  background: #141c28;
+  border: 1px solid #222f42;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.area-manage-item.selected {
+  border-color: #58a6ff;
+  background: rgba(0, 51, 102, 0.2);
+}
+.area-bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #008080;
+  display: inline-block;
+  margin-right: 6px;
+}
+.inline-rename-field {
+  background: #000;
+  border: 1px solid #58a6ff;
+  color: #fff;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.btn-mini-rename, .btn-mini-delete {
   background: transparent;
   border: none;
   color: #8b949e;
-  font-size: 0.85rem;
   cursor: pointer;
-  padding: 0 4px;
+  font-size: 0.75rem;
+}
+.add-area-inline-box {
+  display: flex;
+  gap: 6px;
+}
+.input-add-area {
+  flex: 1;
+  background: #090e15;
+  border: 1px solid #222f42;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: #fff;
+  font-size: 0.78rem;
+}
+.btn-add-area-btn {
+  background: #008080;
+  border: none;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: bold;
+  cursor: pointer;
 }
 
-/* Sección de Observaciones */
-.observations-section {
-  display: flex;
-  flex-direction: column;
-  background: #141414;
-  height: 100%;
+/* SUB-TAB 3: CHECKLIST PANE */
+.checklist-pane {
+  overflow-y: auto;
+  padding: 20px 24px;
 }
-.area-navigation-bar {
+.checklist-top-control {
+  margin-bottom: 16px;
+}
+.checklist-instruction h3 { margin: 0 0 4px 0; font-size: 1.15rem; }
+.checklist-instruction p { margin: 0 0 12px 0; font-size: 0.82rem; color: #8b949e; }
+.checklist-areas-scroller {
   display: flex;
-  background: #181818;
-  border-bottom: 1px solid #262626;
+  gap: 6px;
   overflow-x: auto;
-  padding: 0 8px;
-  flex-shrink: 0;
 }
-.area-tab {
-  background: transparent;
-  border: none;
-  color: #888;
-  padding: 10px 12px;
-  font-size: 0.78rem;
+.cl-area-pill {
+  background: #131b26;
+  border: 1px solid #212c3d;
+  color: #8b949e;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
+}
+.cl-area-pill.active {
+  background: #003366;
+  border-color: #58a6ff;
+  color: #fff;
+}
+.checklist-grid-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 960px;
+}
+.cl-item-row {
+  background: #111823;
+  border: 1px solid #1f2b3c;
+  border-radius: 10px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 16px;
 }
-.area-tab.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
+.cl-item-icon-col {
+  font-size: 1.5rem;
 }
-.area-badge-count {
-  background: rgba(255,255,255,0.08);
+.cl-item-details-col {
+  flex: 1;
+}
+.cl-element-category {
+  font-size: 0.68rem;
+  color: #00a896;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.cl-element-title {
+  margin: 2px 0 3px 0;
+  font-size: 0.95rem;
+  color: #fff;
+}
+.cl-element-spec {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+.cl-item-actions-col {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-status-choice {
+  background: #182230;
+  border: 1px solid #27364b;
+  color: #8b949e;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-status-choice.btn-ok.selected { background: #008000; color: #fff; border-color: #008000; }
+.btn-status-choice.btn-obs.selected { background: #FF8C00; color: #fff; border-color: #FF8C00; }
+.btn-status-choice.btn-na.selected { background: #38465a; color: #fff; }
+
+/* SUB-TAB 4: OBSERVACIONES */
+.observations-pane {
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+.obs-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.obs-pane-header h3 { margin: 0 0 2px 0; font-size: 1.15rem; }
+.obs-pane-header p { margin: 0; font-size: 0.8rem; color: #8b949e; }
+.obs-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 960px;
+}
+.obs-detail-card {
+  background: #111823;
+  border: 1px solid #1f2b3c;
+  border-radius: 10px;
+  padding: 16px;
+}
+.obs-card-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.obs-tags-left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.badge-idx {
+  background: #182230;
+  color: #58a6ff;
+  font-weight: bold;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.badge-severity {
+  font-size: 0.68rem;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.badge-area {
+  font-size: 0.72rem;
+  color: #c9d1d9;
+}
+.badge-status {
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+.btn-delete-obs-item {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.obs-card-title {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+}
+.obs-card-desc {
+  margin: 0 0 12px 0;
+  font-size: 0.82rem;
+  color: #aaa;
+}
+.obs-photos-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.photo-thumb-card {
+  background: #090e15;
+  border: 1px solid #1f2b3c;
+  border-radius: 6px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.photo-img-render {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.photo-placeholder {
+  width: 44px;
+  height: 44px;
+  background: #182230;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.65rem;
+  border-radius: 4px;
+}
+.photo-meta-info {
+  display: flex;
+  flex-direction: column;
+}
+.photo-file-name {
+  font-size: 0.72rem;
+  font-weight: bold;
+  color: #fff;
+}
+.photo-sha {
+  font-size: 0.65rem;
+  color: #00a896;
+}
+
+/* ============================================================== */
+/* VISTA 3: MOTOR DE SINCRONIZACIÓN (PANTALLA 2 Y 9)             */
+/* ============================================================== */
+.view-sync-engine {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+}
+.sync-pane-card {
+  background: #111823;
+  border: 1px solid #1f2b3c;
+  border-radius: 14px;
+  padding: 28px;
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.sync-pane-header {
+  text-align: center;
+}
+.sync-pane-header h2 { margin: 0 0 6px 0; }
+.sync-pane-header p { margin: 0; color: #8b949e; font-size: 0.85rem; }
+.sync-circular-container {
+  margin: 10px 0;
+}
+.sync-progress-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 8px solid #008080;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #090e15;
+}
+.sync-progress-circle.spinning {
+  animation: pulse-sync 1s infinite alternate;
+}
+@keyframes pulse-sync {
+  0% { border-color: #008080; }
+  100% { border-color: #58a6ff; }
+}
+.sync-percentage {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fff;
+}
+.sync-circle-label {
+  font-size: 0.68rem;
+  color: #8b949e;
+}
+.sync-items-checklist {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sync-checklist-item {
+  background: #16202e;
+  border: 1px solid #243449;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sync-item-icon { font-size: 1.2rem; }
+.sync-item-texts { flex: 1; }
+.sync-item-texts strong { display: block; font-size: 0.88rem; }
+.sync-item-texts small { color: #8b949e; font-size: 0.75rem; }
+.sync-item-status.check { color: #3fb950; font-weight: bold; font-size: 0.82rem; }
+.sync-item-status.pending { color: #ffab00; font-weight: bold; font-size: 0.82rem; }
+
+.sync-actions-bottom {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.btn-trigger-sync {
+  width: 100%;
+  background: #008080;
+  border: none;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-trigger-sync:hover { background: #009688; }
+.sync-hint-text {
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-align: center;
+  margin: 0;
+}
+
+/* ============================================================== */
+/* VISTA 4: PERFIL Y CIERRE DE SESIÓN                            */
+/* ============================================================== */
+.view-profile-pane {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.profile-card-box {
+  background: #111823;
+  border: 1px solid #1f2b3c;
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.profile-avatar-large {
+  font-size: 3rem;
+  margin-bottom: 10px;
+}
+.profile-card-box h3 { margin: 0 0 4px 0; font-size: 1.3rem; }
+.profile-role-tag {
+  color: #00a896;
+  font-weight: bold;
+  font-size: 0.8rem;
+  margin: 0 0 6px 0;
+}
+.profile-email-badge {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: #8b949e;
+  margin-bottom: 20px;
+}
+.profile-meta-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.profile-meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  border-bottom: 1px solid #1f2b3c;
+  padding-bottom: 6px;
+}
+.profile-meta-row span { color: #8b949e; }
+.btn-logout-app {
+  width: 100%;
+  background: rgba(248, 81, 73, 0.15);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ff7b72;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* ============================================================== */
+/* DOCK BARRA INFERIOR (FIGURA 3 Y 9)                            */
+/* ============================================================== */
+.app-bottom-nav {
+  height: 58px;
+  background: #101620;
+  border-top: 1px solid #1e2838;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.nav-dock-btn {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  position: relative;
+  padding: 6px 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.nav-dock-btn.active {
+  color: #00a896;
+}
+.dock-icon { font-size: 1.25rem; }
+.dock-label { font-size: 0.7rem; font-weight: 600; }
+.dock-bubble {
+  position: absolute;
+  top: 2px;
+  right: 18px;
+  background: #ffab00;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: bold;
   padding: 1px 5px;
   border-radius: 10px;
 }
 
-.observations-scroll-pane {
-  flex: 1;
-  overflow-y: auto;
-  padding: 14px;
-}
-.pane-header-actions {
+/* ============================================================== */
+/* MODAL: NUEVA OBSERVACIÓN + CÁMARA (FIGURA 7 Y 8)               */
+/* ============================================================== */
+.modal-backdrop-camera {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  justify-content: center;
+  z-index: 250;
+  padding: 16px;
 }
-.pane-header-actions h3 {
-  margin: 0;
-  font-size: 0.95rem;
-}
-.section-hint {
-  font-size: 0.72rem;
-  color: #888;
-  margin: 2px 0 0 0;
-}
-.btn-ghost-sm {
-  background: #222;
-  border: 1px solid #333;
-  color: #fff;
-  padding: 5px 10px;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* Tarjetas */
-.observations-grid {
+.modal-obs-window {
+  background: #121924;
+  border: 1px solid #24354a;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
 }
-.observation-card {
-  background: #1b1b1b;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.observation-card:hover {
-  background: #202020;
-  border-color: #383838;
-}
-.observation-card.obs-selected {
-  border-color: var(--primary);
-  background: rgba(26,115,232,0.05);
-}
-.obs-card-top {
+.modal-obs-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #24354a;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
+  align-items: flex-start;
 }
-.obs-tags {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.obs-actions-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.btn-delete-obs {
+.modal-obs-header h3 { margin: 0; font-size: 1.15rem; }
+.modal-location-subtitle { font-size: 0.75rem; color: #8b949e; margin-top: 2px; display: block; }
+.btn-close-modal-x {
   background: transparent;
   border: none;
-  color: #888;
+  color: #8b949e;
+  font-size: 1.2rem;
   cursor: pointer;
-  font-size: 0.8rem;
-  padding: 2px 4px;
-  border-radius: 4px;
 }
-.btn-delete-obs:hover {
-  background: rgba(207, 102, 121, 0.2);
-  color: #cf6679;
+.modal-obs-body {
+  padding: 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.tag-severity {
-  font-size: 0.65rem;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-.sev-menor { background: rgba(3, 218, 198, 0.15); color: #03dac6; }
-.sev-moderada { background: rgba(255, 171, 0, 0.15); color: #ffab00; }
-.sev-mayor, .sev-crítica { background: rgba(207, 102, 121, 0.2); color: #cf6679; }
-
-.tag-status {
-  font-size: 0.65rem;
-  color: #888;
-}
-.tag-pin-link {
-  font-size: 0.65rem;
-  color: #58a6ff;
-  font-weight: 600;
-}
-.tag-storage {
-  font-size: 0.65rem;
-  color: #666;
-  font-family: monospace;
-}
-.obs-title {
-  margin: 0 0 4px 0;
-  font-size: 0.86rem;
+.form-group-custom { display: flex; flex-direction: column; gap: 4px; }
+.form-group-custom label { font-size: 0.78rem; font-weight: 600; color: #8b949e; }
+.field-input {
+  background: #0a0f16;
+  border: 1px solid #24354a;
+  border-radius: 6px;
+  padding: 8px 12px;
   color: #fff;
+  font-size: 0.85rem;
 }
-.obs-description {
-  margin: 0 0 8px 0;
-  font-size: 0.76rem;
-  color: #aaa;
-  line-height: 1.35;
+.field-input:focus { outline: none; border-color: #58a6ff; }
+.field-input.textarea { resize: vertical; }
+
+.ai-suggestion-box {
+  background: rgba(0, 51, 102, 0.2);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
 }
-.obs-evidence-box {
-  background: #111;
-  border: 1px solid #222;
+.ai-icon { font-size: 1.1rem; }
+.ai-texts label { font-size: 0.7rem; color: #58a6ff; font-weight: bold; text-transform: uppercase; }
+.ai-texts p { margin: 0; font-size: 0.75rem; color: #c9d1d9; }
+
+.form-row-custom { display: flex; gap: 12px; }
+.form-col { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.form-col label { font-size: 0.78rem; font-weight: 600; color: #8b949e; }
+
+.severity-chips-group { display: flex; gap: 4px; }
+.sev-choice-chip {
+  flex: 1;
+  background: #182230;
+  border: 1px solid #27364b;
+  color: #8b949e;
+  padding: 6px 0;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+.sev-choice-chip.chip-menor.selected { background: #008080; color: #fff; border-color: #008080; }
+.sev-choice-chip.chip-moderada.selected { background: #FF8C00; color: #fff; border-color: #FF8C00; }
+.sev-choice-chip.chip-mayor.selected, .sev-choice-chip.chip-crítica.selected { background: #CC0000; color: #fff; border-color: #CC0000; }
+
+/* Cámara y Fotos */
+.camera-capture-section {
+  background: #0b1118;
+  border: 1px dashed #24354a;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section-label { font-size: 0.78rem; font-weight: bold; color: #00a896; }
+.camera-actions-row { display: flex; gap: 10px; }
+.hidden-input { display: none; }
+.btn-camera-trigger, .btn-gallery-trigger {
+  flex: 1;
+  background: #162232;
+  border: 1px solid #283950;
+  color: #58a6ff;
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-camera-trigger:hover, .btn-gallery-trigger:hover { background: #1c2c41; }
+.cam-icon { font-size: 1.1rem; }
+
+.captured-photos-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.captured-photo-badge {
+  background: #141c28;
+  border: 1px solid #222f42;
   border-radius: 6px;
   padding: 6px 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-.evidence-thumb {
-  font-size: 1.1rem;
-}
-.evidence-meta {
-  display: flex;
-  flex-direction: column;
-}
-.evidence-file {
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: #ccc;
-}
-.evidence-hash {
-  font-size: 0.62rem;
-  color: #03dac6;
-}
-
-.empty-observations {
-  padding: 40px 20px;
-  text-align: center;
-  background: #181818;
-  border: 1px dashed #333;
-  border-radius: 12px;
-  margin-top: 10px;
-}
-.empty-icon {
-  font-size: 2rem;
-  display: block;
-  margin-bottom: 8px;
-}
-.empty-observations h4 {
-  margin: 0 0 6px 0;
-  font-size: 0.95rem;
-}
-.empty-observations p {
-  font-size: 0.8rem;
-  color: #888;
-  margin: 0 0 16px 0;
-}
-.btn-preset-primary {
-  background: var(--primary);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* Footer Acción */
-.section-footer {
-  padding: 12px 14px;
-  background: #181818;
-  border-top: 1px solid #262626;
-  flex-shrink: 0;
-}
-.btn-generate-report {
-  display: block;
-  width: 100%;
-  text-align: center;
-  background: #238636;
-  color: #fff;
-  padding: 10px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: bold;
-  box-sizing: border-box;
-}
-
-/* Drawer Menú */
-.drawer-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 100;
-  display: flex;
-}
-.drawer-content {
-  width: 280px;
-  max-width: 80%;
-  height: 100%;
-  background: #161b22;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 16px;
-  box-sizing: border-box;
-  animation: slide-in 0.2s ease;
-}
-@keyframes slide-in {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.drawer-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.drawer-brand h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-.btn-close-drawer {
-  background: transparent;
-  border: none;
-  color: #aaa;
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-.drawer-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-}
-.drawer-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  color: #bbb;
-  text-decoration: none;
-  font-size: 0.88rem;
-}
-.drawer-item:hover, .drawer-item.router-link-active {
-  background: rgba(255,255,255,0.06);
-  color: #fff;
-}
-.drawer-footer {
-  border-top: 1px solid #30363d;
-  padding-top: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.78rem;
-}
-.drawer-user {
-  margin: 0;
-  color: #8b949e;
-}
-.drawer-logout {
-  color: #ff7b72;
-  text-decoration: none;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.75);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 120;
-  padding: 16px;
-}
-.modal-dialog {
-  background: #1c2128;
-  border: 1px solid #30363d;
-  border-radius: 14px;
-  width: 100%;
-  max-width: 520px;
-  overflow: hidden;
-  box-shadow: 0 16px 36px rgba(0,0,0,0.6);
-}
-.modal-dialog-header {
-  padding: 14px 18px;
-  border-bottom: 1px solid #30363d;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.modal-dialog-header h3 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-.modal-subtitle {
-  font-size: 0.75rem;
-  color: #8b949e;
-  margin-top: 2px;
-  display: block;
-}
-.btn-close-modal {
-  background: transparent;
-  border: none;
-  color: #8b949e;
-  font-size: 1.1rem;
-  cursor: pointer;
-}
-.modal-dialog-body {
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.modal-hint {
-  font-size: 0.78rem;
-  color: #8b949e;
-  margin: 0;
-}
-.preset-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.preset-pill {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid #30363d;
-  color: #ccc;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 0.72rem;
-  cursor: pointer;
-}
-.preset-pill:hover {
-  background: var(--primary);
-  color: #fff;
-}
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.form-group label {
-  font-size: 0.78rem;
-  color: #8b949e;
-}
-.input-field {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  padding: 8px 10px;
-  color: #fff;
-  font-size: 0.85rem;
-}
-.input-field:focus {
-  outline: none;
-  border-color: var(--primary);
-}
-.form-row {
-  display: flex;
   gap: 10px;
 }
-.form-group.col {
-  flex: 1;
+.photo-thumbnail {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
 }
-.fake-camera-btn {
-  background: #0d1117;
-  border: 1px dashed #30363d;
-  padding: 8px 10px;
-  border-radius: 6px;
+.photo-info-column { flex: 1; display: flex; flex-direction: column; }
+.photo-name { font-size: 0.75rem; font-weight: bold; color: #fff; }
+.photo-sha-pill { font-size: 0.65rem; color: #00a896; }
+.btn-remove-photo {
+  background: transparent;
+  border: none;
+  color: #f85149;
+  cursor: pointer;
+}
+.camera-hint {
+  margin: 0;
   font-size: 0.72rem;
-  color: #58a6ff;
-  display: flex;
-  align-items: center;
+  color: #8b949e;
+  text-align: center;
 }
-.modal-dialog-footer {
-  padding: 12px 18px;
-  border-top: 1px solid #30363d;
+
+.modal-obs-footer {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid #24354a;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  background: #161b22;
 }
-.btn-cancel {
+.btn-cancel-modal {
   background: transparent;
-  border: 1px solid #30363d;
-  color: #ccc;
-  padding: 7px 14px;
+  border: 1px solid #24354a;
+  color: #c9d1d9;
+  padding: 8px 16px;
   border-radius: 6px;
-  cursor: pointer;
   font-size: 0.82rem;
-}
-.btn-save {
-  background: var(--primary);
-  border: none;
-  color: #fff;
-  padding: 7px 16px;
-  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
 }
-
-@keyframes bounce {
-  0% { transform: translate(-50%, -100%) scale(1.1); }
-  100% { transform: translate(-50%, -125%) scale(1.3); }
-}
-@keyframes pulse-border {
-  0% { box-shadow: 0 0 0 0 rgba(255, 171, 0, 0.4); }
-  70% { box-shadow: 0 0 0 6px rgba(255, 171, 0, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 171, 0, 0); }
-}
-
-@media (max-width: 768px) {
-  .view-split-btn {
-    display: none;
-  }
-}
-
-/* Estilos Navegación Tablet OpenInspection */
-.app-nav-tabs {
-  display: flex;
-  background: #1e242d;
-  border-radius: 8px;
-  padding: 3px;
-  gap: 4px;
-}
-.nav-tab-btn {
-  background: transparent;
-  border: none;
-  color: #8b949e;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.nav-tab-btn.active {
-  background: #003366;
-  color: #fff;
-}
-.summary-hero-card {
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
-  padding: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.hero-chip {
-  display: inline-block;
-  background: rgba(0, 128, 128, 0.2);
-  color: #00a896;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-bottom: 6px;
-}
-.summary-hero-info h3 {
-  margin: 0 0 6px 0;
-  font-size: 1.25rem;
-}
-.hero-desc {
-  margin: 0 0 16px 0;
-  color: #8b949e;
-  font-size: 0.85rem;
-}
-.hero-metrics {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.metric-pill {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  padding: 8px 14px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-}
-.metric-pill .m-val {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #58a6ff;
-}
-.metric-pill.accent-green .m-val {
-  color: #3fb950;
-}
-.metric-pill .m-lbl {
-  font-size: 0.68rem;
-  color: #8b949e;
-  text-transform: uppercase;
-}
-.summary-hero-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.btn-hero-primary {
+.btn-save-modal {
   background: #008080;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 0.88rem;
-  text-align: center;
-}
-.btn-hero-sync {
-  background: #003366;
   border: none;
   color: #fff;
-  padding: 10px 18px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.88rem;
-}
-
-/* Checklist Container */
-.checklist-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  background: #0d1117;
-}
-.checklist-header {
-  margin-bottom: 20px;
-}
-.checklist-header h3 {
-  margin: 0 0 4px 0;
-}
-.checklist-header p {
-  color: #8b949e;
-  margin: 0 0 14px 0;
-  font-size: 0.85rem;
-}
-.checklist-area-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-}
-.cl-chip {
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #c9d1d9;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-.cl-chip.active {
-  background: #003366;
-  border-color: #58a6ff;
-  color: #fff;
-  font-weight: bold;
-}
-.checklist-items-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 900px;
-}
-.checklist-row {
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 10px;
-  padding: 14px 18px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-.cl-info {
-  display: flex;
-  flex-direction: column;
-}
-.cl-cat {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  color: #00a896;
-  font-weight: bold;
-}
-.cl-title {
-  margin: 2px 0;
-  font-size: 0.92rem;
-}
-.cl-desc {
-  margin: 0;
-  font-size: 0.78rem;
-  color: #8b949e;
-}
-.cl-status-options {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.btn-cl-status {
-  background: #0d1117;
-  border: 1px solid #30363d;
-  color: #8b949e;
-  padding: 6px 12px;
+  padding: 8px 18px;
   border-radius: 6px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: bold;
   cursor: pointer;
 }
-.btn-cl-status.status-ok.selected {
-  background: #008000;
-  color: #fff;
-  border-color: #008000;
-}
-.btn-cl-status.status-obs.selected {
-  background: #FF8C00;
-  color: #fff;
-  border-color: #FF8C00;
-}
-.btn-cl-status.status-na.selected {
-  background: #30363d;
-  color: #c9d1d9;
-}
-
 </style>
