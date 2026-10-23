@@ -1090,33 +1090,254 @@ interface ChecklistItem {
   icon: string
 }
 
-const fullChecklistData = ref<ChecklistItem[]>([
-  // Sala / Comedor
-  { id: 'cl-1', area: 'Sala / Comedor', category: 'Paredes y Enlucidos', title: 'Paredes - Fisuras / grietas o desprendimientos', specification: 'Superficie lisa y plomada libre de microfisuras por retracción', status: 'OK', icon: '🧱' },
-  { id: 'cl-2', area: 'Sala / Comedor', category: 'Pisos y Guardapolvos', title: 'Pisos - Estado general y juntas de dilatación', specification: 'Nivelación uniforme sin cejas superiores a 1mm', status: 'OK', icon: '⬛' },
-  { id: 'cl-3', area: 'Sala / Comedor', category: 'Ventanas y Mamparas', title: 'Ventanas - Funcionamiento, felpas y cierre hermético', specification: 'Deslizamiento suave en rieles y estanqueidad perimetral', status: 'OBS', icon: '🪟' },
-  { id: 'cl-4', area: 'Sala / Comedor', category: 'Electricidad', title: 'Tomacorrientes e Interruptores - Pruebas de tensión', specification: 'Placas alineadas y polaridad correcta según norma', status: 'OK', icon: '🔌' },
+// Generador dinámico de Checklist con reglas periciales completas:
+// 1. Elementos base presentes en TODOS los ambientes: Paredes, Pisos, Ventanas, Tomacorrientes, Alumbrado (luces)
+// 2. Griferías en Cocina, Baños y Lavandería
+// 3. En Baños: Inodoro, Ducha / Tina
+// 4. En Cocina: Equipos fijos (Campana extractora, cocina encimera, horno, etc.) y Mobiliario
+// 5. En Sala / Comedor: Tablero General Eléctrico (TG, llaves termomagnéticas y diferenciales)
 
-  // Cocina
-  { id: 'cl-5', area: 'Cocina', category: 'Mobiliario', title: 'Muebles de cocina altos y bajos', specification: 'Bisagras de cierre suave y tiradores fijados', status: 'OK', icon: '🗄️' },
-  { id: 'cl-6', area: 'Cocina', category: 'Mesón y Zócalos', title: 'Encimera de Granito / Cuarzo', specification: 'Sellado hidrófugo en unión muro y artefactos', status: 'OBS', icon: '🍽️' },
-  { id: 'cl-7', area: 'Cocina', category: 'Gasfitería', title: 'Grifería y trampa de desagüe bajo pozo', specification: 'Presión continua de agua fría/caliente sin fugas', status: 'OK', icon: '🚰' },
+const generateChecklistForArea = (areaName: string): ChecklistItem[] => {
+  const norm = areaName.toLowerCase()
+  const isBathroom = norm.includes('baño') || norm.includes('bano') || norm.includes('toilette')
+  const isKitchen = norm.includes('cocina') || norm.includes('kitchen')
+  const isLaundry = norm.includes('lavander') || norm.includes('servicio')
+  const isLiving = norm.includes('sala') || norm.includes('comedor') || norm.includes('living')
+  const isBedroom = norm.includes('dormitorio') || norm.includes('habitaci') || norm.includes('cuarto')
+  const isBalcony = norm.includes('balc') || norm.includes('terraza')
 
-  // Baño Principal
-  { id: 'cl-8', area: 'Baño Principal', category: 'Aparatos Sanitarios', title: 'Inodoro y Lavamanos - Fijación y sellado', specification: 'Cordón de silicona antihongos continuo y descarga limpia', status: 'OBS', icon: '🚽' },
-  { id: 'cl-9', area: 'Baño Principal', category: 'Revestimiento', title: 'Azulejos y Porcelanato de Ducha', specification: 'Pendiente de escurrimiento hacia sumidero sifonado', status: 'OK', icon: '🚿' },
+  const items: ChecklistItem[] = [
+    // --- 1. ELEMENTOS OBLIGATORIOS EN TODOS LOS AMBIENTES ---
+    {
+      id: `${areaName}-paredes`,
+      area: areaName,
+      category: 'Paredes y Enlucidos',
+      title: 'Paredes - Fisuras, empaste y pintura',
+      specification: 'Superficie aplomada, sin microfisuras, ampollas ni variaciones de tono en pintura',
+      status: 'OK',
+      icon: '🧱'
+    },
+    {
+      id: `${areaName}-pisos`,
+      area: areaName,
+      category: 'Pisos y Guardapolvos',
+      title: 'Pisos - Estado general, juntas y nivelación',
+      specification: 'Nivelación uniforme sin cejas mayores a 1mm ni piezas huecas o desportilladas',
+      status: 'OK',
+      icon: '⬛'
+    },
+    {
+      id: `${areaName}-ventanas`,
+      area: areaName,
+      category: 'Ventanas y Mamparas',
+      title: 'Ventanas - Funcionamiento, felpas y cierre hermético',
+      specification: 'Deslizamiento suave en rieles, seguro funcional y estanqueidad perimetral',
+      status: 'OK',
+      icon: '🪟'
+    },
+    {
+      id: `${areaName}-tomacorrientes`,
+      area: areaName,
+      category: 'Instalaciones Eléctricas',
+      title: 'Tomacorrientes - Pruebas de tensión y polaridad',
+      specification: 'Placas firmes y alineadas con puesta a tierra operativa (220V verificado)',
+      status: 'OK',
+      icon: '🔌'
+    },
+    {
+      id: `${areaName}-alumbrado`,
+      area: areaName,
+      category: 'Instalaciones Eléctricas',
+      title: 'Alumbrado (Luces) - Puntos de luz e interruptores',
+      specification: 'Encendido inmediato en conmutadores, portalámparas seguros y centros de luz plomados',
+      status: 'OK',
+      icon: '💡'
+    }
+  ]
 
-  // Dormitorio Principal
-  { id: 'cl-10', area: 'Dormitorio Principal', category: 'Carpintería', title: 'Puerta de Ingreso y Cerradura', specification: 'Holgura simétrica de 3mm y pestillo libre de trabas', status: 'OK', icon: '🚪' },
-  { id: 'cl-11', area: 'Dormitorio Principal', category: 'Mobiliario', title: 'Clóset y Cajonería corredera', specification: 'Rieles nivelados y melamine sin astilladuras', status: 'OK', icon: '👔' },
+  // --- 2. SALA / COMEDOR: TABLERO GENERAL ELÉCTRICO ---
+  if (isLiving) {
+    items.push({
+      id: `${areaName}-tablero-general`,
+      area: areaName,
+      category: 'Tablero Eléctrico',
+      title: 'Tablero General (TG) - Interruptores termomagnéticos y diferenciales',
+      specification: 'Gabinete hermético con rotulación de circuitos, llaves termomagnéticas y disyuntor diferencial de 30mA operativos con botón de test',
+      status: 'OK',
+      icon: '⚡'
+    })
+    items.push({
+      id: `${areaName}-puerta-principal`,
+      area: areaName,
+      category: 'Carpintería',
+      title: 'Puerta Principal de Ingreso - Cerradura de seguridad y marco',
+      specification: 'Holgura perimetral homogénea, mirilla óptica y cierre suave sin roces en piso',
+      status: 'OK',
+      icon: '🚪'
+    })
+  }
 
-  // Balcón
-  { id: 'cl-12', area: 'Balcón', category: 'Estructura y Baranda', title: 'Baranda metálica o cristal templado', specification: 'Fijaciones periciales de anclaje con pernos inoxidables', status: 'OK', icon: '🏙️' }
-])
+  // --- 3. COCINA: EQUIPOS FIJOS, GRIFERÍA Y MESONES ---
+  if (isKitchen) {
+    items.push({
+      id: `${areaName}-griferia`,
+      area: areaName,
+      category: 'Gasfitería y Grifería',
+      title: 'Grifería de Cocina - Mezcladora y estanqueidad',
+      specification: 'Presión continua de agua fría y caliente, cuello giratorio suave y libre de goteos en aireador',
+      status: 'OK',
+      icon: '🚰'
+    })
+    items.push({
+      id: `${areaName}-equipos-fijos`,
+      area: areaName,
+      category: 'Equipos Fijos',
+      title: 'Equipos Fijos - Campana extractora, cocina encimera y horno',
+      specification: 'Encendido de hornillas a gas/inducción, succión efectiva y filtro de campana extractora, y conexión eléctrica empotrada de horno',
+      status: 'OK',
+      icon: '🍳'
+    })
+    items.push({
+      id: `${areaName}-meson-muebles`,
+      area: areaName,
+      category: 'Mobiliario y Mesones',
+      title: 'Mesón de Granito/Cuarzo y Muebles Altos/Bajos',
+      specification: 'Sellado hidrófugo perimetral, correderas telescópicas y bisagras de cierre suave en reposteros',
+      status: 'OBS',
+      icon: '🍽️'
+    })
+    items.push({
+      id: `${areaName}-desague-lavadero`,
+      area: areaName,
+      category: 'Gasfitería',
+      title: 'Pozuelo de Lavadero y Trampa de Desagüe',
+      specification: 'Desagüe continuo sin acumulación, sifón hermético bajo mesada sin filtraciones',
+      status: 'OK',
+      icon: '🧼'
+    })
+  }
+
+  // --- 4. BAÑOS: GRIFERÍA, INODORO Y DUCHA ---
+  if (isBathroom) {
+    items.push({
+      id: `${areaName}-griferia-bano`,
+      area: areaName,
+      category: 'Gasfitería y Grifería',
+      title: 'Grifería de Lavamanos - Mezcladora y flexibles',
+      specification: 'Chorro uniforme, flexibles de acero trenzado sin estrangulamiento y tapón emergente funcional',
+      status: 'OK',
+      icon: '🚰'
+    })
+    items.push({
+      id: `${areaName}-inodoro`,
+      area: areaName,
+      category: 'Aparatos Sanitarios',
+      title: 'Inodoro - Nivel de estanqueidad, descarga y fijación al piso',
+      specification: 'Base sellada con silicona antihongos, pernos con capuchón y válvula de descarga de doble pulsador sin fuga continua',
+      status: 'OBS',
+      icon: '🚽'
+    })
+    items.push({
+      id: `${areaName}-ducha`,
+      area: areaName,
+      category: 'Zona Húmeda / Ducha',
+      title: 'Ducha - Mezcladora, regadera, mampara y pendiente de sumidero',
+      specification: 'Presión de salida en ducha, mampara de cristal templado sellada y pendiente de escurrimiento de piso hacia rejilla sifonada',
+      status: 'OK',
+      icon: '🚿'
+    })
+    items.push({
+      id: `${areaName}-espejo-accesorios`,
+      area: areaName,
+      category: 'Accesorios',
+      title: 'Espejo, toallero y portarrollos sanitarios',
+      specification: 'Fijaciones ocultas firmes sin juego y espejo biselado libre de desplate o manchas de humedad',
+      status: 'OK',
+      icon: '🪞'
+    })
+  }
+
+  // --- 5. LAVANDERÍA: GRIFERÍA Y CONEXIONES DE LAVADORA ---
+  if (isLaundry) {
+    items.push({
+      id: `${areaName}-griferia-lavanderia`,
+      area: areaName,
+      category: 'Gasfitería y Grifería',
+      title: 'Grifería de Lavadero / Poza de Lavandería',
+      specification: 'Llave de combinación o caño de jardín cromado con rosca para manguera y libre de filtraciones',
+      status: 'OK',
+      icon: '🚰'
+    })
+    items.push({
+      id: `${areaName}-lavadora`,
+      area: areaName,
+      category: 'Instalaciones Especiales',
+      title: 'Puntos de Conexión de Lavadora y Terma / Calentador',
+      specification: 'Válvulas esféricas de corte de 1/2", desagüe vertical a 90cm de altura y toma de fuerza independiente para lavadora/secadora',
+      status: 'OK',
+      icon: '🧺'
+    })
+  }
+
+  // --- 6. DORMITORIOS: PUERTAS Y CLÓSETS ---
+  if (isBedroom) {
+    items.push({
+      id: `${areaName}-closet`,
+      area: areaName,
+      category: 'Mobiliario',
+      title: 'Clóset y Roperos - Cajonería, rieles y divisiones',
+      specification: 'Puertas correderas o batientes aplomadas, barras de colgar cromadas y cantos de melamine sellados',
+      status: 'OK',
+      icon: '👔'
+    })
+    items.push({
+      id: `${areaName}-puerta-paso`,
+      area: areaName,
+      category: 'Carpintería',
+      title: 'Puerta de Paso Interior y Manija tubular',
+      specification: 'Bisagras de 3.5" alineadas con tope de goma en piso para protección contra el muro',
+      status: 'OK',
+      icon: '🚪'
+    })
+  }
+
+  // --- 7. BALCÓN / TERRAZA: BARANDAS Y SUMIDEROS ---
+  if (isBalcony) {
+    items.push({
+      id: `${areaName}-baranda`,
+      area: areaName,
+      category: 'Estructura y Seguridad',
+      title: 'Baranda perimetral de acero inoxidable o cristal templado',
+      specification: 'Altura reglamentaria mínima 1.00m, anclaje estructural firme sin vibración y uniones soldadas pulidas',
+      status: 'OK',
+      icon: '🏙️'
+    })
+    items.push({
+      id: `${areaName}-sumidero-exterior`,
+      area: areaName,
+      category: 'Desagüe Pluvial',
+      title: 'Sumidero de Balcón y pendientes pluviales',
+      specification: 'Rejilla de bronce o PVC con pendiente hacia sumidero para evacuación de agua de lavado y lluvia',
+      status: 'OK',
+      icon: '🌧️'
+    })
+  }
+
+  return items
+}
+
+// Almacén reactivo de estados de checklist por ambiente
+const checklistStateStore = ref<Record<string, ChecklistItem[]>>({})
 
 const currentAreaChecklist = computed(() => {
-  return fullChecklistData.value.filter(item => item.area === activeSelectedArea.value)
+  const currentArea = activeSelectedArea.value
+  if (!checklistStateStore.value[currentArea]) {
+    checklistStateStore.value[currentArea] = generateChecklistForArea(currentArea)
+  }
+  return checklistStateStore.value[currentArea]
 })
+
+
 
 const triggerObsFromChecklist = (item: ChecklistItem) => {
   item.status = 'OBS'
