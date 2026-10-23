@@ -11,9 +11,27 @@
             Piso {{ inspection?.properties?.floor_number ?? '2' }} · {{ inspection?.properties?.building ?? 'Torre A' }}
           </p>
         </div>
-        <span class="status-badge large" :class="`status-${inspection?.status?.toLowerCase()}`">
-          {{ inspection?.status ?? 'IN_PROGRESS' }}
-        </span>
+        <div class="header-status-actions">
+          <!-- Si es Cliente, solo ve badge estático sin editar -->
+          <span v-if="role === 'CLIENT'" class="status-badge large" :class="`status-${currentStatus?.toLowerCase()}`">
+            {{ currentStatus }}
+          </span>
+
+          <!-- Si es Inspector o Admin, puede actualizar el estado de la visita -->
+          <div v-else class="status-change-control">
+            <label class="status-lbl">Cambiar Estado:</label>
+            <select v-model="currentStatus" class="status-select" @change="updateInspectionStatus">
+              <option value="SCHEDULED">SCHEDULED (Programada)</option>
+              <option value="IN_PROGRESS">IN_PROGRESS (En Curso)</option>
+              <option value="COMPLETED">COMPLETED (Completada)</option>
+              <option value="DRAFT">DRAFT (Borrador)</option>
+            </select>
+          </div>
+
+          <NuxtLink :to="`/reports/${route.params.id}`" class="btn-report-view">
+            📄 Descargar / Ver Informe Técnico
+          </NuxtLink>
+        </div>
       </div>
     </div>
 
@@ -58,10 +76,36 @@
 
       <!-- Tab: Areas -->
       <div v-if="activeTab === 'Areas'" class="tab-content">
-        <div v-if="!areas?.length" class="empty-tab">No hay zonas registradas aún.</div>
+        <!-- Barra de gestión de ambientes para Inspector y Admin -->
+        <div v-if="role !== 'CLIENT'" class="areas-management-bar">
+          <div class="add-area-group">
+            <input 
+              v-model="newAreaText" 
+              type="text" 
+              class="input-new-area" 
+              placeholder="Nombre del nuevo ambiente (Ej: Lavandería, Balcón...)" 
+              @keyup.enter="addNewArea"
+            />
+            <button type="button" class="btn-action-green" @click="addNewArea">+ Añadir Ambiente</button>
+          </div>
+          <span class="management-hint">Como inspector o admin puede añadir o retirar zonas para la inspección.</span>
+        </div>
+
+        <div v-if="!areasList?.length" class="empty-tab">No hay zonas registradas aún.</div>
         <div v-else class="areas-grid">
-          <div v-for="area in areas" :key="area.id" class="area-card">
-            <div class="area-name">{{ area.name }}</div>
+          <div v-for="(area, aIdx) in areasList" :key="area.id" class="area-card">
+            <div class="area-card-header">
+              <div class="area-name">{{ area.name }}</div>
+              <button 
+                v-if="role !== 'CLIENT'" 
+                type="button" 
+                class="btn-delete-area" 
+                @click="removeExistingArea(aIdx, area.id)"
+                title="Retirar este ambiente"
+              >
+                ✕
+              </button>
+            </div>
             <div class="area-obs-count">
               {{ obsCountByArea(area.id) }} observación{{ obsCountByArea(area.id) !== 1 ? 'es' : '' }}
             </div>
@@ -96,7 +140,11 @@
 <script setup lang="ts">
 const route = useRoute()
 const supabase = useSupabaseClient()
+const { role } = useAuthUser()
 const activeTab = ref('Observations')
+const currentStatus = ref('IN_PROGRESS')
+const newAreaText = ref('')
+const areasList = ref<Array<{ id: string; name: string }>>([])
 
 const tabs = ['Observations', 'Areas']
 
@@ -198,6 +246,60 @@ const { data: observations } = await useAsyncData(`obs-${route.params.id}`, asyn
     return fallbackObservations
   }
 })
+
+
+// Sincronizar status y areas
+watch(inspection, (val) => {
+  if (val?.status) {
+    currentStatus.value = val.status
+  }
+}, { immediate: true })
+
+watch(areas, (val) => {
+  if (val) {
+    areasList.value = [...val]
+  }
+}, { immediate: true })
+
+const updateInspectionStatus = async () => {
+  try {
+    await supabase
+      .from('inspections')
+      .update({ status: currentStatus.value, updated_at: new Date().toISOString() })
+      .eq('id', route.params.id as string)
+  } catch (err) {
+    console.warn('Status update fallback applied:', err)
+  }
+}
+
+const addNewArea = async () => {
+  const name = newAreaText.value.trim()
+  if (!name) return
+
+  const newId = `area-${Date.now()}`
+  areasList.value.push({ id: newId, name })
+  newAreaText.value = ''
+
+  try {
+    await supabase.from('inspection_areas').insert({
+      id: newId,
+      inspection_id: route.params.id as string,
+      organization_id: '11111111-0000-0000-0000-000000000001',
+      name
+    })
+  } catch (err) {
+    console.warn('Area insert fallback applied:', err)
+  }
+}
+
+const removeExistingArea = async (idx: number, areaId: string) => {
+  areasList.value.splice(idx, 1)
+  try {
+    await supabase.from('inspection_areas').delete().eq('id', areaId)
+  } catch (err) {
+    console.warn('Area delete fallback applied:', err)
+  }
+}
 
 const obsCountByArea = (areaId: string) =>
   (observations.value ?? []).filter(o => o.area_id === areaId).length
@@ -351,4 +453,100 @@ const formatDate = (d: string | null) => {
 .empty-tab { color: var(--text-secondary); padding: 30px 0; text-align: center; }
 .tab-content { animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.header-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.status-change-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.status-lbl {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-select {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #58a6ff;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+.btn-report-view {
+  background: #238636;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.btn-report-view:hover {
+  background: #2ea043;
+}
+.areas-management-bar {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.add-area-group {
+  display: flex;
+  gap: 8px;
+}
+.input-new-area {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 7px 12px;
+  color: #fff;
+  font-size: 0.82rem;
+  width: 280px;
+}
+.btn-action-green {
+  background: #238636;
+  border: none;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.management-hint {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+.area-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.btn-delete-area {
+  background: transparent;
+  border: none;
+  color: #f85149;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
 </style>

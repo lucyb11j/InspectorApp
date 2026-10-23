@@ -58,7 +58,19 @@
               </span>
             </td>
             <td>
-              <NuxtLink :to="`/inspections/${insp.id}`" class="btn-ghost">Ver Detalle →</NuxtLink>
+              <div class="row-actions">
+                <NuxtLink :to="`/inspections/${insp.id}`" class="btn-ghost">Ver Detalle →</NuxtLink>
+                <!-- Solo Admin puede eliminar inspecciones -->
+                <button 
+                  v-if="role === 'ADMIN'" 
+                  type="button" 
+                  class="btn-delete-insp" 
+                  @click.stop="deleteInspection(insp.id)" 
+                  title="Eliminar inspección (Permiso exclusivo de Administrador)"
+                >
+                  🗑️
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -85,12 +97,25 @@
           </div>
           <div class="form-row">
             <div class="form-group col-2">
-              <label>Condominio / Proyecto (projects.name):</label>
+              <label>Seleccionar o Añadir Condominio (projects.name):</label>
               <select v-model="form.projectId" class="modal-input" @change="onProjectChange" required>
                 <option v-for="proj in projectsList" :key="proj.id" :value="proj.id">
                   {{ proj.name }} ({{ proj.address }})
                 </option>
+                <option value="NEW_PROJECT">+ Registrar Nuevo Condominio / Proyecto...</option>
               </select>
+            </div>
+          </div>
+          <div v-if="form.projectId === 'NEW_PROJECT'" class="new-project-fields">
+            <div class="form-row">
+              <div class="form-group col">
+                <label>Nombre del Nuevo Condominio:</label>
+                <input v-model="form.newProjectName" type="text" class="modal-input" placeholder="Ej: Condominio Altos del Parque" required />
+              </div>
+              <div class="form-group col">
+                <label>Dirección / Ubicación:</label>
+                <input v-model="form.newProjectAddress" type="text" class="modal-input" placeholder="Ej: Av. Las Palmeras 500, Lima" />
+              </div>
             </div>
           </div>
 
@@ -141,28 +166,55 @@
           </div>
           <div class="form-row">
             <div class="form-group col-2">
-              <label>Plano Arquitectónico Asignado:</label>
-              <select v-model="form.planTemplate" class="modal-input">
-                <option value="standard-apartment">Plano Típico Departamento (Sala, Cocina, Dormitorio, Baño, Balcón)</option>
-                <option value="studio-loft">Plano Loft / Studio (Ambiente Integrado, Baño, Balcón)</option>
-                <option value="penthouse-duplex">Plano Dúplex / Penthouse (Planta Baja y Terraza)</option>
+              <label>Tipo de Plano o Distribución:</label>
+              <select v-model="form.planTemplate" class="modal-input" @change="applyTemplateAreas">
+                <option value="standard-apartment">Plano Estándar (Sala, Cocina, Dormitorios, Baños, Balcón)</option>
+                <option value="studio-loft">Loft / Studio Integrado</option>
+                <option value="penthouse-duplex">Dúplex / Penthouse con Terraza</option>
+                <option value="custom">Personalizado (Sin plano base / Solo Checklist)</option>
               </select>
             </div>
             <div class="form-group col">
-              <label>Subir Archivo de Plano (Opcional):</label>
-              <div class="file-upload-box">
-                <span>📎 Plano-Arq-{{ form.unitNumber || 'Unidad' }}.pdf</span>
+              <label>Subir Plano PDF o Imagen:</label>
+              <div class="file-picker-wrapper">
+                <input 
+                  type="file" 
+                  id="planPdfUpload" 
+                  accept="application/pdf,image/png,image/jpeg" 
+                  class="hidden-file-input" 
+                  @change="handlePlanFileUpload" 
+                />
+                <label for="planPdfUpload" class="btn-file-select">
+                  <span class="file-icon">📄</span>
+                  <span class="file-label-text">{{ uploadedPlanName || 'Seleccionar Archivo PDF / Imagen...' }}</span>
+                </label>
               </div>
+              <small v-if="uploadedPlanName" class="file-ok-tag">✓ Archivo cargado: {{ uploadedPlanName }}</small>
             </div>
           </div>
 
           <div class="form-group">
-            <label>Ambientes a Inspeccionar en el Plano:</label>
+            <div class="areas-header-manage">
+              <label>Ambientes a Inspeccionar (Añadir / Retirar según conveniencia):</label>
+              <div class="add-area-inline">
+                <input 
+                  v-model="newAreaInput" 
+                  type="text" 
+                  class="modal-input-sm" 
+                  placeholder="Ej: Lavandería, Terraza, Pasadizo..." 
+                  @keyup.enter.prevent="addCustomArea" 
+                />
+                <button type="button" class="btn-add-area" @click="addCustomArea">+ Añadir Área</button>
+              </div>
+            </div>
+
             <div class="areas-chips-box">
-              <span v-for="area in form.areas" :key="area" class="area-chip-badge">
+              <span v-for="(area, aIdx) in form.areas" :key="area" class="area-chip-badge removable">
                 {{ area }}
+                <button type="button" class="btn-remove-area" @click="removeArea(aIdx)" title="Eliminar este ambiente">✕</button>
               </span>
             </div>
+            <small class="hint-text">Si no sube plano, el inspector realizará la checklist técnica directamente sobre estos ambientes.</small>
           </div>
 
           <!-- Sección 5: Programación de Visita -->
@@ -235,8 +287,14 @@ const inspections = ref<InspectionDisplay[]>([
   { id: '55555555-0000-0000-0000-000000000004', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', clientEmail: 'carlos.mendoza@email.com', scheduledDate: '—', status: 'DRAFT' }
 ])
 
+const newAreaInput = ref('')
+const uploadedPlanName = ref('')
+const uploadedPlanFile = ref<File | null>(null)
+
 const form = ref({
   projectId: '22222222-0000-0000-0000-000000000001',
+  newProjectName: '',
+  newProjectAddress: '',
   unitNumber: '',
   building: 'Torre A',
   floorNumber: '3',
@@ -249,9 +307,48 @@ const form = ref({
   areas: ['Sala / Comedor', 'Cocina', 'Dormitorio Principal', 'Baño Principal', 'Balcón']
 })
 
+const handlePlanFileUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    const file = target.files[0]
+    uploadedPlanName.value = file.name
+    uploadedPlanFile.value = file
+  }
+}
+
+const addCustomArea = () => {
+  const trimmed = newAreaInput.value.trim()
+  if (trimmed && !form.value.areas.includes(trimmed)) {
+    form.value.areas.push(trimmed)
+    newAreaInput.value = ''
+  }
+}
+
+const removeArea = (index: number) => {
+  if (form.value.areas.length > 1) {
+    form.value.areas.splice(index, 1)
+  }
+}
+
+const applyTemplateAreas = () => {
+  if (form.value.planTemplate === 'standard-apartment') {
+    form.value.areas = ['Sala / Comedor', 'Cocina', 'Dormitorio Principal', 'Baño Principal', 'Balcón']
+  } else if (form.value.planTemplate === 'studio-loft') {
+    form.value.areas = ['Área Integrada', 'Kitchenette', 'Baño Completo', 'Balcón']
+  } else if (form.value.planTemplate === 'penthouse-duplex') {
+    form.value.areas = ['Sala / Comedor Doble Altura', 'Cocina Abierta', 'Master Suite', 'Baño Suite', 'Terraza Panorámica', 'Área de Parrilla']
+  }
+}
+
 const onProjectChange = () => {
   if (form.value.planTemplate === 'standard-apartment') {
     form.value.areas = ['Sala / Comedor', 'Cocina', 'Dormitorio Principal', 'Baño Principal', 'Balcón']
+  }
+}
+
+const deleteInspection = (id: string) => {
+  if (confirm('¿Está seguro de eliminar esta inspección técnica? Esta acción es irreversible.')) {
+    inspections.value = inspections.value.filter(i => i.id !== id)
   }
 }
 
@@ -274,8 +371,23 @@ const createInspection = async () => {
 
   saving.value = true
   try {
-    const selectedProj = projectsList.value.find(p => p.id === form.value.projectId)
-    const projName = selectedProj ? selectedProj.name : 'Condominio'
+    let currentProjectId = form.value.projectId
+    let projName = 'Condominio'
+
+    if (form.value.projectId === 'NEW_PROJECT') {
+      projName = form.value.newProjectName || 'Nuevo Condominio'
+      const newProjId = `22222222-0000-0000-${Date.now().toString().slice(-12)}`
+      projectsList.value.push({
+        id: newProjId,
+        name: projName,
+        address: form.value.newProjectAddress || 'Dirección registrada'
+      })
+      currentProjectId = newProjId
+    } else {
+      const selectedProj = projectsList.value.find(p => p.id === form.value.projectId)
+      projName = selectedProj ? selectedProj.name : 'Condominio'
+    }
+
     const fullProjectName = `${projName} - ${form.value.building}`
     const unitLabel = `Unidad ${form.value.unitNumber}`
     const formattedDate = form.value.scheduledDate.replace('T', ', ')
@@ -611,4 +723,111 @@ const createInspection = async () => {
   border-radius: 8px;
   cursor: pointer;
 }
+
+.new-project-fields {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(26, 115, 232, 0.4);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 6px;
+}
+.file-picker-wrapper {
+  position: relative;
+}
+.hidden-file-input {
+  display: none;
+}
+.btn-file-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #58a6ff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+.btn-file-select:hover {
+  background: rgba(26, 115, 232, 0.1);
+  border-color: var(--primary);
+}
+.file-ok-tag {
+  color: #3fb950;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  display: block;
+}
+.areas-header-manage {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.add-area-inline {
+  display: flex;
+  gap: 6px;
+}
+.modal-input-sm {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: #fff;
+  font-size: 0.75rem;
+  width: 170px;
+}
+.btn-add-area {
+  background: #238636;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+.area-chip-badge.removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
+}
+.btn-remove-area {
+  background: transparent;
+  border: none;
+  color: #f85149;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.btn-remove-area:hover {
+  color: #ff7b72;
+}
+
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-delete-insp {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px;
+  border-radius: 4px;
+}
+.btn-delete-insp:hover {
+  background: rgba(248, 81, 73, 0.2);
+  color: #ff7b72;
+}
+
 </style>

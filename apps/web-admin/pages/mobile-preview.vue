@@ -27,34 +27,39 @@
       </div>
 
       <div class="header-right">
-        <!-- Switch de Vistas Adaptable -->
-        <div class="view-toggles">
+        <!-- Navegación de Pestañas Tablet (UI OpenInspection) -->
+        <div class="app-nav-tabs">
           <button 
             type="button" 
-            class="view-btn view-split-btn" 
-            :class="{ active: viewMode === 'split' }"
-            @click="viewMode = 'split'"
-            title="Vista dividida simultánea (Plano + Lista)"
+            class="nav-tab-btn" 
+            :class="{ active: mainTab === 'summary' }"
+            @click="mainTab = 'summary'"
           >
-            💻 Dividido
+            Resumen
           </button>
           <button 
             type="button" 
-            class="view-btn" 
-            :class="{ active: viewMode === 'plan-only' }"
-            @click="viewMode = 'plan-only'"
-            title="Solo Plano Táctil"
+            class="nav-tab-btn" 
+            :class="{ active: mainTab === 'plan' }"
+            @click="mainTab = 'plan'"
           >
-            📐 Plano
+            Plano
           </button>
           <button 
             type="button" 
-            class="view-btn" 
-            :class="{ active: viewMode === 'list-only' }"
-            @click="viewMode = 'list-only'"
-            title="Solo Defectos"
+            class="nav-tab-btn" 
+            :class="{ active: mainTab === 'checklist' }"
+            @click="mainTab = 'checklist'"
           >
-            📋 Defectos
+            Checklist
+          </button>
+          <button 
+            type="button" 
+            class="nav-tab-btn" 
+            :class="{ active: mainTab === 'observations' }"
+            @click="mainTab = 'observations'"
+          >
+            Observaciones ({{ observations.length }})
           </button>
         </div>
 
@@ -65,8 +70,101 @@
       </div>
     </header>
 
-    <!-- Espacio de Trabajo Responsivo Universal -->
-    <div class="workspace-body" :class="`view-${viewMode}`">
+    <!-- Sub-Header Resumen / Progreso de Visita -->
+    <div v-if="mainTab === 'summary'" class="summary-hero-card">
+      <div class="summary-hero-info">
+        <div class="hero-chip">Condominio Los Cedros · Torre B</div>
+        <h3>Departamento 305 — Visita de Entrega</h3>
+        <p class="hero-desc">Cliente: Inmobiliaria Panorama / Carlos Mendoza · Inspector: Arq. Roberto Silva</p>
+        <div class="hero-metrics">
+          <div class="metric-pill">
+            <span class="m-val">{{ areas.length }}</span>
+            <span class="m-lbl">Ambientes</span>
+          </div>
+          <div class="metric-pill">
+            <span class="m-val">{{ observations.length }}</span>
+            <span class="m-lbl">Observaciones</span>
+          </div>
+          <div class="metric-pill">
+            <span class="m-val">{{ markers.length }}</span>
+            <span class="m-lbl">Pines en Plano</span>
+          </div>
+          <div class="metric-pill accent-green">
+            <span class="m-val">92%</span>
+            <span class="m-lbl">Checklist Completada</span>
+          </div>
+        </div>
+      </div>
+      <div class="summary-hero-actions">
+        <NuxtLink to="/inspections/55555555-0000-0000-0000-000000000001" class="btn-hero-primary">
+          📄 Generar / Ver Acta Técnica
+        </NuxtLink>
+        <button type="button" class="btn-hero-sync" @click="mainTab = 'plan'">
+          📐 Abrir Plano Táctil →
+        </button>
+      </div>
+    </div>
+
+    <!-- Pestaña Checklist Técnico Especializado -->
+    <div v-if="mainTab === 'checklist'" class="checklist-container">
+      <div class="checklist-header">
+        <div>
+          <h3>Checklist de Verificación Técnica por Ambiente</h3>
+          <p>Valide acabados, instalaciones y operatividad en cada zona</p>
+        </div>
+        <div class="checklist-area-chips">
+          <button 
+            v-for="area in areas" 
+            :key="area" 
+            type="button" 
+            class="cl-chip" 
+            :class="{ active: activeArea === area }"
+            @click="activeArea = area"
+          >
+            {{ area }}
+          </button>
+        </div>
+      </div>
+
+      <div class="checklist-items-list">
+        <div v-for="item in currentChecklistItems" :key="item.id" class="checklist-row">
+          <div class="cl-info">
+            <span class="cl-cat">{{ item.category }}</span>
+            <h4 class="cl-title">{{ item.title }}</h4>
+            <p class="cl-desc">{{ item.description }}</p>
+          </div>
+          <div class="cl-status-options">
+            <button 
+              type="button" 
+              class="btn-cl-status status-ok" 
+              :class="{ selected: item.status === 'OK' }"
+              @click="item.status = 'OK'"
+            >
+              ✓ OK
+            </button>
+            <button 
+              type="button" 
+              class="btn-cl-status status-obs" 
+              :class="{ selected: item.status === 'OBS' }"
+              @click="openObsFromChecklist(item)"
+            >
+              ⚠ OBS
+            </button>
+            <button 
+              type="button" 
+              class="btn-cl-status status-na" 
+              :class="{ selected: item.status === 'N/A' }"
+              @click="item.status = 'N/A'"
+            >
+              — N/A
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Espacio de Trabajo Plano & Observaciones -->
+    <div v-show="mainTab === 'plan' || mainTab === 'observations'" class="workspace-body" :class="`view-${viewMode}`">
       
       <!-- Panel de Plano Táctil Interactivo -->
       <section v-show="viewMode === 'split' || viewMode === 'plan-only'" class="plan-section">
@@ -284,27 +382,35 @@
         </div>
 
         <nav class="drawer-nav">
-          <NuxtLink to="/dashboard" class="drawer-item" @click="showDrawer = false">
+          <NuxtLink v-if="role === 'ADMIN'" to="/dashboard" class="drawer-item" @click="showDrawer = false">
             <span class="d-icon">📊</span>
-            <span>Dashboard Administrativo</span>
+            <span>Dashboard General</span>
+          </NuxtLink>
+          <NuxtLink to="/mobile-preview" class="drawer-item router-link-active" @click="showDrawer = false">
+            <span class="d-icon">📱</span>
+            <span>App de Campo (Inspector)</span>
           </NuxtLink>
           <NuxtLink to="/inspections" class="drawer-item" @click="showDrawer = false">
             <span class="d-icon">📋</span>
-            <span>Inspecciones Técnicas</span>
+            <span>Mis Inspecciones</span>
           </NuxtLink>
-          <NuxtLink to="/plans" class="drawer-item" @click="showDrawer = false">
+          <NuxtLink to="/reports" class="drawer-item" @click="showDrawer = false">
+            <span class="d-icon">📄</span>
+            <span>Actas & Informes PDF</span>
+          </NuxtLink>
+          <NuxtLink v-if="role === 'ADMIN' || role === 'INSPECTOR'" to="/plans" class="drawer-item" @click="showDrawer = false">
             <span class="d-icon">📐</span>
             <span>Gestor de Planos</span>
           </NuxtLink>
-          <NuxtLink to="/sync-monitor" class="drawer-item" @click="showDrawer = false">
+          <NuxtLink v-if="role === 'ADMIN'" to="/sync-monitor" class="drawer-item" @click="showDrawer = false">
             <span class="d-icon">⚡</span>
             <span>Motor de Sincronización</span>
           </NuxtLink>
-          <NuxtLink to="/properties" class="drawer-item" @click="showDrawer = false">
+          <NuxtLink v-if="role === 'ADMIN'" to="/properties" class="drawer-item" @click="showDrawer = false">
             <span class="d-icon">🏢</span>
             <span>Propiedades & Inmuebles</span>
           </NuxtLink>
-          <NuxtLink to="/clients" class="drawer-item" @click="showDrawer = false">
+          <NuxtLink v-if="role === 'ADMIN'" to="/clients" class="drawer-item" @click="showDrawer = false">
             <span class="d-icon">👥</span>
             <span>Clientes & Propietarios</span>
           </NuxtLink>
@@ -390,10 +496,34 @@ definePageMeta({
   layout: false // Sin layout exterior: ocupa el 100% de la ventana en teléfono, tablet o PC
 })
 
-const { name: currentUserName } = useAuthUser()
+const { role, name: currentUserName } = useAuthUser()
 
 // Modos de vista: 'split' | 'plan-only' | 'list-only'
+const mainTab = ref<'summary' | 'plan' | 'checklist' | 'observations'>('plan')
 const viewMode = ref<'split' | 'plan-only' | 'list-only'>('split')
+
+const checklistData = ref([
+  { id: 'cl-1', area: 'Sala / Comedor', category: 'Paredes y Pintura', title: 'Empaste y pintura libre de fisuras o manchas', description: 'Revisión con luz rasante sobre tabiquería seca y concreto', status: 'OK' },
+  { id: 'cl-2', area: 'Sala / Comedor', category: 'Pisos', title: 'Nivelación y juntas de dilatación en porcelanato', description: 'Sin piezas desportilladas ni bordes filosos', status: 'OK' },
+  { id: 'cl-3', area: 'Sala / Comedor', category: 'Carpintería y Ventanas', title: 'Cierre hermético y rieles de mampara', description: 'Deslizamiento suave sin trabas ni holgura excesiva', status: 'OBS' },
+  { id: 'cl-4', area: 'Cocina', category: 'Muebles y Mesón', title: 'Sellado de silestone/granito y zócalo', description: 'Sin filtraciones hacia muebles bajos', status: 'OK' },
+  { id: 'cl-5', area: 'Cocina', category: 'Gasfitería', title: 'Presión en grifería y libre de fugas en sifón', description: 'Prueba de llenado y desagüe continuo', status: 'OK' },
+  { id: 'cl-6', area: 'Baño Principal', category: 'Aparatos Sanitarios', title: 'Sellado perimetral con silicona antihongos', description: 'Unión lavamanos e inodoro con piso y muro', status: 'OBS' },
+  { id: 'cl-7', area: 'Dormitorio Principal', category: 'Puertas y Clóset', title: 'Alineación de bisagras y pestillo magnético', description: 'Apertura a 90 grados sin roce con piso', status: 'OK' }
+])
+
+const currentChecklistItems = computed(() => {
+  return checklistData.value.filter(item => item.area === activeArea.value)
+})
+
+const openObsFromChecklist = (item: any) => {
+  item.status = 'OBS'
+  newObsForm.value.title = item.title
+  newObsForm.value.description = `Observación detectada en checklist: ${item.description}`
+  newObsForm.value.severity = 'MODERADA'
+  openNewObsModal()
+}
+
 const showDrawer = ref(false)
 const showNewObsModal = ref(false)
 const selectedObsId = ref<string | null>(null)
@@ -1535,4 +1665,211 @@ const saveNewObservation = () => {
     display: none;
   }
 }
+
+/* Estilos Navegación Tablet OpenInspection */
+.app-nav-tabs {
+  display: flex;
+  background: #1e242d;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 4px;
+}
+.nav-tab-btn {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.nav-tab-btn.active {
+  background: #003366;
+  color: #fff;
+}
+.summary-hero-card {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.hero-chip {
+  display: inline-block;
+  background: rgba(0, 128, 128, 0.2);
+  color: #00a896;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+.summary-hero-info h3 {
+  margin: 0 0 6px 0;
+  font-size: 1.25rem;
+}
+.hero-desc {
+  margin: 0 0 16px 0;
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+.hero-metrics {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.metric-pill {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  padding: 8px 14px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.metric-pill .m-val {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #58a6ff;
+}
+.metric-pill.accent-green .m-val {
+  color: #3fb950;
+}
+.metric-pill .m-lbl {
+  font-size: 0.68rem;
+  color: #8b949e;
+  text-transform: uppercase;
+}
+.summary-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn-hero-primary {
+  background: #008080;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.88rem;
+  text-align: center;
+}
+.btn-hero-sync {
+  background: #003366;
+  border: none;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+}
+
+/* Checklist Container */
+.checklist-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: #0d1117;
+}
+.checklist-header {
+  margin-bottom: 20px;
+}
+.checklist-header h3 {
+  margin: 0 0 4px 0;
+}
+.checklist-header p {
+  color: #8b949e;
+  margin: 0 0 14px 0;
+  font-size: 0.85rem;
+}
+.checklist-area-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+.cl-chip {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.cl-chip.active {
+  background: #003366;
+  border-color: #58a6ff;
+  color: #fff;
+  font-weight: bold;
+}
+.checklist-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 900px;
+}
+.checklist-row {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.cl-info {
+  display: flex;
+  flex-direction: column;
+}
+.cl-cat {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #00a896;
+  font-weight: bold;
+}
+.cl-title {
+  margin: 2px 0;
+  font-size: 0.92rem;
+}
+.cl-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8b949e;
+}
+.cl-status-options {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-cl-status {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-cl-status.status-ok.selected {
+  background: #008000;
+  color: #fff;
+  border-color: #008000;
+}
+.btn-cl-status.status-obs.selected {
+  background: #FF8C00;
+  color: #fff;
+  border-color: #FF8C00;
+}
+.btn-cl-status.status-na.selected {
+  background: #30363d;
+  color: #c9d1d9;
+}
+
 </style>
