@@ -118,7 +118,7 @@ const allNavItems: NavItem[] = [
     roles: ['ADMIN']
   },
   {
-    label: 'Inspector App',
+    label: 'Inspector App (Campo)',
     path: '/mobile-preview',
     icon: '📱',
     roles: ['ADMIN', 'INSPECTOR'],
@@ -128,6 +128,12 @@ const allNavItems: NavItem[] = [
     label: 'Inspecciones Técnicas',
     path: '/inspections',
     icon: '📋',
+    roles: ['ADMIN', 'INSPECTOR', 'CLIENT']
+  },
+  {
+    label: 'Actas & Informes PDF',
+    path: '/reports',
+    icon: '📄',
     roles: ['ADMIN', 'INSPECTOR', 'CLIENT']
   },
   {
