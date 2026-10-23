@@ -89,3 +89,4 @@ Para garantizar que ingenieros, arquitectos y técnicos adopten la herramienta d
    - Cierre de la inspección con cambio de estado a `COMPLETED`.
 3. **Futuro (SaaS Expandible):**
    - Reactivar los módulos de Postventa (Fase 6), Portal de Clientes (Fase 5) y Asistente IA (Fase 8) sobre esta base validada en obra.
+

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../domain/observation_library.dart';
 import '../../domain/plan_marker_service.dart';
 
+/// Pantalla principal de trabajo de campo para el inspector.
+/// Soporta tanto formato Smartphone (vista apilada por pestañas)
+/// como formato Tablet (Split-View panorámico con plano y lista simultáneos).
 class InspectionWorkspaceScreen extends StatefulWidget {
   final String inspectionId;
   final String unitName;
@@ -52,7 +55,7 @@ class _InspectionWorkspaceScreenState extends State<InspectionWorkspaceScreen> w
     });
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Observación guardada localmente en SQLite: "${preset.title}"')),
+      SnackBar(content: Text('Observación guardada en SQLite local: "${preset.title}"')),
     );
   }
 
@@ -73,7 +76,7 @@ class _InspectionWorkspaceScreenState extends State<InspectionWorkspaceScreen> w
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Biblioteca de Defectos Típicos',
+                    'Catálogo Rápido de No-Conformidades',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
@@ -110,218 +113,299 @@ class _InspectionWorkspaceScreenState extends State<InspectionWorkspaceScreen> w
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${widget.unitName} - ${widget.projectName}', style: const TextStyle(fontSize: 16)),
-            Text('Área: ${_areas[_selectedAreaIndex]}', style: const TextStyle(fontSize: 12, color: Color(0xFFA0A0A0))),
-          ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Punto de quiebre para Tablet: anchos mayores a 720px
+        final isTablet = constraints.maxWidth >= 720;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('${widget.unitName} - ${widget.projectName}', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isTablet ? const Color(0xFF03DAC6).withOpacity(0.15) : const Color(0xFF1A73E8).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isTablet ? const Color(0xFF03DAC6) : const Color(0xFF1A73E8),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        isTablet ? 'MODO TABLET' : 'MODO MÓVIL',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isTablet ? const Color(0xFF03DAC6) : const Color(0xFF1A73E8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text('Zona seleccionada: ${_areas[_selectedAreaIndex]}', style: const TextStyle(fontSize: 12, color: Color(0xFFA0A0A0))),
+              ],
+            ),
+            bottom: isTablet
+                ? null // En Tablet no necesitamos pestañas, ambas vistas se presentan en simultáneo
+                : TabBar(
+                    controller: _tabController,
+                    indicatorColor: const Color(0xFF1A73E8),
+                    tabs: const [
+                      Tab(icon: Icon(Icons.list_alt), text: 'Defectos'),
+                      Tab(icon: Icon(Icons.map_outlined), text: 'Plano Táctil'),
+                    ],
+                  ),
+          ),
+          body: isTablet
+              ? _buildTabletSplitView()
+              : _buildPhoneTabView(),
+          floatingActionButton: FloatingActionButton.extended(
+            backgroundColor: const Color(0xFF1A73E8),
+            icon: const Icon(Icons.add_a_photo),
+            label: Text(isTablet ? 'Registrar Defecto con Foto' : 'Defecto'),
+            onPressed: _showAddObservationModal,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Vista adaptable para Smartphone (Pestañas clásicas)
+  Widget _buildPhoneTabView() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildObservationsPane(),
+        _buildPlanCanvasPane(),
+      ],
+    );
+  }
+
+  /// Vista adaptativa para Tablet (Doble panel simultáneo: Plano interactivo a la izquierda, lista y áreas a la derecha)
+  Widget _buildTabletSplitView() {
+    return Row(
+      children: [
+        // Panel izquierdo: Plano interactivo amplio (60% del ancho)
+        Expanded(
+          flex: 6,
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(right: BorderSide(color: Color(0xFF2A2A2A), width: 1.5)),
+            ),
+            child: _buildPlanCanvasPane(),
+          ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: const Color(0xFF1A73E8),
-          tabs: const [
-            Tab(icon: Icon(Icons.list_alt), text: 'Inspección & Defectos'),
-            Tab(icon: Icon(Icons.map_outlined), text: 'Plano Táctil'),
-          ],
+
+        // Panel derecho: Selector de zonas y observaciones registradas (40% del ancho)
+        Expanded(
+          flex: 4,
+          child: _buildObservationsPane(),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Pestaña 1: Selector de Áreas + Observaciones
-          Column(
+      ],
+    );
+  }
+
+  /// Componente del Plano Interactivo con pines táctiles
+  Widget _buildPlanCanvasPane() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          onTapUp: (details) {
+            final coord = PlanMarkerCoordinate.fromPixelOffset(
+              touchX: details.localPosition.dx,
+              touchY: details.localPosition.dy,
+              renderWidth: constraints.maxWidth,
+              renderHeight: constraints.maxHeight,
+            );
+            setState(() {
+              _markers.add(coord);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                duration: const Duration(milliseconds: 1200),
+                content: Text('Pin de defecto fijado en (${coord.xPercent.toStringAsFixed(1)}%, ${coord.yPercent.toStringAsFixed(1)}%)'),
+              ),
+            );
+          },
+          child: Stack(
             children: [
               Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                color: const Color(0xFF181818),
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _areas.length,
-                  itemBuilder: (context, index) {
-                    final isSelected = index == _selectedAreaIndex;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(_areas[index]),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFF1A73E8),
-                        backgroundColor: const Color(0xFF262626),
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : const Color(0xFFA0A0A0),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        onSelected: (val) {
-                          if (val) setState(() => _selectedAreaIndex = index);
-                        },
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                color: const Color(0xFF141414),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.architecture, size: 80, color: Colors.white.withOpacity(0.08)),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Plano de la Unidad - ${widget.unitName}',
+                        style: TextStyle(color: Colors.white.withOpacity(0.25), fontSize: 16, fontWeight: FontWeight.w600),
                       ),
-                    );
-                  },
+                      const SizedBox(height: 6),
+                      Text(
+                        'Toque cualquier punto del plano para ubicar la no-conformidad',
+                        style: TextStyle(color: Colors.white.withOpacity(0.18), fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              Expanded(
-                child: _recordedObservations.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.camera_alt_outlined, size: 64, color: Colors.grey.withOpacity(0.3)),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Sin observaciones en esta área',
-                              style: TextStyle(color: Color(0xFFA0A0A0), fontSize: 16),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1A73E8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: const Icon(Icons.add),
-                              label: const Text('Registrar con Plantilla'),
-                              onPressed: _showAddObservationModal,
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _recordedObservations.length,
-                        itemBuilder: (context, index) {
-                          final obs = _recordedObservations[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        obs['area'] as String,
-                                        style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 12),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF1A73E8).withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          obs['severity'] as String,
-                                          style: const TextStyle(color: Color(0xFF1A73E8), fontSize: 11, fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    obs['title'] as String,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    obs['description'] as String,
-                                    style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.photo_camera, size: 16, color: Color(0xFF03DAC6)),
-                                      const SizedBox(width: 4),
-                                      const Text('Evidencia fotográfica (SHA-256 verificado)', style: TextStyle(fontSize: 12, color: Color(0xFF03DAC6))),
-                                      const Spacer(),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.06),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text('LOCAL DB', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
+              for (final m in _markers)
+                Positioned(
+                  left: (m.xPercent / 100.0) * constraints.maxWidth - 14,
+                  top: (m.yPercent / 100.0) * constraints.maxHeight - 28,
+                  child: const Icon(Icons.location_on, color: Color(0xFFCF6679), size: 30),
+                ),
             ],
           ),
+        );
+      },
+    );
+  }
 
-          // Pestaña 2: Plano Táctil interactivo (touch placement)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return GestureDetector(
-                onTapUp: (details) {
-                  final coord = PlanMarkerCoordinate.fromPixelOffset(
-                    touchX: details.localPosition.dx,
-                    touchY: details.localPosition.dy,
-                    renderWidth: constraints.maxWidth,
-                    renderHeight: constraints.maxHeight,
-                  );
-                  setState(() {
-                    _markers.add(coord);
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      duration: const Duration(seconds: 1),
-                      content: Text('Marcador táctil fijado en: (${coord.xPercent.toStringAsFixed(1)}%, ${coord.yPercent.toStringAsFixed(1)}%)'),
-                    ),
-                  );
-                },
-                child: Stack(
-                  children: [
-                    Container(
-                      width: constraints.maxWidth,
-                      height: constraints.maxHeight,
-                      color: const Color(0xFF1A1A1A),
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.architecture, size: 80, color: Colors.white.withOpacity(0.08)),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Plano Arquitectónico - ${widget.unitName}',
-                              style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 16),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Toque cualquier punto del plano para fijar un defecto con precisión',
-                              style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    for (final m in _markers)
-                      Positioned(
-                        left: (m.xPercent / 100.0) * constraints.maxWidth - 14,
-                        top: (m.yPercent / 100.0) * constraints.maxHeight - 28,
-                        child: const Icon(Icons.location_on, color: Color(0xFFCF6679), size: 28),
-                      ),
-                  ],
+  /// Componente de Lista de Observaciones y Selector de Áreas
+  Widget _buildObservationsPane() {
+    final filtered = _recordedObservations.where((o) => o['area'] == _areas[_selectedAreaIndex]).toList();
+
+    return Column(
+      children: [
+        // Selector horizontal de ambientes
+        Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          color: const Color(0xFF1E1E1E),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: _areas.length,
+            itemBuilder: (context, index) {
+              final isSelected = index == _selectedAreaIndex;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(_areas[index]),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF1A73E8),
+                  backgroundColor: const Color(0xFF2A2A2A),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFFA0A0A0),
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedAreaIndex = index;
+                      });
+                    }
+                  },
                 ),
               );
             },
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF1A73E8),
-        icon: const Icon(Icons.add_a_photo),
-        label: const Text('Defecto'),
-        onPressed: _showAddObservationModal,
-      ),
+        ),
+
+        // Lista de observaciones en la zona seleccionada
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 54, color: Colors.white.withOpacity(0.15)),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Sin observaciones en ${_areas[_selectedAreaIndex]}',
+                        style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF252525),
+                          foregroundColor: const Color(0xFF1A73E8),
+                        ),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Agregar con Catálogo'),
+                        onPressed: _showAddObservationModal,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final obs = filtered[index];
+                    return Card(
+                      color: const Color(0xFF1E1E1E),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(color: Color(0xFF2A2A2A)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1A73E8).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    obs['severity'] as String,
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1A73E8)),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.06),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text('SQLITE LOCAL', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              obs['title'] as String,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              obs['description'] as String,
+                              style: const TextStyle(color: Color(0xFFA0A0A0), fontSize: 13),
+                            ),
+                            const SizedBox(height: 10),
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_outlined, size: 14, color: Color(0xFF03DAC6)),
+                                SizedBox(width: 4),
+                                Text('Foto con Hash SHA-256 verificado', style: TextStyle(fontSize: 11, color: Color(0xFF03DAC6))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
