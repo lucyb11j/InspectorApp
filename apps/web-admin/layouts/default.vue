@@ -7,6 +7,7 @@
       <nav class="nav-links">
         <NuxtLink to="/dashboard" class="nav-item">Dashboard</NuxtLink>
         <NuxtLink to="/inspections" class="nav-item">Inspections</NuxtLink>
+        <NuxtLink to="/plans" class="nav-item">Planos & Arquitectura</NuxtLink>
         <NuxtLink to="/mobile-preview" class="nav-item nav-highlight">📱 Inspector App (Fase 2)</NuxtLink>
         <NuxtLink to="/properties" class="nav-item">Properties</NuxtLink>
         <NuxtLink to="/clients" class="nav-item">Clients</NuxtLink>
