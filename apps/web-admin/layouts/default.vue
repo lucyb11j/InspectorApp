@@ -7,6 +7,7 @@
       <nav class="nav-links">
         <NuxtLink to="/dashboard" class="nav-item">Dashboard</NuxtLink>
         <NuxtLink to="/inspections" class="nav-item">Inspections</NuxtLink>
+        <NuxtLink to="/mobile-preview" class="nav-item nav-highlight">📱 Inspector App (Fase 2)</NuxtLink>
         <NuxtLink to="/properties" class="nav-item">Properties</NuxtLink>
         <NuxtLink to="/clients" class="nav-item">Clients</NuxtLink>
         <button @click="logout" class="nav-item logout-btn">Logout</button>
@@ -55,6 +56,11 @@ const logout = async () => {
 .nav-item:hover, .router-link-active {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
+}
+.nav-highlight {
+  color: #03dac6;
+  border: 1px solid rgba(3, 218, 198, 0.2);
+  background: rgba(3, 218, 198, 0.05);
 }
 .logout-btn {
   background: none;
