@@ -35,6 +35,13 @@ body {
   padding: 20px;
   display: flex;
   flex-direction: column;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), padding 0.25s ease;
+  box-sizing: border-box;
+}
+
+.sidebar-collapsed .sidebar {
+  width: 72px;
+  padding: 20px 8px;
 }
 
 .main-content {

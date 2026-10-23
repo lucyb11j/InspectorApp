@@ -2,52 +2,68 @@
   <div class="simulator-page">
     <header class="page-header">
       <div>
-        <h1>Simulador de Campo (Inspector App - Fase 2)</h1>
-        <p class="subtitle">Herramienta táctil para arquitectos e ingenieros en obra · Teléfono y Tablet</p>
+        <div class="title-with-pill">
+          <h1>Inspector App</h1>
+          <span class="badge-status-app">OFFLINE DISPONIBLE</span>
+        </div>
+        <p class="subtitle">Herramienta de captura técnica de campo para arquitectos e ingenieros en obra</p>
       </div>
       <div class="header-controls">
-        <!-- Switch de Dispositivo: Móvil vs Tablet -->
+        <!-- Switch de Formato: Móvil vs Tablet -->
         <div class="device-switcher">
           <button
+            type="button"
             class="switch-btn"
             :class="{ active: deviceMode === 'mobile' }"
             @click="deviceMode = 'mobile'"
           >
-            📱 Móvil (375px)
+            📱 Teléfono
           </button>
           <button
+            type="button"
             class="switch-btn"
             :class="{ active: deviceMode === 'tablet' }"
             @click="deviceMode = 'tablet'"
           >
-            💻 Tablet (820px Split-View)
+            💻 Tablet (Pantalla Dividida)
           </button>
         </div>
-        <span class="badge-offline">⚡ SQLite Offline-First Activo</span>
+
+        <!-- Botón para alternar modo enfocado (oculta el panel lateral de soporte) -->
+        <button 
+          type="button" 
+          class="btn-toggle-focus" 
+          :class="{ active: isAppOnlyView }"
+          @click="isAppOnlyView = !isAppOnlyView"
+          :title="isAppOnlyView ? 'Mostrar panel lateral de apoyo' : 'Ver únicamente la App (Modo Pantalla Completa)'"
+        >
+          {{ isAppOnlyView ? '⤢ Ver con Panel' : '⛶ Solo la App' }}
+        </button>
       </div>
     </header>
 
-    <div class="simulator-container" :class="`mode-${deviceMode}`">
-      <!-- Marco de Dispositivo Adaptable -->
+    <div class="simulator-container" :class="[`mode-${deviceMode}`, { 'app-centered': isAppOnlyView }]">
+      <!-- Marco de Dispositivo Adaptable (App Limpia) -->
       <div class="device-frame" :class="deviceMode">
         <div v-if="deviceMode === 'mobile'" class="phone-notch"></div>
         <div class="device-screen">
-          <!-- Top Bar -->
+          <!-- Top Bar del Dispositivo -->
           <div class="device-top-bar">
-            <span>09:41 · {{ deviceMode === 'tablet' ? 'iPad Pro 11"' : 'iPhone 15' }}</span>
+            <span>09:41 · {{ deviceMode === 'tablet' ? 'iPad Pro' : 'iPhone' }}</span>
             <div class="status-icons">
-              <span class="badge-tag">{{ deviceMode === 'tablet' ? 'MODO TABLET' : 'MODO MÓVIL' }}</span>
-              <span>📶 Offline</span>
+              <span class="badge-tag">{{ deviceMode === 'tablet' ? 'TABLET' : 'MÓVIL' }}</span>
+              <span>📶 Modo Campo</span>
               <span>🔋 100%</span>
             </div>
           </div>
 
+          <!-- Cabecera de la Inspección en Curso -->
           <div class="mobile-header">
             <div class="mobile-title-block">
-              <h3>Dpto 305 - Condominio Los Cedros</h3>
-              <p class="area-indicator">Zona activa: {{ activeArea }}</p>
+              <h3>Dpto 305 — Condominio Los Cedros</h3>
+              <p class="area-indicator">Ambiente: <strong>{{ activeArea }}</strong></p>
             </div>
-            <span class="badge-sync">SQLITE LOCAL</span>
+            <span class="badge-sync">LOCAL</span>
           </div>
 
           <!-- MODO TELÉFONO: Selector de ambientes + Tabs -->
@@ -88,19 +104,19 @@
               <div v-if="filteredObservations.length === 0" class="empty-defects">
                 <span class="icon-camera">📷</span>
                 <p>Sin observaciones en {{ activeArea }}</p>
-                <button class="btn-preset" @click="showModal = true">+ Agregar con Catálogo</button>
+                <button class="btn-preset" @click="showModal = true">+ Agregar Defecto</button>
               </div>
 
               <div v-else class="defects-list">
                 <div v-for="obs in filteredObservations" :key="obs.id" class="defect-card">
                   <div class="card-head">
                     <span class="badge-sev" :class="`sev-${obs.severity.toLowerCase()}`">{{ obs.severity }}</span>
-                    <span class="badge-db">Drift Local</span>
+                    <span class="badge-db">Guardado local</span>
                   </div>
                   <h4>{{ obs.title }}</h4>
                   <p class="desc">{{ obs.description }}</p>
                   <div class="evidence-meta">
-                    <span>📸 SHA-256: <code>{{ obs.sha256.substring(0, 12) }}...</code></span>
+                    <span>📸 Evidencia fotográfica vinculada</span>
                   </div>
                 </div>
               </div>
@@ -110,7 +126,7 @@
             <div v-else class="tab-pane plan-pane" @click="addMarker">
               <div class="plan-canvas">
                 <div class="blueprint-grid"></div>
-                <p class="plan-hint">Toque en cualquier zona del plano para fijar el pin</p>
+                <p class="plan-hint">Toque en cualquier zona del plano para fijar el pin de ubicación</p>
                 <div
                   v-for="(marker, idx) in planMarkers"
                   :key="idx"
@@ -123,7 +139,7 @@
             </div>
           </template>
 
-          <!-- MODO TABLET: SPLIT-VIEW (Plano interactivo 60% + Lista de Defectos 40%) -->
+          <!-- MODO TABLET: SPLIT-VIEW (Plano interactivo a la izquierda + Lista de Defectos a la derecha) -->
           <template v-else>
             <div class="tablet-split-layout">
               <!-- Panel Izquierdo: Plano Panorámico Grande -->
@@ -131,8 +147,8 @@
                 <div class="plan-canvas">
                   <div class="blueprint-grid"></div>
                   <div class="tablet-plan-overlay">
-                    <span class="plan-badge">PLANO ARQUITECTÓNICO DPTO 305</span>
-                    <p class="plan-hint">Haga clic en cualquier punto del plano para ubicar la no-conformidad</p>
+                    <span class="plan-badge">PLANO ARQUITECTÓNICO — DPTO 305</span>
+                    <p class="plan-hint">Toque cualquier punto del plano para ubicar la no-conformidad</p>
                   </div>
                   <div
                     v-for="(marker, idx) in planMarkers"
@@ -179,7 +195,7 @@
                       <h4>{{ obs.title }}</h4>
                       <p class="desc">{{ obs.description }}</p>
                       <div class="evidence-meta">
-                        <span>📸 Evidencia Hash: <code>{{ obs.sha256.substring(0, 12) }}...</code></span>
+                        <span>📸 Evidencia fotográfica vinculada</span>
                       </div>
                     </div>
                   </div>
@@ -195,31 +211,31 @@
         </div>
       </div>
 
-      <!-- Panel Lateral de Especificaciones Técnicas Fase 2 -->
-      <div class="specs-panel">
-        <h3>Arquitectura Multi-Formato (Mobile & Tablet)</h3>
+      <!-- Panel Lateral de Resumen de Visita (Ocultable a voluntad con el botón "Solo la App") -->
+      <div v-if="!isAppOnlyView" class="specs-panel">
+        <h3>Resumen de Visita Técnica</h3>
         <p class="specs-desc">
-          El motor de campo ha sido diseñado para maximizar la productividad de ingenieros y arquitectos en obra:
+          Esta vista representa el entorno del profesional técnico en obra. Los datos se registran en almacenamiento local SQLite y se compilan automáticamente para el acta final.
         </p>
 
         <div class="spec-item">
-          <h4>📱 Formato Smartphone (375px)</h4>
-          <p>Operación ágil con una mano para recorridos rápidos, captura inmediata con cámara y navegación por pestañas.</p>
+          <h4>📍 Ubicación Activa</h4>
+          <p>Condominio Los Cedros · Torre B · Unidad 305 · 3 ambientes inspeccionados.</p>
         </div>
 
         <div class="spec-item highlight">
-          <h4>💻 Formato Tablet Split-View (720px - 1024px)</h4>
-          <p>Doble panel panorámico simultáneo: plano arquitectónico a la izquierda para marcación táctil de alta precisión y lista de defectos a la derecha.</p>
+          <h4>📊 Resumen de Defectos</h4>
+          <p>{{ observations.length }} observaciones registradas con coordenadas en plano.</p>
         </div>
 
         <div class="spec-item">
-          <h4>🗄️ SQLite Offline-First (Drift)</h4>
-          <p>Toda información, foto y coordenada se almacena localmente de inmediato con hashes SHA-256 inmutables para sincronización transparente.</p>
+          <h4>⚡ Estado de Conectividad</h4>
+          <p>Operando en modo local. Las fotos y datos se sincronizan al detectar red.</p>
         </div>
 
         <div class="quick-actions">
           <NuxtLink to="/inspections/55555555-0000-0000-0000-000000000001" class="btn-secondary">
-            Ver Detalle de Inspección →
+            Generar Acta / Informe Técnico →
           </NuxtLink>
         </div>
       </div>
@@ -229,10 +245,10 @@
     <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
       <div class="modal-card">
         <div class="modal-header">
-          <h3>Catálogo Rápido de Defectos Frecuentes</h3>
+          <h3>Catálogo de Defectos Típicos</h3>
           <button class="btn-close" @click="showModal = false">✕</button>
         </div>
-        <p class="modal-sub">Seleccione un defecto predefinido para agregarlo en 1 solo toque a SQLite:</p>
+        <p class="modal-sub">Seleccione un defecto predefinido para registrarlo en 1 toque:</p>
         <div class="preset-list">
           <div
             v-for="preset in presetDefects"
@@ -255,6 +271,7 @@
 
 <script setup lang="ts">
 const deviceMode = ref<'mobile' | 'tablet'>('tablet')
+const isAppOnlyView = ref(false) // Permite ver la app limpia sin panel lateral
 const activeArea = ref('Sala / Comedor')
 const activeTab = ref<'defects' | 'plan'>('defects')
 const showModal = ref(false)
@@ -351,18 +368,33 @@ const addPresetObservation = (preset: typeof presetDefects[0]) => {
   align-items: center;
   margin-bottom: 24px;
 }
+.title-with-pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .page-header h1 {
   font-size: 2rem;
-  margin: 0 0 6px 0;
+  margin: 0;
+}
+.badge-status-app {
+  background: rgba(3, 218, 198, 0.15);
+  color: #03dac6;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 .subtitle {
   color: var(--text-secondary);
-  margin: 0;
+  margin: 6px 0 0 0;
+  font-size: 0.95rem;
 }
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 .device-switcher {
   display: flex;
@@ -387,13 +419,20 @@ const addPresetObservation = (preset: typeof presetDefects[0]) => {
   background: var(--primary);
   color: #fff;
 }
-.badge-offline {
-  background: rgba(3, 218, 198, 0.15);
-  color: #03dac6;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
+.btn-toggle-focus {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.btn-toggle-focus:hover, .btn-toggle-focus.active {
+  background: rgba(26, 115, 232, 0.2);
+  border-color: var(--primary);
+  color: #4d9eff;
 }
 
 /* Container */
@@ -402,6 +441,9 @@ const addPresetObservation = (preset: typeof presetDefects[0]) => {
   gap: 32px;
   align-items: flex-start;
   transition: all 0.3s ease;
+}
+.simulator-container.app-centered {
+  justify-content: center;
 }
 
 /* Device Frame */
@@ -753,17 +795,18 @@ const addPresetObservation = (preset: typeof presetDefects[0]) => {
   padding: 24px;
 }
 .specs-panel h3 {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   margin-top: 0;
 }
 .specs-desc {
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.5;
+  font-size: 0.88rem;
 }
 .spec-item {
-  margin-top: 16px;
+  margin-top: 14px;
   background: #141414;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 12px;
   border-left: 3px solid #444;
 }
@@ -772,17 +815,17 @@ const addPresetObservation = (preset: typeof presetDefects[0]) => {
   background: rgba(3, 218, 198, 0.04);
 }
 .spec-item h4 {
-  margin: 0 0 6px 0;
-  font-size: 0.95rem;
+  margin: 0 0 4px 0;
+  font-size: 0.9rem;
 }
 .spec-item p {
   color: var(--text-secondary);
   margin: 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 .quick-actions {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 .btn-secondary {
   display: inline-block;
