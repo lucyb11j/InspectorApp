@@ -257,3 +257,49 @@ VALUES (
         'SYNCED'
     )
 ON CONFLICT (id) DO NOTHING;
+-- 0. Auth Users (Para iniciar sesión en desarrollo local)
+-- Usuario de prueba:
+-- Email: admin@inspector.com
+-- Password: password123
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  recovery_sent_at,
+  last_sign_in_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at,
+  confirmation_token,
+  email_change,
+  email_change_token_new,
+  recovery_token
+) VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  'aaaaaaaa-0000-0000-0000-000000000001',
+  'authenticated',
+  'authenticated',
+  'admin@inspector.com',
+  crypt('password123', gen_salt('bf')),
+  now(),
+  now(),
+  now(),
+  '{"provider":"email","providers":["email"]}',
+  '{"full_name":"Administrador Demo"}',
+  now(),
+  now(),
+  '',
+  '',
+  '',
+  ''
+) ON CONFLICT (id) DO NOTHING;
+
+-- Usuario en tabla public.users vinculado a la organización demo
+INSERT INTO public.users (id, organization_id, email, role) VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'admin@inspector.com', 'admin')
+ON CONFLICT (id) DO NOTHING;
