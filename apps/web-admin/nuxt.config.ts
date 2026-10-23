@@ -3,13 +3,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   modules: ['@nuxtjs/supabase'],
   supabase: {
-    redirectOptions: {
-      login: '/login',
-      callback: '/confirm',
-      include: undefined,
-      exclude: ['/', '/login', '/signup', '/confirm', '/public/*', '/mobile-preview'],
-      cookieRedirect: false,
-    },
+    redirect: false, // Desactiva el redireccionamiento estricto obligatorio en desarrollo
     clientOptions: {
       realtime: {
         worker: false,

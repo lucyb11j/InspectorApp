@@ -1,16 +1,20 @@
 <template>
-  <div>Redirecting...</div>
+  <div class="redirecting">Cargando plataforma...</div>
 </template>
 
 <script setup>
-const user = useSupabaseUser()
 const router = useRouter()
-
 onMounted(() => {
-  if (user.value) {
-    router.push('/dashboard')
-  } else {
-    router.push('/login')
-  }
+  router.push('/dashboard')
 })
 </script>
+
+<style scoped>
+.redirecting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--text-secondary);
+}
+</style>

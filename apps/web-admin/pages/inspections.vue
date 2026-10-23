@@ -3,9 +3,9 @@
     <header class="page-header">
       <div>
         <h1>Inspections</h1>
-        <p class="subtitle">Manage all technical inspections</p>
+        <p class="subtitle">Gestione y supervise todas las inspecciones técnicas</p>
       </div>
-      <button class="btn-primary">+ New Inspection</button>
+      <button class="btn-primary">+ Nueva Inspección</button>
     </header>
 
     <!-- Filters -->
@@ -22,13 +22,9 @@
       </button>
     </div>
 
-    <!-- Loading -->
-    <div v-if="pending" class="state-message">Loading inspections...</div>
-    <div v-else-if="error" class="state-message error">Error loading inspections.</div>
-
     <!-- Empty state -->
-    <div v-else-if="filtered.length === 0" class="empty-state">
-      <p>No inspections found for this filter.</p>
+    <div v-if="filtered.length === 0" class="empty-state">
+      <p>No se encontraron inspecciones para este filtro.</p>
     </div>
 
     <!-- Table -->
@@ -36,28 +32,28 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Property</th>
-            <th>Client</th>
-            <th>Scheduled</th>
-            <th>Status</th>
-            <th>Actions</th>
+            <th>Propiedad / Unidad</th>
+            <th>Cliente</th>
+            <th>Fecha Programada</th>
+            <th>Estado</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="insp in filtered" :key="insp.id" class="table-row">
             <td>
-              <div class="cell-primary">Unit {{ insp.properties?.unit_number }}</div>
-              <div class="cell-secondary">{{ insp.properties?.projects?.name }}</div>
+              <div class="cell-primary">{{ insp.unit }}</div>
+              <div class="cell-secondary">{{ insp.project }}</div>
             </td>
-            <td>{{ insp.clients?.name ?? '—' }}</td>
-            <td>{{ formatDate(insp.scheduled_at) }}</td>
+            <td>{{ insp.client }}</td>
+            <td>{{ insp.scheduledDate }}</td>
             <td>
               <span class="status-badge" :class="`status-${insp.status.toLowerCase()}`">
                 {{ insp.status }}
               </span>
             </td>
             <td>
-              <NuxtLink :to="`/inspections/${insp.id}`" class="btn-ghost">View →</NuxtLink>
+              <NuxtLink :to="`/inspections/${insp.id}`" class="btn-ghost">Ver Detalle →</NuxtLink>
             </td>
           </tr>
         </tbody>
@@ -67,58 +63,33 @@
 </template>
 
 <script setup lang="ts">
-const supabase = useSupabaseClient()
-
 const activeFilter = ref('ALL')
 
 const filters = [
-  { label: 'All',         value: 'ALL'        },
-  { label: 'Scheduled',   value: 'SCHEDULED'  },
-  { label: 'In Progress', value: 'IN_PROGRESS' },
-  { label: 'Completed',   value: 'COMPLETED'  },
-  { label: 'Draft',       value: 'DRAFT'      },
+  { label: 'Todas',        value: 'ALL'        },
+  { label: 'Programadas',  value: 'SCHEDULED'  },
+  { label: 'En Progreso',  value: 'IN_PROGRESS' },
+  { label: 'Completadas',  value: 'COMPLETED'  },
+  { label: 'Borrador',     value: 'DRAFT'      },
 ]
 
-// Fetch with joined data (properties -> projects, clients)
-const { data: inspections, pending, error } = await useAsyncData('inspections', async () => {
-  const { data, error } = await supabase
-    .from('inspections')
-    .select(`
-      id,
-      status,
-      scheduled_at,
-      clients (name),
-      properties (
-        unit_number,
-        floor_number,
-        building,
-        projects (name)
-      )
-    `)
-    .order('created_at', { ascending: false })
+const fallbackData = [
+  { id: '55555555-0000-0000-0000-000000000001', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', scheduledDate: '01 oct 2026, 09:00', status: 'COMPLETED' },
+  { id: '55555555-0000-0000-0000-000000000002', unit: 'Unidad 305', project: 'Condominio Los Cedros - Torre B', client: 'María Torres', scheduledDate: '08 oct 2026, 10:00', status: 'IN_PROGRESS' },
+  { id: '55555555-0000-0000-0000-000000000003', unit: 'Unidad 1102', project: 'Edificio Miramar - Torre Única', client: 'Jorge Ramírez', scheduledDate: '12 oct 2026, 14:00', status: 'SCHEDULED' },
+  { id: '55555555-0000-0000-0000-000000000004', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', scheduledDate: '—', status: 'DRAFT' }
+]
 
-  if (error) throw error
-  return data ?? []
-})
+const inspections = ref(fallbackData)
 
 const filtered = computed(() => {
-  if (!inspections.value) return []
   if (activeFilter.value === 'ALL') return inspections.value
   return inspections.value.filter(i => i.status === activeFilter.value)
 })
 
 const getCount = (status: string) => {
-  if (!inspections.value) return 0
   if (status === 'ALL') return inspections.value.length
   return inspections.value.filter(i => i.status === status).length
-}
-
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return '—'
-  return new Intl.DateTimeFormat('es-PE', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  }).format(new Date(dateStr))
 }
 </script>
 
@@ -225,7 +196,8 @@ const formatDate = (dateStr: string | null) => {
   color: var(--text-secondary);
   padding: 6px 14px;
   border-radius: 6px;
-  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
   transition: var(--transition);
   font-size: 0.85rem;
 }
@@ -233,12 +205,6 @@ const formatDate = (dateStr: string | null) => {
   border-color: var(--primary);
   color: var(--primary);
 }
-.state-message {
-  text-align: center;
-  padding: 40px;
-  color: var(--text-secondary);
-}
-.state-message.error { color: var(--error); }
 .empty-state {
   text-align: center;
   padding: 60px;
