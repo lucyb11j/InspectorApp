@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "test": "vitest run",
+    "build": "pnpm -r run build",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:status": "supabase status",
@@ -26,6 +28,7 @@
     "typescript": "^7.0.2"
   },
   "devDependencies": {
-    "supabase": "^2.120.0"
+    "supabase": "^2.120.0",
+    "vitest": "^5.0.5"
   }
 }
