@@ -7,8 +7,14 @@ export default defineNuxtConfig({
       login: '/login',
       callback: '/confirm',
       include: undefined,
-      exclude: ['/', '/login', '/signup', '/confirm', '/public/*'],
+      exclude: ['/', '/login', '/signup', '/confirm', '/public/*', '/mobile-preview'],
       cookieRedirect: false,
+    },
+    clientOptions: {
+      realtime: {
+        worker: false,
+        timeout: 20000,
+      }
     }
   },
   css: ['~/assets/css/main.css']
