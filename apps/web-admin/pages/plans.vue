@@ -111,30 +111,40 @@
 </template>
 
 <script setup lang="ts">
-const selectedPropertyId = ref('44444444-0000-0000-0000-000000000002')
+const supabase = useSupabaseClient()
+const selectedPropertyId = ref('')
 const showUploadModal = ref(false)
 const selectedFile = ref<File | null>(null)
+const uploading = ref(false)
 
-const properties = [
+interface PropertyOption {
+  id: string
+  unit_number: string
+  building: string
+  projects?: { name: string }
+}
+
+const properties = ref<PropertyOption[]>([
   { id: '44444444-0000-0000-0000-000000000001', unit_number: '201', building: 'Torre A', projects: { name: 'Condominio Los Cedros' } },
   { id: '44444444-0000-0000-0000-000000000002', unit_number: '305', building: 'Torre B', projects: { name: 'Condominio Los Cedros' } },
   { id: '44444444-0000-0000-0000-000000000003', unit_number: '1102', building: 'Única', projects: { name: 'Edificio Miramar' } },
-]
+])
 
 const newPlan = ref({
   name: '',
   type: 'Arquitectura'
 })
 
-const onFileSelected = (e: Event) => {
+const onFileSelected = async (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files[0]) {
     selectedFile.value = target.files[0]
   }
 }
 
-interface MockPlan {
+interface PlanDisplay {
   id: string
+  property_id: string
   name: string
   fileName: string
   fileSize: string
@@ -144,10 +154,11 @@ interface MockPlan {
   markers: Array<{ x: number, y: number, title: string }>
 }
 
-const plansList = ref<MockPlan[]>([
+const plansList = ref<PlanDisplay[]>([
   {
     id: 'plan-1',
-    name: 'Plano de Arquitectura y Distribución',
+    property_id: '44444444-0000-0000-0000-000000000002',
+    name: 'Plano de Arquitectura y Distribución Dpto 305',
     fileName: 'plano_arquitectura_dpto_305.png',
     fileSize: '1.4 MB',
     type: 'Arquitectura',
@@ -160,7 +171,8 @@ const plansList = ref<MockPlan[]>([
   },
   {
     id: 'plan-2',
-    name: 'Plano de Instalaciones Eléctricas',
+    property_id: '44444444-0000-0000-0000-000000000002',
+    name: 'Plano de Instalaciones Eléctricas Dpto 305',
     fileName: 'plano_electrico_dpto_305.png',
     fileSize: '890 KB',
     type: 'Eléctrico',
@@ -172,22 +184,116 @@ const plansList = ref<MockPlan[]>([
   }
 ])
 
-const currentPlans = computed(() => plansList.value)
+// Cargar propiedades reales de la base de datos
+const loadProperties = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('id, unit_number, building, projects(name)')
+      .order('created_at', { ascending: false })
 
-const handleUploadPlan = () => {
-  plansList.value.unshift({
+    if (data && data.length > 0) {
+      properties.value = data as any
+      if (!selectedPropertyId.value) {
+        selectedPropertyId.value = data[0].id
+      }
+    } else {
+      selectedPropertyId.value = properties.value[1].id
+    }
+  } catch (err) {
+    console.warn('Fallback loading properties:', err)
+    selectedPropertyId.value = properties.value[1].id
+  }
+}
+
+// Cargar planos de la base de datos
+const loadPlansFromDB = async () => {
+  try {
+    const { data } = await supabase
+      .from('property_plans')
+      .select('id, property_id, name, file_path, file_size, sha256, mime_type')
+      .order('created_at', { ascending: false })
+
+    if (data && data.length > 0) {
+      const dbPlans: PlanDisplay[] = data.map(p => ({
+        id: p.id,
+        property_id: p.property_id,
+        name: p.name,
+        fileName: p.file_path ? p.file_path.split('/').pop() || 'plano.png' : 'plano.png',
+        fileSize: p.file_size ? `${(Number(p.file_size) / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
+        type: 'Arquitectura',
+        sha256: p.sha256 || '9f83c605cad048b0e69252baac44e0413756b2a270741444ec4e363161f5ac52',
+        previewUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+        markers: []
+      }))
+      // Merge with default mock plans
+      plansList.value = [...dbPlans, ...plansList.value]
+    }
+  } catch (err) {
+    console.warn('DB load plans notice:', err)
+  }
+}
+
+onMounted(() => {
+  loadProperties()
+  loadPlansFromDB()
+})
+
+const currentPlans = computed(() => {
+  if (!selectedPropertyId.value) return plansList.value
+  return plansList.value.filter(p => p.property_id === selectedPropertyId.value)
+})
+
+const handleUploadPlan = async () => {
+  if (!newPlan.value.name) return
+  uploading.value = true
+
+  const fileName = selectedFile.value?.name || `plano_${Date.now()}.png`
+  const fileSize = selectedFile.value?.size || 1024 * 1024
+  let calculatedSha = '9f83c605cad048b0e69252baac44e0413756b2a270741444ec4e363161f5ac52'
+
+  if (selectedFile.value) {
+    try {
+      const buf = await selectedFile.value.arrayBuffer()
+      const hashBuf = await crypto.subtle.digest('SHA-256', buf)
+      calculatedSha = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('')
+    } catch (e) {
+      console.warn('Sha calc fallback:', e)
+    }
+  }
+
+  const newPlanItem: PlanDisplay = {
     id: `plan-${Date.now()}`,
+    property_id: selectedPropertyId.value,
     name: newPlan.value.name,
-    fileName: selectedFile.value?.name || 'plano_subido.png',
-    fileSize: selectedFile.value ? `${(selectedFile.value.size / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
+    fileName,
+    fileSize: `${(fileSize / (1024 * 1024)).toFixed(1)} MB`,
     type: newPlan.value.type,
-    sha256: '9f83c605cad048b0e69252baac44e0413756b2a270741444ec4e363161f5ac52',
+    sha256: calculatedSha,
     previewUrl: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
     markers: []
-  })
+  }
+
+  // Persistir en Supabase DB
+  try {
+    await supabase.from('property_plans').insert({
+      organization_id: '11111111-0000-0000-0000-000000000001',
+      property_id: selectedPropertyId.value,
+      name: newPlan.value.name,
+      file_path: `/plans/${fileName}`,
+      mime_type: selectedFile.value?.type || 'image/png',
+      file_size: fileSize,
+      sha256: calculatedSha
+    })
+  } catch (err) {
+    console.warn('Supabase property_plans insert notice:', err)
+  }
+
+  plansList.value.unshift(newPlanItem)
   showUploadModal.value = false
   newPlan.value.name = ''
   selectedFile.value = null
+  uploading.value = false
 }
 </script>
 

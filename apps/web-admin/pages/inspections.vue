@@ -287,6 +287,46 @@ const inspections = ref<InspectionDisplay[]>([
   { id: '55555555-0000-0000-0000-000000000004', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', clientEmail: 'carlos.mendoza@email.com', scheduledDate: '—', status: 'DRAFT' }
 ])
 
+const loadDBData = async () => {
+  try {
+    // Cargar proyectos reales
+    const { data: projs } = await supabase.from('projects').select('id, name, address')
+    if (projs && projs.length > 0) {
+      projectsList.value = projs
+    }
+
+    // Cargar inspecciones reales
+    const { data: dbInsps } = await supabase
+      .from('inspections')
+      .select('id, status, scheduled_at, clients(name, email), properties(unit_number, building, projects(name))')
+      .order('created_at', { ascending: false })
+
+    if (dbInsps && dbInsps.length > 0) {
+      const mapped: InspectionDisplay[] = dbInsps.map(i => {
+        const prop = (i as any).properties
+        const client = (i as any).clients
+        return {
+          id: i.id,
+          unit: prop ? `Unidad ${prop.unit_number}` : 'Unidad',
+          project: prop ? `${prop.projects?.name || 'Condominio'} - ${prop.building || 'Torre A'}` : 'Condominio',
+          client: client?.name || 'Propietario',
+          clientEmail: client?.email || '',
+          scheduledDate: i.scheduled_at ? new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(i.scheduled_at)) : '—',
+          status: i.status || 'SCHEDULED'
+        }
+      })
+      // Fusionar
+      inspections.value = mapped
+    }
+  } catch (err) {
+    console.warn('Error loading DB inspections:', err)
+  }
+}
+
+onMounted(() => {
+  loadDBData()
+})
+
 const newAreaInput = ref('')
 const uploadedPlanName = ref('')
 const uploadedPlanFile = ref<File | null>(null)
@@ -393,8 +433,24 @@ const createInspection = async () => {
     const formattedDate = form.value.scheduledDate.replace('T', ', ')
     const newId = `55555555-0000-0000-${Date.now().toString().slice(-12)}`
 
-    // Intentar persistir en Supabase si está disponible
+    // Persistir directamente en Postgres / Supabase
     try {
+      // 0. Si es nuevo proyecto / condominio, insertarlo primero en public.projects
+      if (form.value.projectId === 'NEW_PROJECT') {
+        const { data: createdProj } = await supabase
+          .from('projects')
+          .insert({
+            organization_id: '11111111-0000-0000-0000-000000000001',
+            name: form.value.newProjectName,
+            address: form.value.newProjectAddress || 'Dirección no especificada'
+          })
+          .select('id')
+          .single()
+        if (createdProj) {
+          currentProjectId = createdProj.id
+        }
+      }
+
       // 1. Cliente
       const { data: newClient } = await supabase
         .from('clients')
@@ -405,28 +461,28 @@ const createInspection = async () => {
           phone: form.value.clientPhone || null
         })
         .select('id')
-        .maybeSingle()
+        .single()
 
-      const clientId = newClient?.id || '33333333-0000-0000-0000-000000000001'
+      const clientId = newClient ? newClient.id : '33333333-0000-0000-0000-000000000001'
 
       // 2. Propiedad
       const { data: newProp } = await supabase
         .from('properties')
         .insert({
           organization_id: '11111111-0000-0000-0000-000000000001',
-          project_id: form.value.projectId,
+          project_id: currentProjectId,
           client_id: clientId,
           unit_number: form.value.unitNumber,
           building: form.value.building,
           floor_number: form.value.floorNumber
         })
         .select('id')
-        .maybeSingle()
+        .single()
 
-      const propertyId = newProp?.id || '44444444-0000-0000-0000-000000000001'
+      const propertyId = newProp ? newProp.id : '44444444-0000-0000-0000-000000000001'
 
       // 3. Inspección
-      await supabase
+      const { data: createdInsp } = await supabase
         .from('inspections')
         .insert({
           organization_id: '11111111-0000-0000-0000-000000000001',
@@ -435,19 +491,35 @@ const createInspection = async () => {
           status: form.value.status,
           scheduled_at: new Date(form.value.scheduledDate).toISOString()
         })
+        .select('id')
+        .single()
 
-      // 4. Plano de Propiedad
+      const inspectionId = createdInsp ? createdInsp.id : newId
+
+      // 4. Plano de Propiedad (PDF o Imagen)
       await supabase
         .from('property_plans')
         .insert({
           organization_id: '11111111-0000-0000-0000-000000000001',
           property_id: propertyId,
           name: `Plano Arquitectónico ${unitLabel}`,
-          file_path: `/plans/${form.value.planTemplate}.png`,
-          mime_type: 'image/png'
+          file_path: uploadedPlanName.value ? `/plans/${uploadedPlanName.value}` : `/plans/${form.value.planTemplate}.png`,
+          mime_type: uploadedPlanName.value?.endsWith('.pdf') ? 'application/pdf' : 'image/png'
         })
+
+      // 5. Guardar las áreas / ambientes asignados en inspection_areas
+      if (form.value.areas && form.value.areas.length > 0) {
+        const areaRows = form.value.areas.map(areaName => ({
+          organization_id: '11111111-0000-0000-0000-000000000001',
+          inspection_id: inspectionId,
+          name: areaName,
+          sync_status: 'SYNCED'
+        }))
+        await supabase.from('inspection_areas').insert(areaRows)
+      }
+
     } catch (dbError) {
-      console.warn('Database insert notice (using reactive list fallback):', dbError)
+      console.warn('Database insert notice:', dbError)
     }
 
     inspections.value.unshift({
