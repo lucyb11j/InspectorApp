@@ -1,7 +1,35 @@
 <template>
   <div class="app-layout" :class="{ 'sidebar-collapsed': isCollapsed }">
-    <!-- Barra Lateral Colapsable -->
-    <aside class="sidebar">
+    <!-- Barra Superior Móvil/Tablet con botón hamburguesa expandible -->
+    <header class="mobile-top-nav">
+      <div class="mobile-top-left">
+        <button 
+          type="button" 
+          class="btn-menu-drawer" 
+          @click="toggleMobileMenu"
+          aria-label="Alternar menú de navegación"
+        >
+          <span class="hamburger-icon">{{ isMobileMenuOpen ? '✕' : '☰' }}</span>
+        </button>
+        <div class="mobile-brand">
+          <span class="brand-icon">🏢</span>
+          <span class="brand-title">InspecOS</span>
+        </div>
+      </div>
+      <div class="mobile-top-right">
+        <span class="role-badge-pill" :class="'role-' + currentRole.toLowerCase()">{{ currentRole }}</span>
+      </div>
+    </header>
+
+    <!-- Overlay oscuro en móvil al abrir menú -->
+    <div 
+      v-if="isMobileMenuOpen" 
+      class="mobile-backdrop" 
+      @click="isMobileMenuOpen = false"
+    ></div>
+
+    <!-- Barra Lateral Colapsable / Drawer en Móvil/Tablet -->
+    <aside class="sidebar" :class="{ 'mobile-drawer-open': isMobileMenuOpen }">
       <div class="brand">
         <div class="brand-header">
           <span class="brand-icon">🏢</span>
@@ -28,6 +56,7 @@
             class="nav-item"
             :class="item.customClass"
             :title="isCollapsed ? item.label : undefined"
+            @click="isMobileMenuOpen = false"
           >
             <span class="nav-icon">{{ item.icon }}</span>
             <span v-if="!isCollapsed" class="nav-text">{{ item.label }}</span>
@@ -69,11 +98,17 @@ onMounted(() => {
   fetchProfile()
 })
 
-// Estado de colapso de la barra lateral (recordado en memoria/local)
+// Estado de colapso de la barra lateral (en PC)
 const isCollapsed = ref(false)
+// Estado de menú móvil / tablet desplegable
+const isMobileMenuOpen = ref(false)
 
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
+}
+
+const toggleMobileMenu = () => {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value
 }
 
 // Configuración de rutas y permisos RBAC
@@ -106,6 +141,12 @@ const allNavItems: NavItem[] = [
     roles: ['ADMIN', 'INSPECTOR', 'CLIENT']
   },
   {
+    label: 'Usuarios & Permisos',
+    path: '/users',
+    icon: '👥',
+    roles: ['ADMIN']
+  },
+  {
     label: 'Actas & Informes PDF',
     path: '/reports',
     icon: '📄',
@@ -133,7 +174,7 @@ const allNavItems: NavItem[] = [
   {
     label: 'Directorio de Clientes',
     path: '/clients',
-    icon: '👥',
+    icon: '👤',
     roles: ['ADMIN']
   }
 ]
@@ -150,6 +191,41 @@ const logout = async () => {
 </script>
 
 <style scoped>
+/* Topbar para Mobile y Tablet */
+.mobile-top-nav {
+  display: none;
+}
+.btn-menu-drawer {
+  background: #1e1e1e;
+  border: 1px solid var(--border-color);
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.role-badge-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+.mobile-backdrop {
+  display: none;
+}
+
 .brand {
   margin-bottom: 24px;
 }
@@ -282,7 +358,7 @@ const logout = async () => {
   text-transform: uppercase;
 }
 .role-admin { background: rgba(26, 115, 232, 0.2); color: #58a6ff; border: 1px solid rgba(26, 115, 232, 0.4); }
-.role-inspector { background: rgba(35, 134, 54, 0.2); color: #3fb950; border: 1px solid rgba(35, 134, 54, 0.4); }
+.role-inspector { background: rgba(3, 218, 198, 0.2); color: #03dac6; border: 1px solid rgba(3, 218, 198, 0.4); }
 .role-client { background: rgba(255, 171, 0, 0.2); color: #ffab00; border: 1px solid rgba(255, 171, 0, 0.4); }
 
 /* Estado Colapsado */
@@ -299,5 +375,49 @@ const logout = async () => {
 }
 .sidebar-collapsed .nav-icon {
   margin: 0;
+}
+
+/* Responsividad para Tablet y Móvil */
+@media (max-width: 900px) {
+  .mobile-top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: #161616;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .mobile-top-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    z-index: 150;
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px !important;
+    background: #181818;
+    z-index: 200;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.7);
+    display: flex !important;
+  }
+  .sidebar.mobile-drawer-open {
+    transform: translateX(0);
+  }
 }
 </style>

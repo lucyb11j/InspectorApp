@@ -36,6 +36,7 @@
           <tr>
             <th>Propiedad / Unidad</th>
             <th>Cliente / Propietario</th>
+            <th>Inspector Designado</th>
             <th>Fecha Programada</th>
             <th>Estado</th>
             <th>Acciones</th>
@@ -50,6 +51,12 @@
             <td>
               <div class="cell-primary">{{ insp.client }}</div>
               <div v-if="insp.clientEmail" class="cell-secondary">{{ insp.clientEmail }}</div>
+            </td>
+            <td>
+              <div class="inspector-assigned-badge">
+                <span class="ins-icon">👷‍♂️</span>
+                <span>{{ insp.inspectorName || 'Sin asignar' }}</span>
+              </div>
             </td>
             <td>{{ insp.scheduledDate }}</td>
             <td>
@@ -217,10 +224,10 @@
             <small class="hint-text">Si no sube plano, el inspector realizará la checklist técnica directamente sobre estos ambientes.</small>
           </div>
 
-          <!-- Sección 5: Programación de Visita -->
+          <!-- Sección 5: Programación de Visita y Asignación de Inspector -->
           <div class="form-section-title">
             <span class="sec-icon">📅</span>
-            <span>5. Programación de la Visita (inspections)</span>
+            <span>5. Programación de Visita y Asignación de Inspector</span>
           </div>
           <div class="form-row">
             <div class="form-group col">
@@ -228,12 +235,28 @@
               <input v-model="form.scheduledDate" type="datetime-local" class="modal-input" required />
             </div>
             <div class="form-group col">
+              <label>Asignar Inspector Técnico (inspector_id):</label>
+              <select v-model="form.inspectorId" class="modal-input">
+                <option v-for="ins in inspectorsList" :key="ins.id" :value="ins.id">
+                  {{ ins.name }} · Horario: Lun-Vie 08:00 - 18:00
+                </option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col">
               <label>Estado Inicial (status):</label>
               <select v-model="form.status" class="modal-input">
                 <option value="SCHEDULED">SCHEDULED (Programada)</option>
                 <option value="IN_PROGRESS">IN_PROGRESS (En Curso)</option>
                 <option value="DRAFT">DRAFT (Borrador)</option>
               </select>
+            </div>
+            <div class="form-group col">
+              <label>Disponibilidad Horaria:</label>
+              <div class="availability-badge">
+                ✓ Turno disponible sin solapamiento
+              </div>
             </div>
           </div>
 
@@ -276,19 +299,39 @@ interface InspectionDisplay {
   project: string
   client: string
   clientEmail?: string
+  inspectorName?: string
+  inspectorId?: string
   scheduledDate: string
   status: string
 }
 
+const inspectorsList = ref([
+  { id: 'aaaaaaaa-0000-0000-0000-000000000002', name: 'Arq. Roberto Silva' },
+  { id: 'aaaaaaaa-0000-0000-0000-000000000004', name: 'Arq. Carlos Vargas' }
+])
+
 const inspections = ref<InspectionDisplay[]>([
-  { id: '55555555-0000-0000-0000-000000000001', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', clientEmail: 'carlos.mendoza@email.com', scheduledDate: '01 oct 2026, 09:00', status: 'COMPLETED' },
-  { id: '55555555-0000-0000-0000-000000000002', unit: 'Unidad 305', project: 'Condominio Los Cedros - Torre B', client: 'María Torres', clientEmail: 'maria.torres@email.com', scheduledDate: '08 oct 2026, 10:00', status: 'IN_PROGRESS' },
-  { id: '55555555-0000-0000-0000-000000000003', unit: 'Unidad 1102', project: 'Edificio Miramar - Torre Única', client: 'Jorge Ramírez', clientEmail: 'jorge.ramirez@email.com', scheduledDate: '12 oct 2026, 14:00', status: 'SCHEDULED' },
-  { id: '55555555-0000-0000-0000-000000000004', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', clientEmail: 'carlos.mendoza@email.com', scheduledDate: '—', status: 'DRAFT' }
+  { id: '55555555-0000-0000-0000-000000000001', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', clientEmail: 'carlos.mendoza@email.com', inspectorName: 'Arq. Roberto Silva', inspectorId: 'aaaaaaaa-0000-0000-0000-000000000002', scheduledDate: '01 oct 2026, 09:00', status: 'COMPLETED' },
+  { id: '55555555-0000-0000-0000-000000000002', unit: 'Unidad 305', project: 'Condominio Los Cedros - Torre B', client: 'María Torres', clientEmail: 'maria.torres@email.com', inspectorName: 'Arq. Roberto Silva', inspectorId: 'aaaaaaaa-0000-0000-0000-000000000002', scheduledDate: '08 oct 2026, 10:00', status: 'IN_PROGRESS' },
+  { id: '55555555-0000-0000-0000-000000000003', unit: 'Unidad 1102', project: 'Edificio Miramar - Torre Única', client: 'Jorge Ramírez', clientEmail: 'jorge.ramirez@email.com', inspectorName: 'Arq. Carlos Vargas', inspectorId: 'aaaaaaaa-0000-0000-0000-000000000004', scheduledDate: '12 oct 2026, 14:00', status: 'SCHEDULED' },
+  { id: '55555555-0000-0000-0000-000000000004', unit: 'Unidad 201', project: 'Condominio Los Cedros - Torre A', client: 'Carlos Mendoza', clientEmail: 'carlos.mendoza@email.com', inspectorName: 'Arq. Roberto Silva', inspectorId: 'aaaaaaaa-0000-0000-0000-000000000002', scheduledDate: '—', status: 'DRAFT' }
 ])
 
 const loadDBData = async () => {
   try {
+    // Cargar inspectores reales desde public.users
+    const { data: dbInspectors } = await supabase
+      .from('users')
+      .select('id, first_name, last_name')
+      .eq('role', 'INSPECTOR')
+
+    if (dbInspectors && dbInspectors.length > 0) {
+      inspectorsList.value = dbInspectors.map(u => ({
+        id: u.id,
+        name: u.first_name ? `${u.first_name} ${u.last_name || ''}` : 'Inspector Técnico'
+      }))
+    }
+
     // Cargar proyectos reales
     const { data: projs } = await supabase.from('projects').select('id, name, address')
     if (projs && projs.length > 0) {
@@ -298,19 +341,22 @@ const loadDBData = async () => {
     // Cargar inspecciones reales
     const { data: dbInsps } = await supabase
       .from('inspections')
-      .select('id, status, scheduled_at, clients(name, email), properties(unit_number, building, projects(name))')
+      .select('id, status, scheduled_at, inspector_id, clients(name, email), properties(unit_number, building, projects(name))')
       .order('created_at', { ascending: false })
 
     if (dbInsps && dbInsps.length > 0) {
       const mapped: InspectionDisplay[] = dbInsps.map(i => {
         const prop = (i as any).properties
         const client = (i as any).clients
+        const matchedInspector = inspectorsList.value.find(ins => ins.id === i.inspector_id)
         return {
           id: i.id,
           unit: prop ? `Unidad ${prop.unit_number}` : 'Unidad',
           project: prop ? `${prop.projects?.name || 'Condominio'} - ${prop.building || 'Torre A'}` : 'Condominio',
           client: client?.name || 'Propietario',
           clientEmail: client?.email || '',
+          inspectorName: matchedInspector ? matchedInspector.name : (i.inspector_id ? 'Inspector Técnico' : 'Sin asignar'),
+          inspectorId: i.inspector_id || undefined,
           scheduledDate: i.scheduled_at ? new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(i.scheduled_at)) : '—',
           status: i.status || 'SCHEDULED'
         }
@@ -341,6 +387,7 @@ const form = ref({
   clientName: '',
   clientPhone: '',
   clientEmail: '',
+  inspectorId: 'aaaaaaaa-0000-0000-0000-000000000002',
   planTemplate: 'standard-apartment',
   scheduledDate: '2026-10-25T10:00',
   status: 'SCHEDULED',
@@ -481,13 +528,14 @@ const createInspection = async () => {
 
       const propertyId = newProp ? newProp.id : '44444444-0000-0000-0000-000000000001'
 
-      // 3. Inspección
+      // 3. Inspección con inspector_id asignado
       const { data: createdInsp } = await supabase
         .from('inspections')
         .insert({
           organization_id: '11111111-0000-0000-0000-000000000001',
           property_id: propertyId,
           client_id: clientId,
+          inspector_id: form.value.inspectorId || null,
           status: form.value.status,
           scheduled_at: new Date(form.value.scheduledDate).toISOString()
         })
@@ -522,12 +570,16 @@ const createInspection = async () => {
       console.warn('Database insert notice:', dbError)
     }
 
+    const assignedInspectorObj = inspectorsList.value.find(ins => ins.id === form.value.inspectorId)
+
     inspections.value.unshift({
-      id: newId,
+      id: createdInsp?.id || newId,
       unit: unitLabel,
       project: fullProjectName,
       client: form.value.clientName,
       clientEmail: form.value.clientEmail,
+      inspectorName: assignedInspectorObj?.name || 'Arq. Roberto Silva',
+      inspectorId: form.value.inspectorId,
       scheduledDate: formattedDate,
       status: form.value.status
     })
@@ -584,6 +636,32 @@ const createInspection = async () => {
   background: rgba(26, 115, 232, 0.1);
   border-color: var(--primary);
   color: var(--primary);
+}
+.inspector-assigned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(3, 218, 198, 0.08);
+  border: 1px solid rgba(3, 218, 198, 0.3);
+  color: #03dac6;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.ins-icon {
+  font-size: 0.9rem;
+}
+.availability-badge {
+  background: rgba(35, 134, 54, 0.15);
+  border: 1px solid #238636;
+  color: #3fb950;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
 }
 .filter-count {
   background: rgba(255,255,255,0.1);

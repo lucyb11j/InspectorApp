@@ -70,36 +70,29 @@ body {
 /* Responsividad Tablet y Móvil para Panel Admin */
 @media (max-width: 1024px) {
   .sidebar {
-    width: 210px;
+    width: 220px;
     padding: 16px 12px;
   }
   .main-content {
     padding: 24px 20px;
   }
   .nav-item {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     padding: 8px 10px;
     gap: 8px;
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   .app-layout {
     flex-direction: column;
   }
   .sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-    padding: 14px 16px;
-  }
-  .nav-links {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 4px;
-    gap: 6px;
+    display: none;
   }
   .main-content {
     padding: 20px 14px;
+    width: 100%;
+    box-sizing: border-box;
   }
 }
