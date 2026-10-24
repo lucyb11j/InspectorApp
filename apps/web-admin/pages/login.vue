@@ -3,7 +3,7 @@
     <div class="card-header">
       <div class="brand-badge">
         <span class="brand-icon">🏢</span>
-        <span>InspectorHub</span>
+        <span>InspecOS</span>
       </div>
       <h2>Iniciar Sesión</h2>
       <p>Seleccione un perfil o ingrese sus credenciales de acceso</p>

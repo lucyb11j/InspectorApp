@@ -6,7 +6,7 @@
         <p class="subtitle">Bienvenido al Panel de Inspección Técnica. Hoy es {{ today }}.</p>
       </div>
       <div class="quick-status">
-        <span class="badge-role">ORGANIZACIÓN: INSPECTORHUB</span>
+        <span class="badge-role">ORGANIZACIÓN: INSPECOS</span>
       </div>
     </header>
 

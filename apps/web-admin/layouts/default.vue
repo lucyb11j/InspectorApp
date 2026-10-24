@@ -5,7 +5,7 @@
       <div class="brand">
         <div class="brand-header">
           <span class="brand-icon">🏢</span>
-          <h2 v-if="!isCollapsed">InspectorHub</h2>
+          <h2 v-if="!isCollapsed">InspecOS</h2>
           <button 
             type="button" 
             class="toggle-sidebar-btn" 

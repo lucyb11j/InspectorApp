@@ -11,7 +11,7 @@ class InspectorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Inspector Técnico',
+      title: 'InspecOS — Inspector Técnico',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,

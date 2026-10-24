@@ -6,7 +6,7 @@
       <div class="top-bar-left">
         <div class="brand-badge-mini">
           <span class="brand-logo-icon">🏢</span>
-          <span class="brand-name-bold">OpenInspection</span>
+          <span class="brand-name-bold">InspecOS</span>
         </div>
         <span class="mode-tag">Tablet / Campo</span>
       </div>
@@ -624,7 +624,7 @@
           <div class="profile-meta-list">
             <div class="profile-meta-row">
               <span>Organización:</span>
-              <strong>InspectorHub Constructora</strong>
+              <strong>InspecOS Constructora</strong>
             </div>
             <div class="profile-meta-row">
               <span>Modo de Operación:</span>

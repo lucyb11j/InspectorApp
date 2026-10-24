@@ -20,7 +20,7 @@
         <div class="header-logo-block">
           <div class="logo-mark">🏢</div>
           <div>
-            <h1 class="company-name">INSPECTORHUB</h1>
+            <h1 class="company-name">INSPECOS</h1>
             <p class="company-tagline">Plataforma Profesional de Inspección Técnica Inmobiliaria</p>
           </div>
         </div>
@@ -151,7 +151,7 @@
 
       <!-- Pie de Página -->
       <footer class="report-footer">
-        <p>Documento generado electrónicamente por InspectorHub Platform · Inmutabilidad respaldada mediante algoritmo SHA-256</p>
+        <p>Documento generado electrónicamente por InspecOS Platform · Inmutabilidad respaldada mediante algoritmo SHA-256</p>
       </footer>
     </main>
   </div>

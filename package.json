@@ -1,7 +1,7 @@
 {
-  "name": "inspector_app",
+  "name": "inspecos",
   "version": "1.0.0",
-  "description": "Plataforma de Inspección Técnica Inmobiliaria",
+  "description": "InspecOS — Plataforma de Software y Apps para Inspección Técnica Inmobiliaria",
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
