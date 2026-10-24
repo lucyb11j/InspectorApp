@@ -175,6 +175,17 @@
           </div>
 
           <div class="sub-header-actions">
+            <!-- Botón para alternar panel lateral de ambientes cuando estamos en el Plano -->
+            <button 
+              v-if="detailSubTab === 'plan'" 
+              type="button" 
+              class="btn-toggle-areas-drawer" 
+              :class="{ active: showAreasSidebar }"
+              @click="showAreasSidebar = !showAreasSidebar"
+              title="Mostrar / Ocultar panel de Ambientes para máxima visualización del plano"
+            >
+              🏢 Ambientes ({{ inspectionAreas.length }})
+            </button>
             <button type="button" class="btn-new-obs-action" @click="openObservationModal()">
               <span class="plus-sign">+</span>
               <span>Defecto</span>
@@ -340,8 +351,11 @@
               </div>
             </div>
 
-            <!-- Panel Lateral de Zonas y Marcador Seleccionado -->
-            <div class="plan-sidebar-info">
+            <!-- Panel Lateral de Zonas y Marcador Seleccionado (Ocultable para maximizar plano) -->
+            <div 
+              class="plan-sidebar-info"
+              :class="{ 'sidebar-visible': showAreasSidebar, 'sidebar-hidden': !showAreasSidebar && !selectedMarkerItem }"
+            >
               <!-- Barra de Control de Pin Seleccionado -->
               <div v-if="selectedMarkerItem" class="selected-pin-toolbar">
                 <div class="selected-pin-header">
@@ -959,6 +973,7 @@ const inspectionAreas = ref<AreaItem[]>([
 
 const activeSelectedArea = ref('Sala / Comedor')
 const newAreaNameInput = ref('')
+const showAreasSidebar = ref(false)
 
 const toggleAreaRename = (idx: number) => {
   if (inspectionAreas.value[idx]) {
@@ -2242,15 +2257,44 @@ const handleAppLogout = async () => {
 }
 .plan-pin-marker:hover .pin-tooltip { display: flex; flex-direction: column; }
 
+/* Botón para alternar Ambientes */
+.btn-toggle-areas-drawer {
+  background: #182230;
+  border: 1px solid #28374d;
+  color: #c9d1d9;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.btn-toggle-areas-drawer:hover, .btn-toggle-areas-drawer.active {
+  background: #003366;
+  border-color: #58a6ff;
+  color: #fff;
+}
+
 /* Panel Lateral de Zonas */
 .plan-sidebar-info {
   flex: 0.7;
+  max-width: 340px;
   background: #0f151f;
   padding: 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  transition: all 0.25s ease;
+}
+.plan-sidebar-info.sidebar-hidden {
+  display: none;
+}
+.plan-sidebar-info.sidebar-visible {
+  display: flex;
 }
 .selected-pin-toolbar {
   background: #162334;
@@ -2992,5 +3036,139 @@ const handleAppLogout = async () => {
   font-size: 0.82rem;
   font-weight: bold;
   cursor: pointer;
+}
+
+/* ============================================================== */
+/* RESPONSIVIDAD TABLET Y MOBILE PARA INSPECTOR APP               */
+/* ============================================================== */
+@media (max-width: 900px) {
+  .app-top-bar {
+    padding: 0 10px;
+    height: 48px;
+  }
+  .top-bar-left .mode-tag {
+    display: none;
+  }
+  .network-pill {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+  .user-email-text {
+    max-width: 110px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+  }
+
+  /* Subheader de Inspección */
+  .inspection-sub-header {
+    height: auto;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .sub-header-left {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .unit-current-title {
+    flex: 1;
+    min-width: 0;
+  }
+  .unit-current-title h2 {
+    font-size: 0.95rem;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.25;
+  }
+  .unit-subtitle {
+    font-size: 0.76rem;
+    color: #a0aec0;
+    line-height: 1.3;
+    display: block;
+    margin-top: 2px;
+  }
+  .detail-nav-tabs {
+    flex: 1;
+    overflow-x: auto;
+    width: 100%;
+  }
+  .d-tab-btn {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+  .sub-header-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* Resumen Responsive */
+  .summary-pane {
+    padding: 14px;
+    gap: 14px;
+  }
+  .summary-hero-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+  }
+  .hero-left-info h3 {
+    font-size: 1.15rem;
+  }
+  .summary-details-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .detail-info-card {
+    padding: 12px 14px;
+  }
+  .summary-bottom-actions {
+    flex-direction: column;
+  }
+
+  /* Plano Interactivo Responsive (Maximizar el área gráfica) */
+  .plan-interactive-layout {
+    flex-direction: column;
+    position: relative;
+  }
+  .plan-canvas-wrapper {
+    flex: 1;
+    width: 100%;
+    border-right: none;
+  }
+  .plan-header-legend {
+    padding: 6px 10px;
+    font-size: 0.74rem;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .plan-sidebar-info {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 50;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.7);
+    border-left: 1px solid #24354a;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  /* Tablet Split-View */
+  .summary-details-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .unit-current-title h2 {
+    font-size: 1rem;
+  }
+  .unit-subtitle {
+    font-size: 0.78rem;
+  }
 }
 </style>
