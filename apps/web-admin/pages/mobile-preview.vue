@@ -998,7 +998,7 @@
 
         <form @submit.prevent="saveObservationWithPhoto" class="modal-obs-body">
           
-          <!-- Descripción del Defecto (Entrada libre + Sugerencias desplegables de defectos típicos) -->
+          <!-- Descripción del Defecto (Casilla única con Datalist y selector de sugerencias con flecha) -->
           <div class="form-group-custom">
             <div class="field-label-row">
               <label>Descripción del Defecto:</label>
@@ -1007,24 +1007,34 @@
               </span>
             </div>
             
-            <div class="defect-input-combo-wrap">
+            <div class="single-defect-input-wrap">
               <input 
                 v-model="obsForm.title" 
                 type="text" 
-                class="field-input defect-main-input" 
-                placeholder="Escriba o elija una observación típica del desplegable..."
+                list="typicalDefectsDatalist"
+                class="field-input defect-single-input" 
+                placeholder="Escriba o elija una observación típica..."
                 required 
+                @input="onDefectInputChanged"
               />
-              <select 
-                v-if="suggestedDefectsList.length > 0" 
-                class="field-input defect-dropdown-select"
-                @change="onDefectSelectedFromDropdown($event)"
-              >
-                <option value="">▼ Ver observaciones típicas para {{ obsForm.subcategory || obsForm.category }}</option>
-                <option v-for="d in suggestedDefectsList" :key="d" :value="d">
-                  {{ d }}
-                </option>
-              </select>
+              <!-- Datalist para autocompletado y doble clic nativo en teclados/móviles -->
+              <datalist id="typicalDefectsDatalist">
+                <option v-for="d in suggestedDefectsList" :key="d" :value="d" />
+              </datalist>
+
+              <!-- Botón desplegable integrado en la misma casilla para abrir lista directa -->
+              <div v-if="suggestedDefectsList.length > 0" class="dropdown-arrow-container">
+                <select 
+                  class="select-overlay-trigger" 
+                  title="Desplegar observaciones típicas"
+                  @change="onDefectSelectedFromDropdown($event)"
+                >
+                  <option value="" disabled selected>▾</option>
+                  <option v-for="d in suggestedDefectsList" :key="d" :value="d">
+                    {{ d }}
+                  </option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -2141,6 +2151,14 @@ const onDefectSelectedFromDropdown = (event: Event) => {
       obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${target.value}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
     }
     target.value = '' // Resetear para que pueda volverse a elegir o desplegar
+  }
+}
+
+const onDefectInputChanged = () => {
+  // Si el usuario escribe una coincidencia exacta de sugerencias, actualizar el detalle si corresponde
+  const matching = suggestedDefectsList.value.find(d => d.toLowerCase() === obsForm.value.title.trim().toLowerCase())
+  if (matching && (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada'))) {
+    obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${matching}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
   }
 }
 
@@ -4155,20 +4173,60 @@ const handleAppLogout = async () => {
   padding: 1px 6px;
   border-radius: 10px;
 }
-.defect-input-combo-wrap {
+.single-defect-input-wrap {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  width: 100%;
 }
-.defect-dropdown-select {
-  background: #111a26;
-  border-color: #314a68;
+.defect-single-input {
+  width: 100%;
+  padding-right: 36px; /* Espacio para el ícono de flecha desplegable */
+}
+.dropdown-arrow-container {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.select-overlay-trigger {
+  width: 100%;
+  height: 100%;
+  opacity: 0.8;
+  background: transparent;
+  border: none;
   color: #79c0ff;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: bold;
   cursor: pointer;
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
 }
-.defect-dropdown-select:hover {
-  border-color: #58a6ff;
+.select-overlay-trigger:hover {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  opacity: 1;
+}
+.select-overlay-trigger option {
+  background: #0d1520;
+  color: #fff;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+}
+.select-overlay-trigger option:hover {
+  background: #192738;
 }
 .field-input {
   background: #0a0f16;
