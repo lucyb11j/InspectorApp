@@ -998,7 +998,7 @@
 
         <form @submit.prevent="saveObservationWithPhoto" class="modal-obs-body">
           
-          <!-- Descripción del Defecto (Casilla única con Datalist y selector de sugerencias con flecha) -->
+          <!-- Descripción del Defecto (Casilla única con dropdown flotante integrado bajo la casilla) -->
           <div class="form-group-custom">
             <div class="field-label-row">
               <label>Descripción del Defecto:</label>
@@ -1007,33 +1007,51 @@
               </span>
             </div>
             
-            <div class="single-defect-input-wrap">
-              <input 
-                v-model="obsForm.title" 
-                type="text" 
-                list="typicalDefectsDatalist"
-                class="field-input defect-single-input" 
-                placeholder="Escriba o elija una observación típica..."
-                required 
-                @input="onDefectInputChanged"
-              />
-              <!-- Datalist para autocompletado y doble clic nativo en teclados/móviles -->
-              <datalist id="typicalDefectsDatalist">
-                <option v-for="d in suggestedDefectsList" :key="d" :value="d" />
-              </datalist>
-
-              <!-- Botón desplegable integrado en la misma casilla para abrir lista directa -->
-              <div v-if="suggestedDefectsList.length > 0" class="dropdown-arrow-container">
-                <select 
-                  class="select-overlay-trigger" 
-                  title="Desplegar observaciones típicas"
-                  @change="onDefectSelectedFromDropdown($event)"
+            <div class="custom-combobox-wrapper">
+              <div class="single-defect-input-wrap">
+                <input 
+                  v-model="obsForm.title" 
+                  type="text" 
+                  class="field-input defect-single-input" 
+                  placeholder="Escriba o presione ▾ para desplegar opciones..."
+                  required 
+                  @input="onDefectInputChanged"
+                  @focus="showDefectsDropdown = true"
+                />
+                
+                <!-- Botón flecha integrado en la misma casilla -->
+                <button 
+                  v-if="suggestedDefectsList.length > 0" 
+                  type="button" 
+                  class="btn-toggle-custom-dropdown" 
+                  :class="{ active: showDefectsDropdown }"
+                  @click="showDefectsDropdown = !showDefectsDropdown"
+                  title="Desplegar observaciones típicas directamente bajo la casilla"
                 >
-                  <option value="" disabled selected>▾</option>
-                  <option v-for="d in suggestedDefectsList" :key="d" :value="d">
-                    {{ d }}
-                  </option>
-                </select>
+                  ▾
+                </button>
+              </div>
+
+              <!-- Menú Desplegable personalizado directamente bajo la casilla (No se sale de la pantalla) -->
+              <div 
+                v-if="showDefectsDropdown && suggestedDefectsList.length > 0" 
+                class="custom-dropdown-panel"
+              >
+                <div class="dropdown-header-tag">
+                  Observaciones típicas para: <strong>{{ obsForm.subcategory || obsForm.category }}</strong>
+                </div>
+                <div class="dropdown-items-scroll">
+                  <div 
+                    v-for="(defect, dIdx) in suggestedDefectsList" 
+                    :key="dIdx" 
+                    class="custom-dropdown-item"
+                    :class="{ selected: obsForm.title === defect }"
+                    @click="selectDefectItem(defect)"
+                  >
+                    <span class="defect-bullet">•</span>
+                    <span class="defect-text">{{ defect }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2142,15 +2160,13 @@ const suggestedDefectsList = computed(() => {
   return []
 })
 
-const onDefectSelectedFromDropdown = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  if (target.value) {
-    obsForm.value.title = target.value
-    // Actualizar Detalle Técnico Adicional enfocado en el defecto seleccionado si está genérico o vacío
-    if (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada')) {
-      obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${target.value}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
-    }
-    target.value = '' // Resetear para que pueda volverse a elegir o desplegar
+const showDefectsDropdown = ref(false)
+
+const selectDefectItem = (defectText: string) => {
+  obsForm.value.title = defectText
+  showDefectsDropdown.value = false
+  if (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada')) {
+    obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${defectText}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
   }
 }
 
@@ -2169,6 +2185,7 @@ const onObsCategoryChange = () => {
   } else {
     obsForm.value.subcategory = ''
   }
+  showDefectsDropdown.value = false
 }
 
 const startPickPinFromModal = () => {
@@ -4173,6 +4190,10 @@ const handleAppLogout = async () => {
   padding: 1px 6px;
   border-radius: 10px;
 }
+.custom-combobox-wrapper {
+  position: relative;
+  width: 100%;
+}
 .single-defect-input-wrap {
   position: relative;
   display: flex;
@@ -4181,52 +4202,94 @@ const handleAppLogout = async () => {
 }
 .defect-single-input {
   width: 100%;
-  padding-right: 36px; /* Espacio para el ícono de flecha desplegable */
+  padding-right: 38px; /* Espacio para el botón de flecha */
 }
-.dropdown-arrow-container {
+.btn-toggle-custom-dropdown {
   position: absolute;
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.select-overlay-trigger {
-  width: 100%;
-  height: 100%;
-  opacity: 0.8;
-  background: transparent;
-  border: none;
+  width: 28px;
+  height: 28px;
+  background: #152233;
+  border: 1px solid #283e58;
+  border-radius: 4px;
   color: #79c0ff;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: bold;
   cursor: pointer;
-  text-align: center;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  outline: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  transition: all 0.2s ease;
 }
-.select-overlay-trigger:hover {
-  background: rgba(88, 166, 255, 0.15);
-  color: #58a6ff;
-  opacity: 1;
-}
-.select-overlay-trigger option {
-  background: #0d1520;
+.btn-toggle-custom-dropdown:hover, .btn-toggle-custom-dropdown.active {
+  background: #1f3552;
+  border-color: #58a6ff;
   color: #fff;
-  font-size: 0.82rem;
-  padding: 6px 10px;
 }
-.select-overlay-trigger option:hover {
-  background: #192738;
+
+/* Panel desplegable que se expande directamente bajo la casilla y no se sale de la pantalla */
+.custom-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-height: 220px;
+  background: #0d1522;
+  border: 1px solid #284469;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dropdown-header-tag {
+  padding: 6px 10px;
+  background: #111c2e;
+  border-bottom: 1px solid #1f334d;
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+.dropdown-header-tag strong {
+  color: #58a6ff;
+}
+.dropdown-items-scroll {
+  overflow-y: auto;
+  max-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+.custom-dropdown-item {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #c9d1d9;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  line-height: 1.35;
+  transition: background 0.15s ease;
+}
+.custom-dropdown-item:hover {
+  background: #16273d;
+  color: #58a6ff;
+}
+.custom-dropdown-item.selected {
+  background: rgba(88, 166, 255, 0.15);
+  color: #79c0ff;
+  font-weight: 600;
+}
+.defect-bullet {
+  color: #58a6ff;
+  font-weight: bold;
+}
+.defect-text {
+  flex: 1;
+  word-break: break-word;
 }
 .field-input {
   background: #0a0f16;
