@@ -288,13 +288,19 @@
               <div class="plan-header-legend">
                 <div class="legend-info">
                   <span class="pin-sample">📍</span>
-                  <span v-if="movingPinIndex !== null" class="text-moving-alert">
+                  <span v-if="isPickingPinForModal" class="text-picking-alert">
+                    📌 SELECCIÓN DE PLANO ACTIVA: Toque el punto exacto en el plano para asociarlo a su observación
+                  </span>
+                  <span v-else-if="movingPinIndex !== null" class="text-moving-alert">
                     MODO REUBICACIÓN: Toque en el plano donde reubicar el Pin #{{ movingPinIndex + 1 }}
                   </span>
                   <span v-else>Toque cualquier punto o habitación del plano para situar una observación con foto</span>
                 </div>
                 <div class="legend-controls">
-                  <button v-if="movingPinIndex !== null" class="btn-cancel-move-sm" @click.stop="cancelPinMove">
+                  <button v-if="isPickingPinForModal" class="btn-cancel-move-sm" @click.stop="cancelPickPinForModal">
+                    ✕ Cancelar y Volver
+                  </button>
+                  <button v-else-if="movingPinIndex !== null" class="btn-cancel-move-sm" @click.stop="cancelPinMove">
                     ✕ Cancelar
                   </button>
                   <span class="pins-count-tag">Pines activos: {{ inspectionMarkers.length }}</span>
@@ -569,6 +575,16 @@
               </div>
 
               <h4 class="obs-card-title">{{ obs.title }}</h4>
+              
+              <!-- Categoría, Subcategoría y Ubicación Técnica -->
+              <div class="obs-card-cat-line">
+                <span class="obs-badge-cat">📁 {{ obs.category }}</span>
+                <span v-if="obs.subcategory" class="obs-badge-sub">↳ {{ obs.subcategory }}</span>
+              </div>
+              <p v-if="obs.locationDetails" class="obs-card-loc">
+                📍 <em>Ubicación:</em> {{ obs.locationDetails }}
+              </p>
+
               <p class="obs-card-desc">{{ obs.description }}</p>
 
               <!-- Evidencias Fotográficas -->
@@ -965,7 +981,7 @@
 
     <!-- ======================================================== -->
     <!-- MODAL EMERGENTE: REGISTRAR OBSERVACIÓN CON CÁMARA/FOTO   -->
-    <!-- (Pantallas 7 y 8 de la Figura)                           -->
+    <!-- (Con Especialidades y Subcategorías sincronizadas)        -->
     <!-- ======================================================== -->
     <div v-if="showObsModal" class="modal-backdrop-camera" @click.self="showObsModal = false">
       <div class="modal-obs-window">
@@ -982,62 +998,97 @@
 
         <form @submit.prevent="saveObservationWithPhoto" class="modal-obs-body">
           
-          <!-- Descripción y Sugerencia IA -->
+          <!-- Descripción del Defecto (Texto libre en blanco) -->
           <div class="form-group-custom">
             <label>Descripción del Defecto:</label>
             <input 
               v-model="obsForm.title" 
               type="text" 
               class="field-input" 
-              placeholder="Ej: Fisura capilar en enlucido de muro"
+              placeholder="Ej.: Fisura capilar en enlucido de muro..."
               required 
             />
           </div>
 
-          <div class="ai-suggestion-box">
-            <span class="ai-icon">✨</span>
-            <div class="ai-texts">
-              <label>Sugerencia Asistida:</label>
-              <p>Se recomienda registrar longitud estimada, profundidad e indicar si compromete vanos de ventanas.</p>
-            </div>
-          </div>
-
+          <!-- Categoría (Especialidad principal) y Subcategoría (Componente) vinculadas -->
           <div class="form-row-custom">
             <div class="form-col">
-              <label>Categoría:</label>
-              <select v-model="obsForm.category" class="field-input">
-                <option value="Acabados">Acabados (Pintura / Empaste)</option>
-                <option value="Pisos">Pisos y Pavimentos</option>
-                <option value="Carpintería">Carpintería (Puertas / Ventanas)</option>
-                <option value="Instalaciones">Instalaciones Sanitarias / Gas</option>
-                <option value="Electricidad">Tomacorrientes / Iluminación</option>
+              <label>Categoría / Especialidad:</label>
+              <select v-model="obsForm.category" class="field-input" @change="onObsCategoryChange">
+                <option v-for="(subs, catName) in checklistCatalog" :key="catName" :value="catName">
+                  {{ catName }}
+                </option>
               </select>
             </div>
 
             <div class="form-col">
-              <label>Severidad:</label>
-              <div class="severity-chips-group">
-                <button 
-                  v-for="sev in ['MENOR', 'MODERADA', 'MAYOR', 'CRÍTICA']" 
-                  :key="sev"
-                  type="button"
-                  class="sev-choice-chip"
-                  :class="[`chip-${sev.toLowerCase()}`, { selected: obsForm.severity === sev }]"
-                  @click="obsForm.severity = sev"
-                >
-                  {{ sev }}
-                </button>
-              </div>
+              <label>Subcategoría / Componente:</label>
+              <select v-model="obsForm.subcategory" class="field-input">
+                <option v-for="sub in availableSubcategories" :key="sub" :value="sub">
+                  {{ sub }}
+                </option>
+              </select>
             </div>
           </div>
 
+          <!-- Severidad Técnica -->
+          <div class="form-group-custom">
+            <label>Severidad:</label>
+            <div class="severity-chips-group">
+              <button 
+                v-for="sev in ['MENOR', 'MODERADA', 'MAYOR', 'CRÍTICA']" 
+                :key="sev"
+                type="button"
+                class="sev-choice-chip"
+                :class="[`chip-${sev.toLowerCase()}`, { selected: obsForm.severity === sev }]"
+                @click="obsForm.severity = sev"
+              >
+                {{ sev }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Descripción Adicional de Ubicación -->
+          <div class="form-group-custom">
+            <label>Descripción adicional de ubicación:</label>
+            <textarea 
+              v-model="obsForm.locationDetails" 
+              rows="2" 
+              class="field-input textarea" 
+              placeholder="Ej.: Fisura diagonal visible cerca del vano, lado este a 1.20m sobre el N.P.T."
+            ></textarea>
+          </div>
+
+          <!-- Fijar en Plano (Selector interactivo) -->
+          <div class="plan-pin-picker-card">
+            <div class="picker-card-header">
+              <div class="picker-icon-title">
+                <span class="picker-icon">🎯</span>
+                <div class="picker-texts">
+                  <strong>Ubicación en plano</strong>
+                  <p v-if="pendingCoordinates">
+                    Punto registrado: ({{ pendingCoordinates.x }}%, {{ pendingCoordinates.y }}%) en <em>{{ activeSelectedArea }}</em>
+                  </p>
+                  <p v-else>Seleccionar el punto exacto sobre el plano de la unidad.</p>
+                </div>
+              </div>
+              <span v-if="pendingCoordinates" class="picker-badge-success">✓ Fijado</span>
+            </div>
+
+            <button type="button" class="btn-pick-on-plan-trigger" @click="startPickPinFromModal">
+              <span class="pin-symbol">📍</span>
+              <span>{{ pendingCoordinates ? 'Cambiar punto en el plano' : 'Fijar en plano' }}</span>
+            </button>
+          </div>
+
+          <!-- Detalle Técnico Adicional -->
           <div class="form-group-custom">
             <label>Detalle Técnico Adicional:</label>
             <textarea 
               v-model="obsForm.description" 
               rows="2" 
               class="field-input textarea" 
-              placeholder="Describa tolerancias, desniveles o materiales afectados..."
+              placeholder="Describa tolerancias milimétricas, desniveles, materiales afectados o recomendaciones de resane..."
             ></textarea>
           </div>
 
@@ -1086,6 +1137,12 @@
               </div>
             </div>
             <p v-else class="camera-hint">Se generará automáticamente el Hash criptográfico SHA-256 de cada foto para el informe técnico legal.</p>
+          </div>
+
+          <!-- Nota de recomendación técnica al final -->
+          <div class="obs-recommendation-note">
+            <span class="note-icon">💡</span>
+            <p><strong>Nota:</strong> Se recomienda registrar longitud estimada, profundidad e indicar si compromete vanos de puertas o ventanas.</p>
           </div>
 
           <div class="modal-obs-footer">
@@ -1295,6 +1352,7 @@ const inspectionMarkers = ref<MarkerItem[]>([
 const selectedMarkerId = ref<string | null>(null)
 const movingPinIndex = ref<number | null>(null)
 const pendingCoordinates = ref<{ x: number; y: number } | null>(null)
+const isPickingPinForModal = ref(false)
 
 const selectedMarkerItem = computed(() => {
   return inspectionMarkers.value.find(m => m.id === selectedMarkerId.value)
@@ -1313,6 +1371,13 @@ const selectAreaFromPlan = (event: MouseEvent, areaName: string) => {
     const rect = canvas.getBoundingClientRect()
     const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
     const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
+
+    if (isPickingPinForModal.value) {
+      pendingCoordinates.value = { x, y }
+      isPickingPinForModal.value = false
+      showObsModal.value = true
+      return
+    }
 
     if (movingPinIndex.value !== null && inspectionMarkers.value[movingPinIndex.value]) {
       inspectionMarkers.value[movingPinIndex.value].x = x
@@ -1333,6 +1398,13 @@ const handlePlanCanvasClick = (event: MouseEvent) => {
   const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
   const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
 
+  if (isPickingPinForModal.value) {
+    pendingCoordinates.value = { x, y }
+    isPickingPinForModal.value = false
+    showObsModal.value = true
+    return
+  }
+
   if (movingPinIndex.value !== null && inspectionMarkers.value[movingPinIndex.value]) {
     inspectionMarkers.value[movingPinIndex.value].x = x
     inspectionMarkers.value[movingPinIndex.value].y = y
@@ -1342,6 +1414,11 @@ const handlePlanCanvasClick = (event: MouseEvent) => {
   }
 
   openObservationModal({ x, y })
+}
+
+const cancelPickPinForModal = () => {
+  isPickingPinForModal.value = false
+  showObsModal.value = true
 }
 
 const selectMarkerOnPlan = (marker: MarkerItem, idx: number) => {
@@ -1759,8 +1836,13 @@ const setSubItemStatus = (item: ChecklistSubItem, newStatus: 'OK' | 'OBS' | 'N/A
 
 const triggerObsFromChecklistSubItem = (item: ChecklistSubItem, groupName: string) => {
   setSubItemStatus(item, 'OBS')
-  obsForm.value.title = item.title
+  obsForm.value.title = '' // Dejar en blanco como solicitado
   obsForm.value.category = groupName
+  // Pre-cargar subcategoría si coincide con los prefijos
+  const matchSub = availableSubcategories.value.find(s => item.title.toLowerCase().includes(s.toLowerCase().split(' ')[0]))
+  if (matchSub) {
+    obsForm.value.subcategory = matchSub
+  }
   obsForm.value.description = `Hallazgo técnico en ${groupName}: ${item.specification}`
   obsForm.value.severity = 'MODERADA'
   openObservationModal()
@@ -1780,10 +1862,107 @@ interface ObservationRecord {
   title: string
   description: string
   category: string
+  subcategory?: string
+  locationDetails?: string
   severity: string
   area: string
   status: string
   photos: PhotoEvidence[]
+}
+
+const checklistCatalog: Record<string, string[]> = {
+  'Arquitectura y acabados': [
+    'Paredes y muros',
+    'Tarrajeo y enlucidos',
+    'Empaste y pintura',
+    'Cielos rasos y bruñas',
+    'Molduras y drywall',
+    'Zócalos y contrazócalos'
+  ],
+  'Pisos y revestimientos': [
+    'Porcelanato y cerámicos',
+    'Pisos laminados',
+    'Pisos vinílicos',
+    'Juntas y alineación',
+    'Fragua y encuentros',
+    'Nivelación y pendientes'
+  ],
+  'Carpintería de madera y melamina': [
+    'Puertas interiores',
+    'Puerta principal y marcos',
+    'Clósets y vestidores',
+    'Muebles de cocina (altos/bajos)',
+    'Cajones y correderas',
+    'Tapacantos y repisas'
+  ],
+  'Carpintería de aluminio, vidrio y mamparas': [
+    'Ventanas corredizas y proyectantes',
+    'Mamparas corredizas',
+    'Perfiles de aluminio',
+    'Felpas y hermeticidad',
+    'Vidrios y cristales templados',
+    'Barandas acristaladas'
+  ],
+  'Cerrajería y accesorios': [
+    'Cerraduras principales e interiores',
+    'Pestillos y cerrojos',
+    'Bisagras y topes de piso',
+    'Manijas y manijones',
+    'Jaladores de muebles'
+  ],
+  'Instalaciones eléctricas': [
+    'Tomacorrientes 220V',
+    'Interruptores y conmutadores',
+    'Puntos de luz y luminarias',
+    'Tablero General (TG)',
+    'Llaves termomagnéticas y diferenciales',
+    'Puesta a tierra'
+  ],
+  'Instalaciones sanitarias': [
+    'Inodoros y fluxómetros',
+    'Lavatorios y pedestales',
+    'Lavaderos de cocina / lavandería',
+    'Griferías y mezcladoras',
+    'Duchas y cabezales',
+    'Desagües, sifones y trampas P',
+    'Sumideros y registros'
+  ],
+  'Impermeabilización y evacuación de agua': [
+    'Impermeabilización de ducha',
+    'Pisos de baños y sellos húmedos',
+    'Balcones y terrazas',
+    'Pendientes hacia sumideros'
+  ],
+  'Gas y calentamiento de agua': [
+    'Puntos y llaves de paso de gas',
+    'Tuberías y ventilación normada',
+    'Terma / Calentador de agua',
+    'Conexiones flexibles certificadas'
+  ],
+  'Ventilación y climatización': [
+    'Extractores de aire de baños',
+    'Rejillas de ventilación',
+    'Ductos de evacuación',
+    'Preinstalación de aire acondicionado'
+  ],
+  'Equipamiento y electrodomésticos': [
+    'Campana extractora',
+    'Encimera (cocina empotrada)',
+    'Horno empotrado',
+    'Equipos fijos auxiliares'
+  ],
+  'Seguridad y elementos complementarios': [
+    'Detectores de humo y temperatura',
+    'Barandas de escaleras y balcones',
+    'Válvulas generales de corte',
+    'Intercomunicador'
+  ],
+  'Limpieza y entrega final': [
+    'Limpieza profunda de obra',
+    'Retiro de manchas de pintura/cemento',
+    'Vidrios limpios sin adhesivos',
+    'Protecciones retiradas'
+  ]
 }
 
 const inspectionObservations = ref<ObservationRecord[]>([
@@ -1791,7 +1970,9 @@ const inspectionObservations = ref<ObservationRecord[]>([
     id: 'obs-01',
     title: 'Fisura capilar en muro norte',
     description: 'Fisura diagonal de 0.4mm sobre enlucido contiguo a ventana principal.',
-    category: 'Paredes y Enlucidos',
+    category: 'Arquitectura y acabados',
+    subcategory: 'Paredes y muros',
+    locationDetails: 'Muro norte contiguo a ventana principal, a 1.20m NPT',
     severity: 'MENOR',
     area: 'Sala / Comedor',
     status: 'PENDIENTE',
@@ -1807,7 +1988,9 @@ const inspectionObservations = ref<ObservationRecord[]>([
     id: 'obs-02',
     title: 'Junta de cerámico desalineada o con holgura',
     description: 'Separación mayor a 3mm en piso cerámico frente al mesón de granito.',
-    category: 'Pisos y Guardapolvos',
+    category: 'Pisos y revestimientos',
+    subcategory: 'Juntas y alineación',
+    locationDetails: 'Piso frente al lavadero de cocina',
     severity: 'MODERADA',
     area: 'Cocina',
     status: 'PENDIENTE',
@@ -1823,7 +2006,9 @@ const inspectionObservations = ref<ObservationRecord[]>([
     id: 'obs-03',
     title: 'Falta cordón de silicona antihongos',
     description: 'Ausencia de cordón perimetral entre lavamanos y pared.',
-    category: 'Aparatos Sanitarios',
+    category: 'Instalaciones sanitarias',
+    subcategory: 'Lavatorios y pedestales',
+    locationDetails: 'Encuentro lavatorio y muro cerámico',
     severity: 'MODERADA',
     area: 'Baño Principal',
     status: 'PENDIENTE',
@@ -1843,14 +2028,35 @@ const capturedPhotosList = ref<PhotoEvidence[]>([])
 const obsForm = ref({
   title: '',
   description: '',
-  category: 'Acabados',
+  category: 'Arquitectura y acabados',
+  subcategory: 'Paredes y muros',
+  locationDetails: '',
   severity: 'MODERADA'
 })
+
+const availableSubcategories = computed(() => {
+  return checklistCatalog[obsForm.value.category] || []
+})
+
+const onObsCategoryChange = () => {
+  const subs = checklistCatalog[obsForm.value.category]
+  if (subs && subs.length > 0) {
+    obsForm.value.subcategory = subs[0]
+  } else {
+    obsForm.value.subcategory = ''
+  }
+}
+
+const startPickPinFromModal = () => {
+  isPickingPinForModal.value = true
+  showObsModal.value = false
+  detailSubTab.value = 'plan'
+}
 
 const openObservationModal = (coords?: { x: number; y: number }) => {
   if (coords) {
     pendingCoordinates.value = coords
-  } else {
+  } else if (!pendingCoordinates.value) {
     pendingCoordinates.value = {
       x: 35 + Math.round(Math.random() * 30),
       y: 30 + Math.round(Math.random() * 30)
@@ -1916,6 +2122,8 @@ const saveObservationWithPhoto = () => {
     title: obsForm.value.title,
     description: obsForm.value.description,
     category: obsForm.value.category,
+    subcategory: obsForm.value.subcategory,
+    locationDetails: obsForm.value.locationDetails,
     severity: obsForm.value.severity,
     area: activeSelectedArea.value,
     status: 'PENDIENTE',
@@ -1944,6 +2152,7 @@ const saveObservationWithPhoto = () => {
   // Reset y cerrar modal
   obsForm.value.title = ''
   obsForm.value.description = ''
+  obsForm.value.locationDetails = ''
   capturedPhotosList.value = []
   pendingCoordinates.value = null
   showObsModal.value = false
@@ -3936,6 +4145,132 @@ const handleAppLogout = async () => {
   font-size: 0.72rem;
   color: #8b949e;
   text-align: center;
+}
+
+/* Selector de punto en plano dentro del modal */
+.plan-pin-picker-card {
+  background: #0d1520;
+  border: 1px solid #23354b;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.picker-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.picker-icon-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.picker-icon {
+  font-size: 1.2rem;
+  color: #00e5a3;
+}
+.picker-texts strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #fff;
+}
+.picker-texts p {
+  margin: 2px 0 0 0;
+  font-size: 0.74rem;
+  color: #8b949e;
+}
+.picker-badge-success {
+  background: rgba(0, 229, 163, 0.15);
+  color: #00e5a3;
+  border: 1px solid rgba(0, 229, 163, 0.3);
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.btn-pick-on-plan-trigger {
+  width: 100%;
+  background: #142030;
+  border: 1px solid #2a415d;
+  color: #fff;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+.btn-pick-on-plan-trigger:hover {
+  background: #1c2d43;
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+.btn-pick-on-plan-trigger .pin-symbol {
+  font-size: 1rem;
+}
+
+/* Nota de recomendación técnica discreta */
+.obs-recommendation-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.obs-recommendation-note .note-icon {
+  font-size: 0.95rem;
+}
+.obs-recommendation-note p {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #8b949e;
+  line-height: 1.35;
+}
+.obs-recommendation-note p strong {
+  color: #c9d1d9;
+}
+
+/* Etiquetas en tarjetas de observación */
+.obs-card-cat-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 2px 0;
+}
+.obs-badge-cat {
+  background: #182638;
+  color: #58a6ff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.obs-badge-sub {
+  background: #101c2b;
+  color: #00e5a3;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.obs-card-loc {
+  font-size: 0.74rem;
+  color: #a0aec0;
+  margin: 2px 0 6px 0;
+}
+
+/* Alerta de selección activa en el plano */
+.text-picking-alert {
+  color: #00e5a3;
+  font-weight: bold;
+  animation: pulse 1.5s infinite;
 }
 
 .modal-obs-footer {
