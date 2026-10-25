@@ -34,10 +34,10 @@
           class="user-pill-mini-btn" 
           :class="{ active: showProfileModal }"
           @click="showProfileModal = !showProfileModal"
-          title="Ver Perfil de Usuario y Opciones"
+          title="Ver Perfil y Opciones"
         >
           <span class="user-avatar-mini">👤</span>
-          <span class="user-email-text">{{ currentUserName || 'Usuario' }}</span>
+          <span class="user-email-text">Perfil</span>
         </button>
       </div>
     </header>
@@ -866,7 +866,7 @@
     <div v-if="showProfileModal" class="modal-backdrop-camera" @click.self="showProfileModal = false">
       <div class="modal-profile-window">
         <div class="modal-profile-header">
-          <h3>Perfil del Usuario</h3>
+          <h3>Perfil del Inspector</h3>
           <button type="button" class="btn-close-modal-x" @click="showProfileModal = false">✕</button>
         </div>
         <div class="profile-card-box modal-box">
@@ -877,16 +877,16 @@
 
           <div class="profile-meta-list">
             <div class="profile-meta-row">
-              <span>Organización:</span>
-              <strong>InspecOS Inmobiliaria</strong>
+              <span class="meta-label">Organización:</span>
+              <strong class="meta-val">InspecOS Inmobiliaria</strong>
             </div>
             <div class="profile-meta-row">
-              <span>Modo de Operación:</span>
-              <strong>Tablet / Móvil Táctil</strong>
+              <span class="meta-label">Modo Operativo:</span>
+              <strong class="meta-val">Tablet / Móvil Táctil</strong>
             </div>
             <div class="profile-meta-row">
-              <span>Almacenamiento Local:</span>
-              <strong>Drift SQLite Activo (Cifrado)</strong>
+              <span class="meta-label">Almacenamiento:</span>
+              <strong class="meta-val">Drift SQLite Activo</strong>
             </div>
           </div>
 
@@ -3463,26 +3463,47 @@ const handleAppLogout = async () => {
   background: #121924;
   border: 1px solid #24354a;
   border-radius: 14px;
-  width: 100%;
-  max-width: 440px;
+  width: 90%;
+  max-width: 480px;
+  box-sizing: border-box;
   overflow: hidden;
   box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
 }
 .modal-profile-header {
-  padding: 14px 18px;
+  padding: 14px 20px;
   border-bottom: 1px solid #24354a;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.modal-profile-header h3 { margin: 0; font-size: 1.1rem; }
+.modal-profile-header h3 { margin: 0; font-size: 1.15rem; color: #fff; }
 .profile-card-box.modal-box {
-  padding: 20px;
+  padding: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.profile-card-box.modal-box h3 {
+  font-size: 1.3rem;
+  margin: 0 0 4px 0;
+  color: #fff;
+}
+.meta-label {
+  color: #8b949e;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.meta-val {
+  color: #c9d1d9;
+  font-size: 0.85rem;
+  text-align: right;
+  word-break: break-word;
 }
 .profile-modal-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
+  margin-top: 6px;
 }
 .btn-logout-app-modal {
   flex: 1;
