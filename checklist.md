@@ -20,6 +20,52 @@ N.º	Especialidad principal	Componentes internos que se evaluarán
 13	Limpieza y entrega final	Restos de obra, manchas, rayaduras, protecciones pendientes, residuos y estado general de los acabados.
 
 
+
+### Matriz de Ambientes, Especialidades, Subcategorías y Observaciones Clásicas (QA/QC)
+
+A continuación se detalla la matriz relacional para la configuración del checklist y catálogo desplegable de observaciones típicas para el inspector:
+
+| Ambiente / Recinto | Categoría / Especialidad | Subcategoría / Componente | Observaciones Clásicas Típicas (Desplegable) |
+| :--- | :--- | :--- | :--- |
+| **Sala / Comedor** | Arquitectura y acabados | Paredes y muros | Fisura capilar diagonal en tabiquería o enlucido<br>• Desplome o falta de verticalidad en tabique (>3mm)<br>• Alabeo o panza visible en superficie de muro<br>• Fisura en encuentro muro-columna (junta fría) |
+| | Arquitectura y acabados | Empaste y pintura | Huellas de rodillo o traslapes bajo luz rasante<br>• Ampollas o falta de adherencia en látex<br>• Variación de tonalidad o manchas de obra |
+| | Arquitectura y acabados | Cielos rasos y bruñas | Desnivel o pandeo en cielo raso de drywall<br>• Bruña perimetral desalineada o con rebabas<br>• Fisura longitudinal en junta de placas |
+| | Arquitectura y acabados | Zócalos y contrazócalos | Zócalo despegado o con sonido a hueco<br>• Falta de sellado superior con masilla elástica<br>• Corte astillado o junta abierta > 2mm |
+| | Pisos y revestimientos | Porcelanato y cerámicos / Laminado | Cejas entre piezas adyacentes (> 1mm)<br>• Piezas quiñadas o desportilladas<br>• Piso laminado con zona amortiguada o hundimiento<br>• Juntas abiertas entre tablas |
+| | Carpintería de aluminio, vidrio y mamparas | Mamparas y ventanas | Mampara corredera dura o se descarrila en riel<br>• Cristales con rayaduras profundas o quiñes<br>• Felpas perimetrales incompletas o rotas<br>• Seguro de mampara no traba |
+| | Instalaciones eléctricas | Tomacorrientes e interruptores | Tomacorriente sin energía o sin puesta a tierra<br>• Placa desalineada, floja o separada del muro<br>• Interruptor no commuta luminarias |
+| | Instalaciones eléctricas | Tablero General (TG) | Falta de rotulación y leyenda técnica de circuitos<br>• Disyuntor diferencial de 30mA no dispara al TEST<br>• Falta de conexión a tierra del gabinete |
+| | Carpintería de madera y melamina | Puerta principal | Hoja roza el piso o marco al girar<br>• Cerradura dura o pestillo no encaja suavemente<br>• Holgura perimetral irregular (> 4mm) |
+| | Seguridad y elementos complementarios | Seguridad contra incendios (Alarma) | Sensor / Detector de humo fotoeléctrico inoperativo o sin luz LED<br>• Detector conserva plástico protector de obra en techo |
+| **Cocina y Kitchenette** | Arquitectura y acabados | Muros y enchapes | Cerámico de salpicadero con fragua discontinua o manchada<br>• Falta de sellador antihongos en unión con encimera |
+| | Pisos y revestimientos | Cerámicos y porcelanatos | Baldosa con sonido a hueco frente a mesón<br>• Junta desalineada o ceja > 1mm |
+| | Carpintería de madera y melamina | Muebles altos y bajos (Melamina) | Puertas de reposteros desalineadas o sin cierre suave<br>• Bisagras flojas o tornillos falseados<br>• Tapacantos de melamina despegados o astillados |
+| | Instalaciones sanitarias | Grifería y lavadero | Caudal o presión deficiente de agua fría/caliente<br>• Goteo en mezcladora o cartucho defectuoso<br>• Fuga en trampa P o desagüe bajo el lavadero |
+| | Gas y calentamiento de agua | Red de gas y ventilación | Llave de paso de gas inaccesible o bloqueada<br>• Rejilla de ventilación normada ausente o tapada<br>• Punto de gas sin tapón reglamentario |
+| | Equipamiento y electrodomésticos | Equipos fijos (Campana/Encimera/Horno) | Campana extractora sin tiro activo exterior<br>• Encendido eléctrico de hornillas no activa<br>• Puerta de horno desalineada o fuga de calor |
+| | Seguridad y elementos complementarios | Seguridad contra incendios | Sensor de temperatura de cocina desalineado o suelto |
+| **Baño Principal / Visitas** | Arquitectura y acabados | Enchape cerámico y pintura | Cerámicos desportillados o con sonido hueco<br>• Pintura de cielo raso no resistente a humedad |
+| | Pisos y revestimientos | Porcelanatos y pendientes | Pendiente insuficiente hacia sumidero (charcos en esquinas)<br>• Rejilla de sumidero sobre cota de piso |
+| | Instalaciones sanitarias | Inodoro y fluxómetro | Fuga o goteo continuo en taza (válvula flapper)<br>• Inodoro con cabeceo o pernos de piso flojos<br>• Falta de silicona antihongos en base |
+| | Instalaciones sanitarias | Lavatorio y grifería | Fuga en mangueras flexibles o trampa P<br>• Lavatorio flojo sin anclaje rígido a muro<br>• Mezcladora invertida (caliente a la derecha) |
+| | Instalaciones sanitarias | Ducha y grifería | Rociado obstruido o brazo con inclinación negativa<br>• Falta de sello estanco en contorno de mezcladora |
+| | Ventilación y climatización | Extracción de aire | Extractor inoperativo o sin encendido sincronizado<br>• Falla prueba de retención de papel (succión débil)<br>• Ruido o vibración excesiva por aspas |
+| | Impermeabilización y evacuación de agua | Sellos y juntas húmedas | Cordón de silicona perimetral ausente o con poros<br>• Fragua fisurada en zona de regadera |
+| **Dormitorios** | Arquitectura y acabados | Muros, empaste y pintura | Fisuras capilares en muros contiguos a vano<br>• Zócalos despegados o con corte astillado |
+| | Carpintería de madera y melamina | Clósets y vestidores | Puertas corredizas se traban o descarrilan en riel<br>• Cajones con correderas telescópicas duras<br>• Repisas interiores pandeadas |
+| | Carpintería de madera y melamina | Puerta interior | Hoja de puerta alabeada o roza piso al girar<br>• Falta de tope magnético de piso para evitar golpes |
+| | Carpintería de aluminio, vidrio y mamparas | Ventanas | Ventana corrediza dura o con felpas rotas<br>• Cristal con rayaduras de obra |
+| | Instalaciones eléctricas | Tomacorrientes y conmutadores | Falta de continuidad de tierra en tomacorrientes<br>• Interruptor conmutador cabecera inoperativo |
+| | Ventilación y climatización | Climatización / A.C. | Caja de preinstalación A/C con tubo de drenaje tapado |
+| **Lavandería** | Instalaciones sanitarias | Poza de lavado | Poza con cabeceo o sin anclaje rígido a muro<br>• Grifería móvil floja o con goteo |
+| | Instalaciones sanitarias | Puntos de lavadora | Llaves de corte gotean al abrir<br>• Tubo de desagüe sin altura reglamentaria (90cm) |
+| | Gas y calentamiento de agua | Terma / Calentador | Ducto de gases sin pendiente positiva hacia exterior<br>• Falta de tomacorriente Schuko con puesta a tierra |
+| **Balcón / Terraza** | Carpintería de aluminio, vidrio y mamparas | Barandas y mamparas | Baranda con oscilación o anclaje estructural flojo<br>• Cristal laminado de baranda quiñado o manchado |
+| | Impermeabilización y evacuación de agua | Pendiente y sumidero | Charcos de agua en esquinas por contrapendiente<br>• Falta de goterón perimetral de corte de agua |
+| | Instalaciones sanitarias | Grifo de riego exterior | Válvula de riego sin llave de corte independiente |
+
+---
+
 📑 CHECKLIST TÉCNICO DE CONTROL DE CALIDAD Y ENTREGA
 
 

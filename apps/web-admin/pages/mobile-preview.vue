@@ -998,16 +998,34 @@
 
         <form @submit.prevent="saveObservationWithPhoto" class="modal-obs-body">
           
-          <!-- Descripción del Defecto (Texto libre en blanco) -->
+          <!-- Descripción del Defecto (Entrada libre + Sugerencias desplegables de defectos típicos) -->
           <div class="form-group-custom">
-            <label>Descripción del Defecto:</label>
-            <input 
-              v-model="obsForm.title" 
-              type="text" 
-              class="field-input" 
-              placeholder="Ej.: Fisura capilar en enlucido de muro..."
-              required 
-            />
+            <div class="field-label-row">
+              <label>Descripción del Defecto:</label>
+              <span v-if="suggestedDefectsList.length > 0" class="field-hint-chip">
+                {{ suggestedDefectsList.length }} observaciones típicas
+              </span>
+            </div>
+            
+            <div class="defect-input-combo-wrap">
+              <input 
+                v-model="obsForm.title" 
+                type="text" 
+                class="field-input defect-main-input" 
+                placeholder="Escriba o elija una observación típica del desplegable..."
+                required 
+              />
+              <select 
+                v-if="suggestedDefectsList.length > 0" 
+                class="field-input defect-dropdown-select"
+                @change="onDefectSelectedFromDropdown($event)"
+              >
+                <option value="">▼ Ver observaciones típicas para {{ obsForm.subcategory || obsForm.category }}</option>
+                <option v-for="d in suggestedDefectsList" :key="d" :value="d">
+                  {{ d }}
+                </option>
+              </select>
+            </div>
           </div>
 
           <!-- Categoría (Especialidad principal) y Subcategoría (Componente) vinculadas -->
@@ -1160,6 +1178,8 @@
 </template>
 
 <script setup lang="ts">
+import { TYPICAL_DEFECTS_CATALOG } from '~/utils/checklist-defects-catalog'
+
 definePageMeta({
   layout: false // Sin layout exterior: ocupa el 100% de la ventana de la tablet o teléfono
 })
@@ -1543,10 +1563,10 @@ const generateChecklistGroupsForArea = (areaName: string): ChecklistGroup[] => {
       ]
     },
 
-    // 3. Carpintería y mamparas (Ventanas / puertas)
+    // 3. Carpintería de aluminio, vidrio y mamparas (Ventanas / mamparas)
     {
       id: `${areaName}-g-carpinteria`,
-      name: 'Carpintería y mamparas',
+      name: 'Carpintería de aluminio, vidrio y mamparas',
       summary: 'Ventanas · Vidrios · Perfiles · Felpas · Seguros',
       icon: '🪟',
       isExpanded: false,
@@ -1598,12 +1618,12 @@ const generateChecklistGroupsForArea = (areaName: string): ChecklistGroup[] => {
     }
   ]
 
-  // --- ESPECÍFICO DE SALA / COMEDOR: TABLERO GENERAL Y PUERTA PRINCIPAL ---
+  // --- ESPECÍFICO DE SALA / COMEDOR: TABLERO GENERAL, PUERTA PRINCIPAL Y ALARMA CONTRAINCENDIO ---
   if (isLiving) {
     groups.push({
       id: `${areaName}-g-tablero`,
-      name: 'Tablero General (TG) y Puerta Principal',
-      summary: 'Termomagnéticos · Diferenciales de 30mA · Cerradura principal',
+      name: 'Instalaciones eléctricas',
+      summary: 'Termomagnéticos · Diferenciales de 30mA · Puesta a tierra',
       icon: '🛡️',
       isExpanded: false,
       isCompleted: false,
@@ -1613,11 +1633,39 @@ const generateChecklistGroupsForArea = (areaName: string): ChecklistGroup[] => {
           title: 'Tablero General — Llaves termomagnéticas y disyuntor diferencial',
           specification: 'Gabinete hermético rotulado con botón de test funcional en diferencial de 30mA.',
           status: 'PENDING'
-        },
+        }
+      ]
+    })
+
+    groups.push({
+      id: `${areaName}-g-puerta-ingreso`,
+      name: 'Carpintería de madera y melamina',
+      summary: 'Puerta principal de ingreso · Cerradura de seguridad y holguras',
+      icon: '🚪',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
         {
           id: `${areaName}-sub-puerta-ingreso`,
           title: 'Puerta Principal de Ingreso — Cerradura de seguridad y holgura',
           specification: 'Holgura uniforme de 3mm, chapa de 3 golpes suave y anclaje firme en marco.',
+          status: 'PENDING'
+        }
+      ]
+    })
+
+    groups.push({
+      id: `${areaName}-g-seguridad-sala`,
+      name: 'Seguridad y elementos complementarios',
+      summary: 'Sistema contra incendios · Detector de humo y alarma',
+      icon: '🧯',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-detector-humo-sala`,
+          title: 'Sistema Contra Incendios — Detector de humo fotoeléctrico y alarma',
+          specification: 'Sensor operativo con luz LED testigo, fijación firme en techo y libre de cobertor de obra.',
           status: 'PENDING'
         }
       ]
@@ -1836,15 +1884,47 @@ const setSubItemStatus = (item: ChecklistSubItem, newStatus: 'OK' | 'OBS' | 'N/A
 
 const triggerObsFromChecklistSubItem = (item: ChecklistSubItem, groupName: string) => {
   setSubItemStatus(item, 'OBS')
-  obsForm.value.title = '' // Dejar en blanco como solicitado
-  obsForm.value.category = groupName
-  // Pre-cargar subcategoría si coincide con los prefijos
-  const matchSub = availableSubcategories.value.find(s => item.title.toLowerCase().includes(s.toLowerCase().split(' ')[0]))
-  if (matchSub) {
-    obsForm.value.subcategory = matchSub
+  
+  // Mapear nombre de grupo al catálogo canónico si difiere
+  let targetCategory = groupName
+  if (!checklistCatalog[targetCategory]) {
+    if (groupName.toLowerCase().includes('carpintería') || groupName.toLowerCase().includes('mamparas')) {
+      targetCategory = 'Carpintería de aluminio, vidrio y mamparas'
+    } else if (groupName.toLowerCase().includes('eléctrica') || groupName.toLowerCase().includes('tablero')) {
+      targetCategory = 'Instalaciones eléctricas'
+    } else if (groupName.toLowerCase().includes('sanitaria') || groupName.toLowerCase().includes('grifería') || groupName.toLowerCase().includes('hidro')) {
+      targetCategory = 'Instalaciones sanitarias'
+    } else if (groupName.toLowerCase().includes('closet') || groupName.toLowerCase().includes('puerta')) {
+      targetCategory = 'Carpintería de madera y melamina'
+    } else if (groupName.toLowerCase().includes('cocina') || groupName.toLowerCase().includes('equipo')) {
+      targetCategory = 'Equipamiento y electrodomésticos'
+    } else if (groupName.toLowerCase().includes('seguridad') || groupName.toLowerCase().includes('incendio') || groupName.toLowerCase().includes('alarma')) {
+      targetCategory = 'Seguridad y elementos complementarios'
+    }
   }
-  obsForm.value.description = `Hallazgo técnico en ${groupName}: ${item.specification}`
+
+  obsForm.value.category = targetCategory
+  
+  // Buscar la subcategoría más adecuada según el item del checklist
+  const subs = checklistCatalog[targetCategory] || []
+  const titleLower = item.title.toLowerCase()
+  let matchedSub = subs.find(s => {
+    const sWords = s.toLowerCase().split(' ')
+    return sWords.some(w => w.length > 3 && titleLower.includes(w))
+  })
+  
+  if (!matchedSub && subs.length > 0) {
+    matchedSub = subs[0]
+  }
+  obsForm.value.subcategory = matchedSub || ''
+
+  // Dejar el título en blanco para escribir o elegir de la lista desplegable de observaciones típicas
+  obsForm.value.title = ''
+  
+  // Mensaje en Detalle Técnico Adicional: Indicar NO-CONFORMIDAD (defecto técnico) en lugar de decir que cumple
+  obsForm.value.description = `No-conformidad detectada en ${targetCategory} (${matchedSub || 'Componente'}): Se evidencia defecto o desvío respecto a la norma de entrega: "${item.title}". No cumple con el criterio de aceptación técnica especificado.`
   obsForm.value.severity = 'MODERADA'
+  
   openObservationModal()
 }
 
@@ -2037,6 +2117,32 @@ const obsForm = ref({
 const availableSubcategories = computed(() => {
   return checklistCatalog[obsForm.value.category] || []
 })
+
+// Observaciones típicas calculadas en base a la categoría y subcategoría seleccionadas
+const suggestedDefectsList = computed(() => {
+  const cat = obsForm.value.category
+  const sub = obsForm.value.subcategory
+  if (cat && sub && TYPICAL_DEFECTS_CATALOG[cat]?.[sub]) {
+    return TYPICAL_DEFECTS_CATALOG[cat][sub]
+  }
+  // Si no hay por subcategoría exacta, combinar todas las del rubro de la categoría
+  if (cat && TYPICAL_DEFECTS_CATALOG[cat]) {
+    return Object.values(TYPICAL_DEFECTS_CATALOG[cat]).flat().slice(0, 10)
+  }
+  return []
+})
+
+const onDefectSelectedFromDropdown = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  if (target.value) {
+    obsForm.value.title = target.value
+    // Actualizar Detalle Técnico Adicional enfocado en el defecto seleccionado si está genérico o vacío
+    if (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada')) {
+      obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${target.value}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
+    }
+    target.value = '' // Resetear para que pueda volverse a elegir o desplegar
+  }
+}
 
 const onObsCategoryChange = () => {
   const subs = checklistCatalog[obsForm.value.category]
@@ -4035,6 +4141,35 @@ const handleAppLogout = async () => {
 }
 .form-group-custom { display: flex; flex-direction: column; gap: 4px; }
 .form-group-custom label { font-size: 0.78rem; font-weight: 600; color: #8b949e; }
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.field-hint-chip {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+.defect-input-combo-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.defect-dropdown-select {
+  background: #111a26;
+  border-color: #314a68;
+  color: #79c0ff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.defect-dropdown-select:hover {
+  border-color: #58a6ff;
+}
 .field-input {
   background: #0a0f16;
   border: 1px solid #24354a;
