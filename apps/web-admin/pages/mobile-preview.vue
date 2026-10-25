@@ -433,12 +433,12 @@
           </div>
         </div>
 
-        <!-- SUB-PESTAÑA 3: CHECKLIST COMPLETA POR AMBIENTES (Figura 6) -->
+        <!-- SUB-PESTAÑA 3: CHECKLIST DE VERIFICACIÓN (ESTRUCTURA AGRUPADA CON ESTADO PENDIENTE/REVISADO) -->
         <div v-show="detailSubTab === 'checklist'" class="detail-content-pane checklist-pane">
           <div class="checklist-top-control">
             <div class="checklist-instruction">
-              <h3>Checklist de Verificación Técnica de Acabados e Instalaciones</h3>
-              <p>Evalúe cada elemento en {{ activeSelectedArea }}. Marque <strong>OBS</strong> para registrar automáticamente un defecto.</p>
+              <h3>{{ activeSelectedArea }}</h3>
+              <p>Especialidades y componentes evaluables de la unidad. Cada sección pasa de <strong>Pendiente</strong> a <strong>Revisado</strong> cuando todos sus puntos son verificados.</p>
             </div>
 
             <!-- Selector de Áreas para Checklist -->
@@ -456,47 +456,77 @@
             </div>
           </div>
 
-          <!-- Lista de Elementos Básicos y Regulares del Departamento -->
-          <div class="checklist-grid-items">
+          <!-- Especialidades Principales y Componentes Internos -->
+          <div class="checklist-groups-wrapper">
             <div 
-              v-for="item in currentAreaChecklist" 
-              :key="item.id" 
-              class="cl-item-row"
+              v-for="group in currentAreaChecklistGroups" 
+              :key="group.id" 
+              class="cl-group-box"
+              :class="{ 'is-completed': group.isCompleted, 'is-expanded': group.isExpanded }"
             >
-              <div class="cl-item-icon-col">
-                <span class="cl-icon-bullet">{{ item.icon }}</span>
-              </div>
-              <div class="cl-item-details-col">
-                <span class="cl-element-category">{{ item.category }}</span>
-                <h4 class="cl-element-title">{{ item.title }}</h4>
-                <p class="cl-element-spec">{{ item.specification }}</p>
+              <!-- Cabecera de Especialidad Principal (Item Principal) -->
+              <div class="cl-group-header" @click="group.isExpanded = !group.isExpanded">
+                <div class="cl-group-title-col">
+                  <span class="cl-group-icon">{{ group.icon }}</span>
+                  <div class="cl-group-texts">
+                    <div class="cl-title-row">
+                      <h4>{{ group.name }}</h4>
+                      <span 
+                        class="cl-group-status-badge" 
+                        :class="group.isCompleted ? 'status-reviewed' : 'status-pending'"
+                      >
+                        {{ group.isCompleted ? '✓ Revisado' : '⏳ Pendiente' }}
+                      </span>
+                    </div>
+                    <p class="cl-group-summary-line">{{ group.summary }}</p>
+                  </div>
+                </div>
+
+                <div class="cl-group-arrow-col">
+                  <span class="arrow-indicator">{{ group.isExpanded ? '▲' : '▼' }}</span>
+                </div>
               </div>
 
-              <div class="cl-item-actions-col">
-                <button 
-                  type="button" 
-                  class="btn-status-choice btn-ok" 
-                  :class="{ selected: item.status === 'OK' }"
-                  @click="item.status = 'OK'"
+              <!-- Lista de Componentes Internos (Items Secundarios) -->
+              <div v-if="group.isExpanded" class="cl-subitems-container">
+                <div 
+                  v-for="item in group.items" 
+                  :key="item.id" 
+                  class="cl-subitem-row"
                 >
-                  ✓ OK
-                </button>
-                <button 
-                  type="button" 
-                  class="btn-status-choice btn-obs" 
-                  :class="{ selected: item.status === 'OBS' }"
-                  @click="triggerObsFromChecklist(item)"
-                >
-                  ⚠ OBS
-                </button>
-                <button 
-                  type="button" 
-                  class="btn-status-choice btn-na" 
-                  :class="{ selected: item.status === 'N/A' }"
-                  @click="item.status = 'N/A'"
-                >
-                  — N/A
-                </button>
+                  <div class="cl-subitem-info">
+                    <span class="subitem-title">{{ item.title }}</span>
+                    <p class="subitem-spec">{{ item.specification }}</p>
+                  </div>
+
+                  <!-- Botones OK, OBS, N/A -->
+                  <div class="cl-subitem-actions">
+                    <button 
+                      type="button" 
+                      class="btn-status-choice btn-ok" 
+                      :class="{ selected: item.status === 'OK' }"
+                      @click="setSubItemStatus(item, 'OK')"
+                    >
+                      ✓ OK
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn-status-choice btn-obs" 
+                      :class="{ selected: item.status === 'OBS' }"
+                      @click="triggerObsFromChecklistSubItem(item, group.name)"
+                    >
+                      ⚠ OBS
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn-status-choice btn-na" 
+                      :class="{ selected: item.status === 'N/A' }"
+                      @click="setSubItemStatus(item, 'N/A')"
+                    >
+                      — N/A
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1338,24 +1368,29 @@ const deleteMarker = (markerId: string) => {
 // ==============================================================
 // 4. CHECKLIST TÉCNICA DETALLADA POR AMBIENTE
 // ==============================================================
-interface ChecklistItem {
+// 4. CHECKLIST JERÁRQUICO POR ESPECIALIDADES (CON REGLAS POR AMBIENTE)
+// ==============================================================
+interface ChecklistSubItem {
   id: string
-  area: string
-  category: string
   title: string
   specification: string
-  status: 'OK' | 'OBS' | 'N/A'
-  icon: string
+  status: 'PENDING' | 'OK' | 'OBS' | 'N/A'
 }
 
-// Generador dinámico de Checklist con reglas periciales completas:
-// 1. Elementos base presentes en TODOS los ambientes: Paredes, Pisos, Ventanas, Tomacorrientes, Alumbrado (luces)
-// 2. Griferías en Cocina, Baños y Lavandería
-// 3. En Baños: Inodoro, Ducha / Tina
-// 4. En Cocina: Equipos fijos (Campana extractora, cocina encimera, horno, etc.) y Mobiliario
-// 5. En Sala / Comedor: Tablero General Eléctrico (TG, llaves termomagnéticas y diferenciales)
+interface ChecklistGroup {
+  id: string
+  name: string
+  summary: string
+  icon: string
+  isExpanded: boolean
+  isCompleted: boolean
+  items: ChecklistSubItem[]
+}
 
-const generateChecklistForArea = (areaName: string): ChecklistItem[] => {
+// Almacén reactivo de grupos de checklist por ambiente
+const checklistGroupsStore = ref<Record<string, ChecklistGroup[]>>({})
+
+const generateChecklistGroupsForArea = (areaName: string): ChecklistGroup[] => {
   const norm = areaName.toLowerCase()
   const isBathroom = norm.includes('baño') || norm.includes('bano') || norm.includes('toilette')
   const isKitchen = norm.includes('cocina') || norm.includes('kitchen')
@@ -1364,244 +1399,369 @@ const generateChecklistForArea = (areaName: string): ChecklistItem[] => {
   const isBedroom = norm.includes('dormitorio') || norm.includes('habitaci') || norm.includes('cuarto')
   const isBalcony = norm.includes('balc') || norm.includes('terraza')
 
-  const items: ChecklistItem[] = [
-    // --- 1. ELEMENTOS OBLIGATORIOS EN TODOS LOS AMBIENTES ---
+  const groups: ChecklistGroup[] = [
+    // 1. Arquitectura y acabados (En todos los ambientes)
     {
-      id: `${areaName}-paredes`,
-      area: areaName,
-      category: 'Paredes y Enlucidos',
-      title: 'Paredes - Fisuras, empaste y pintura',
-      specification: 'Superficie aplomada, sin microfisuras, ampollas ni variaciones de tono en pintura',
-      status: 'OK',
-      icon: '🧱'
+      id: `${areaName}-g-arqui`,
+      name: 'Arquitectura y acabados',
+      summary: 'Muros · Pintura · Cielos rasos · Zócalos y contrazócalos',
+      icon: '🎨',
+      isExpanded: true,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-muros`,
+          title: 'Paredes y Muros — Fisuras y verticalidad (plomo)',
+          specification: 'Superficie aplomada sin microfisuras, alabeos ni pandeos en tabiquería.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-empaste-pintura`,
+          title: 'Empaste y Pintura — Acabado bajo luz rasante',
+          specification: 'Pintura látex homogénea sin ampollas, marcas de rodillo ni variación de tonalidad.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-cielos-rasos`,
+          title: 'Cielos Rasos y Molduras — Nivelación y bruñas',
+          specification: 'Techos perfectamente horizontales sin deflexión ni desprendimiento en esquinas.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-zocalos`,
+          title: 'Zócalos y Contrazócalos — Adherencia y sellado',
+          specification: 'Alineación continua, adherencia total al muro y sellado superior libre de poros.',
+          status: 'PENDING'
+        }
+      ]
     },
+
+    // 2. Pisos y revestimientos (En todos los ambientes)
     {
-      id: `${areaName}-pisos`,
-      area: areaName,
-      category: 'Pisos y Guardapolvos',
-      title: 'Pisos - Estado general, juntas y nivelación',
-      specification: 'Nivelación uniforme sin cejas mayores a 1mm ni piezas huecas o desportilladas',
-      status: 'OK',
-      icon: '⬛'
+      id: `${areaName}-g-pisos`,
+      name: 'Pisos y revestimientos',
+      summary: 'Nivelación · Juntas · Fragua · Piezas dañadas',
+      icon: '📐',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-nivelacion-cejas`,
+          title: 'Nivelación y ausencia de cejas',
+          specification: 'Desnivel máximo entre juntas menor a 1mm; sin piezas hundidas ni levantadas.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-fragua-juntas`,
+          title: 'Fragua y juntas de dilatación',
+          specification: 'Líneas de fragua homogéneas, llenas y libres de porosidad o fisuras.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-piezas-huecas`,
+          title: 'Integridad y adherencia (golpeteo)',
+          specification: 'Ausencia de piezas desportilladas, quiñadas o con sonido a hueco (sopladas).',
+          status: 'PENDING'
+        }
+      ]
     },
+
+    // 3. Carpintería y mamparas (Ventanas / puertas)
     {
-      id: `${areaName}-ventanas`,
-      area: areaName,
-      category: 'Ventanas y Mamparas',
-      title: 'Ventanas - Funcionamiento, felpas y cierre hermético',
-      specification: 'Deslizamiento suave en rieles, seguro funcional y estanqueidad perimetral',
-      status: 'OK',
-      icon: '🪟'
+      id: `${areaName}-g-carpinteria`,
+      name: 'Carpintería y mamparas',
+      summary: 'Ventanas · Vidrios · Perfiles · Felpas · Seguros',
+      icon: '🪟',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-ventanas-rieles`,
+          title: 'Ventanas y Mamparas — Deslizamiento suave en rieles',
+          specification: 'Apertura y cierre corredizo sin atascos con topes y cierres de arrastre funcionales.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-felpas-sellos`,
+          title: 'Felpas perimetrales y hermeticidad',
+          specification: 'Hermeticidad frente a viento/polvo y sellos de poliuretano en encuentros exteriores.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-cristales-vidrios`,
+          title: 'Cristales — Ausencia de rayaduras y quiñes',
+          specification: 'Vidrios templados o laminados limpios sin rayaduras de obra ni burbujas internas.',
+          status: 'PENDING'
+        }
+      ]
     },
+
+    // 4. Instalaciones eléctricas (En todos los ambientes)
     {
-      id: `${areaName}-tomacorrientes`,
-      area: areaName,
-      category: 'Instalaciones Eléctricas',
-      title: 'Tomacorrientes - Pruebas de tensión y polaridad',
-      specification: 'Placas firmes y alineadas con puesta a tierra operativa (220V verificado)',
-      status: 'OK',
-      icon: '🔌'
-    },
-    {
-      id: `${areaName}-alumbrado`,
-      area: areaName,
-      category: 'Instalaciones Eléctricas',
-      title: 'Alumbrado (Luces) - Puntos de luz e interruptores',
-      specification: 'Encendido inmediato en conmutadores, portalámparas seguros y centros de luz plomados',
-      status: 'OK',
-      icon: '💡'
+      id: `${areaName}-g-electricas`,
+      name: 'Instalaciones eléctricas',
+      summary: 'Tomacorrientes · Interruptores · Puntos de luz y pruebas de tensión',
+      icon: '⚡',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-tomacorrientes-tierra`,
+          title: 'Tomacorrientes — Pruebas de 220V y polaridad',
+          specification: 'Placas firmes, alineadas y con continuidad de puesta a tierra comprobada.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-interruptores-luces`,
+          title: 'Interruptores y centros de iluminación',
+          specification: 'Conmutadores operando sin retardo, centros de luz plomados y portalámparas seguros.',
+          status: 'PENDING'
+        }
+      ]
     }
   ]
 
-  // --- 2. SALA / COMEDOR: TABLERO GENERAL ELÉCTRICO ---
+  // --- ESPECÍFICO DE SALA / COMEDOR: TABLERO GENERAL Y PUERTA PRINCIPAL ---
   if (isLiving) {
-    items.push({
-      id: `${areaName}-tablero-general`,
-      area: areaName,
-      category: 'Tablero Eléctrico',
-      title: 'Tablero General (TG) - Interruptores termomagnéticos y diferenciales',
-      specification: 'Gabinete hermético con rotulación de circuitos, llaves termomagnéticas y disyuntor diferencial de 30mA operativos con botón de test',
-      status: 'OK',
-      icon: '⚡'
-    })
-    items.push({
-      id: `${areaName}-puerta-principal`,
-      area: areaName,
-      category: 'Carpintería',
-      title: 'Puerta Principal de Ingreso - Cerradura de seguridad y marco',
-      specification: 'Holgura perimetral homogénea, mirilla óptica y cierre suave sin roces en piso',
-      status: 'OK',
-      icon: '🚪'
+    groups.push({
+      id: `${areaName}-g-tablero`,
+      name: 'Tablero General (TG) y Puerta Principal',
+      summary: 'Termomagnéticos · Diferenciales de 30mA · Cerradura principal',
+      icon: '🛡️',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-tablero-tg`,
+          title: 'Tablero General — Llaves termomagnéticas y disyuntor diferencial',
+          specification: 'Gabinete hermético rotulado con botón de test funcional en diferencial de 30mA.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-puerta-ingreso`,
+          title: 'Puerta Principal de Ingreso — Cerradura de seguridad y holgura',
+          specification: 'Holgura uniforme de 3mm, chapa de 3 golpes suave y anclaje firme en marco.',
+          status: 'PENDING'
+        }
+      ]
     })
   }
 
-  // --- 3. COCINA: EQUIPOS FIJOS, GRIFERÍA Y MESONES ---
+  // --- ESPECÍFICO DE COCINA: MUEBLES, GRIFERÍA Y EQUIPOS FIJOS ---
   if (isKitchen) {
-    items.push({
-      id: `${areaName}-griferia`,
-      area: areaName,
-      category: 'Gasfitería y Grifería',
-      title: 'Grifería de Cocina - Mezcladora y estanqueidad',
-      specification: 'Presión continua de agua fría y caliente, cuello giratorio suave y libre de goteos en aireador',
-      status: 'OK',
-      icon: '🚰'
-    })
-    items.push({
-      id: `${areaName}-equipos-fijos`,
-      area: areaName,
-      category: 'Equipos Fijos',
-      title: 'Equipos Fijos - Campana extractora, cocina encimera y horno',
-      specification: 'Encendido de hornillas a gas/inducción, succión efectiva y filtro de campana extractora, y conexión eléctrica empotrada de horno',
-      status: 'OK',
-      icon: '🍳'
-    })
-    items.push({
-      id: `${areaName}-meson-muebles`,
-      area: areaName,
-      category: 'Mobiliario y Mesones',
-      title: 'Mesón de Granito/Cuarzo y Muebles Altos/Bajos',
-      specification: 'Sellado hidrófugo perimetral, correderas telescópicas y bisagras de cierre suave en reposteros',
-      status: 'OBS',
-      icon: '🍽️'
-    })
-    items.push({
-      id: `${areaName}-desague-lavadero`,
-      area: areaName,
-      category: 'Gasfitería',
-      title: 'Pozuelo de Lavadero y Trampa de Desagüe',
-      specification: 'Desagüe continuo sin acumulación, sifón hermético bajo mesada sin filtraciones',
-      status: 'OK',
-      icon: '🧼'
+    groups.push({
+      id: `${areaName}-g-cocina-equipos`,
+      name: 'Mobiliario, Griferías y Equipos Fijos de Cocina',
+      summary: 'Granito · Melamina · Grifería · Campana · Encimera y desagüe',
+      icon: '🍳',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-griferia-cocina`,
+          title: 'Grifería de Cocina — Presión, mezcladora y estanqueidad',
+          specification: 'Caudal y presión continua (fría/caliente) sin goteo en cartucho ni aireador.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-meson-reposteros`,
+          title: 'Tablero de Granito / Cuarzo y Muebles de Melamina',
+          specification: 'Sellado antihongos en zócalo, correderas telescópicas y bisagras de cierre suave.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-equipos-fijos`,
+          title: 'Equipos Fijos — Campana extractora, cocina encimera y horno',
+          specification: 'Tiro activo en campana extractora y encendido de hornillas de cocción.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-desague-trampa`,
+          title: 'Pozuelo de Lavadero y Trampa de Desagüe (Sifón tipo P)',
+          specification: 'Descarga continua sin represamiento ni filtración en empaquetaduras bajo mueble.',
+          status: 'PENDING'
+        }
+      ]
     })
   }
 
-  // --- 4. BAÑOS: GRIFERÍA, INODORO Y DUCHA ---
+  // --- ESPECÍFICO DE BAÑOS: SANITARIOS, DUCHA Y GRIFERÍAS ---
   if (isBathroom) {
-    items.push({
-      id: `${areaName}-griferia-bano`,
-      area: areaName,
-      category: 'Gasfitería y Grifería',
-      title: 'Grifería de Lavamanos - Mezcladora y flexibles',
-      specification: 'Chorro uniforme, flexibles de acero trenzado sin estrangulamiento y tapón emergente funcional',
-      status: 'OK',
-      icon: '🚰'
-    })
-    items.push({
-      id: `${areaName}-inodoro`,
-      area: areaName,
-      category: 'Aparatos Sanitarios',
-      title: 'Inodoro - Nivel de estanqueidad, descarga y fijación al piso',
-      specification: 'Base sellada con silicona antihongos, pernos con capuchón y válvula de descarga de doble pulsador sin fuga continua',
-      status: 'OBS',
-      icon: '🚽'
-    })
-    items.push({
-      id: `${areaName}-ducha`,
-      area: areaName,
-      category: 'Zona Húmeda / Ducha',
-      title: 'Ducha - Mezcladora, regadera, mampara y pendiente de sumidero',
-      specification: 'Presión de salida en ducha, mampara de cristal templado sellada y pendiente de escurrimiento de piso hacia rejilla sifonada',
-      status: 'OK',
-      icon: '🚿'
-    })
-    items.push({
-      id: `${areaName}-espejo-accesorios`,
-      area: areaName,
-      category: 'Accesorios',
-      title: 'Espejo, toallero y portarrollos sanitarios',
-      specification: 'Fijaciones ocultas firmes sin juego y espejo biselado libre de desplate o manchas de humedad',
-      status: 'OK',
-      icon: '🪞'
+    groups.push({
+      id: `${areaName}-g-bano-sanitarios`,
+      name: 'Instalaciones Sanitarias y Zona Húmeda',
+      summary: 'Inodoro · Ducha · Mamparas · Griferías · Pendiente de sumidero',
+      icon: '🚿',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-inodoro-descarga`,
+          title: 'Inodoro — Fijación al piso, sello de cera y descarga eficiente',
+          specification: 'Tanque regulado, pulsador de doble descarga sin fuga continua y base sellada.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-ducha-pendiente`,
+          title: 'Ducha y Grifería — Mezcladora y pendiente de escorrentía',
+          specification: 'Presión en regadera y pendiente hacia el sumidero comprobando que no empoza en esquinas.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-griferia-lavamanos`,
+          title: 'Grifería de Lavamanos — Flexibles de acero trenzado',
+          specification: 'Sellado perimetral en ovalín, sin estrangulamiento de mangueras y desagüe rápido.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-extractor-bano`,
+          title: 'Ventilación Mecánica — Extractor de aire y succión',
+          specification: 'Encendido sincronizado con succión activa comprobada mediante prueba de papel.',
+          status: 'PENDING'
+        }
+      ]
     })
   }
 
-  // --- 5. LAVANDERÍA: GRIFERÍA Y CONEXIONES DE LAVADORA ---
+  // --- ESPECÍFICO DE LAVANDERÍA: POZA Y PUNTOS DE LAVADORA ---
   if (isLaundry) {
-    items.push({
-      id: `${areaName}-griferia-lavanderia`,
-      area: areaName,
-      category: 'Gasfitería y Grifería',
-      title: 'Grifería de Lavadero / Poza de Lavandería',
-      specification: 'Llave de combinación o caño de jardín cromado con rosca para manguera y libre de filtraciones',
-      status: 'OK',
-      icon: '🚰'
-    })
-    items.push({
-      id: `${areaName}-lavadora`,
-      area: areaName,
-      category: 'Instalaciones Especiales',
-      title: 'Puntos de Conexión de Lavadora y Terma / Calentador',
-      specification: 'Válvulas esféricas de corte de 1/2", desagüe vertical a 90cm de altura y toma de fuerza independiente para lavadora/secadora',
-      status: 'OK',
-      icon: '🧺'
+    groups.push({
+      id: `${areaName}-g-lavanderia-hidro`,
+      name: 'Instalaciones de Lavandería y Calentamiento',
+      summary: 'Poza de lavado · Llaves de lavadora · Terma y ventilación',
+      icon: '🧺',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-poza-lavadero`,
+          title: 'Poza de Lavandería — Fijación rígida y grifería móvil',
+          specification: 'Anclaje sin cabeceos, sellado contra la pared y desagüe vertical fluido.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-puntos-lavadora`,
+          title: 'Puntos de Lavadora — Válvulas esféricas y tomacorriente Schuko',
+          specification: 'Llaves de corte de 1/2", desagüe vertical a 90cm y enchufe con protección de salpicaduras.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-terma-calentador`,
+          title: 'Infraestructura de Terma / Calentador — Ducto de gases',
+          specification: 'Llave de paso sin goteo y chimenea de evacuación con pendiente positiva exterior.',
+          status: 'PENDING'
+        }
+      ]
     })
   }
 
-  // --- 6. DORMITORIOS: PUERTAS Y CLÓSETS ---
+  // --- ESPECÍFICO DE DORMITORIOS: CLÓSETS Y MELAMINA ---
   if (isBedroom) {
-    items.push({
-      id: `${areaName}-closet`,
-      area: areaName,
-      category: 'Mobiliario',
-      title: 'Clóset y Roperos - Cajonería, rieles y divisiones',
-      specification: 'Puertas correderas o batientes aplomadas, barras de colgar cromadas y cantos de melamine sellados',
-      status: 'OK',
-      icon: '👔'
-    })
-    items.push({
-      id: `${areaName}-puerta-paso`,
-      area: areaName,
-      category: 'Carpintería',
-      title: 'Puerta de Paso Interior y Manija tubular',
-      specification: 'Bisagras de 3.5" alineadas con tope de goma en piso para protección contra el muro',
-      status: 'OK',
-      icon: '🚪'
+    groups.push({
+      id: `${areaName}-g-dorm-closets`,
+      name: 'Mobiliario y Clósets de Dormitorio',
+      summary: 'Puertas correderas · Cajonería · Rieles · Barras de colgar',
+      icon: '👔',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-closet-ropero`,
+          title: 'Clósets y Roperos — Cajonería con correderas telescópicas',
+          specification: 'Puertas aplomadas, barras de colgar rígidas y cantos termo-adheridos.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-puerta-interior`,
+          title: 'Puerta Interior de Dormitorio — Manija y bisagras',
+          specification: 'Cierre hermético con tope magnético en piso para salvaguardar el tarrajeo.',
+          status: 'PENDING'
+        }
+      ]
     })
   }
 
-  // --- 7. BALCÓN / TERRAZA: BARANDAS Y SUMIDEROS ---
+  // --- ESPECÍFICO DE BALCÓN O TERRAZA: BARANDAS Y SUMIDEROS PLUVIALES ---
   if (isBalcony) {
-    items.push({
-      id: `${areaName}-baranda`,
-      area: areaName,
-      category: 'Estructura y Seguridad',
-      title: 'Baranda perimetral de acero inoxidable o cristal templado',
-      specification: 'Altura reglamentaria mínima 1.00m, anclaje estructural firme sin vibración y uniones soldadas pulidas',
-      status: 'OK',
-      icon: '🏙️'
-    })
-    items.push({
-      id: `${areaName}-sumidero-exterior`,
-      area: areaName,
-      category: 'Desagüe Pluvial',
-      title: 'Sumidero de Balcón y pendientes pluviales',
-      specification: 'Rejilla de bronce o PVC con pendiente hacia sumidero para evacuación de agua de lavado y lluvia',
-      status: 'OK',
-      icon: '🌧️'
+    groups.push({
+      id: `${areaName}-g-balcon-seguridad`,
+      name: 'Estructura Exterior y Drenaje Pluvial',
+      summary: 'Baranda perimetral · Cristales templados · Sumideros pluviales',
+      icon: '🏙️',
+      isExpanded: false,
+      isCompleted: false,
+      items: [
+        {
+          id: `${areaName}-sub-barandas-firmeza`,
+          title: 'Baranda perimetral — Anclaje estructural rígido (h>=1.00m)',
+          specification: 'Fijaciones de acero sin holgura ni corrosión y uniones de soldadura esmeriladas.',
+          status: 'PENDING'
+        },
+        {
+          id: `${areaName}-sub-sumidero-lluvia`,
+          title: 'Sumidero de Balcón — Prueba de escorrentía hacia rejilla',
+          specification: 'Pendiente continua sin charcos en esquinas de fachada.',
+          status: 'PENDING'
+        }
+      ]
     })
   }
 
-  return items
+  // 5. Control de entrega final (En todos los ambientes)
+  groups.push({
+    id: `${areaName}-g-entrega-final`,
+    name: 'Control de entrega final',
+    summary: 'Limpieza · Daños visibles · Elementos pendientes de entrega',
+    icon: '✨',
+    isExpanded: false,
+    isCompleted: false,
+    items: [
+      {
+        id: `${areaName}-sub-limpieza-obra`,
+        title: 'Limpieza final de obra gruesa y fina',
+        specification: 'Libre de manchas de pintura, restos de cemento, silicona sobrante o cintas adhesivas.',
+        status: 'PENDING'
+      },
+      {
+        id: `${areaName}-sub-accesorios-completos`,
+        title: 'Verificación de accesorios completos y operativos',
+        specification: 'Tapas de tomacorrientes, perillas, topes y accesorios instalados sin faltantes.',
+        status: 'PENDING'
+      }
+    ]
+  })
+
+  return groups
 }
 
-// Almacén reactivo de estados de checklist por ambiente
-const checklistStateStore = ref<Record<string, ChecklistItem[]>>({})
-
-const currentAreaChecklist = computed(() => {
+const currentAreaChecklistGroups = computed(() => {
   const currentArea = activeSelectedArea.value
-  if (!checklistStateStore.value[currentArea]) {
-    checklistStateStore.value[currentArea] = generateChecklistForArea(currentArea)
+  if (!checklistGroupsStore.value[currentArea]) {
+    checklistGroupsStore.value[currentArea] = generateChecklistGroupsForArea(currentArea)
   }
-  return checklistStateStore.value[currentArea]
+  return checklistGroupsStore.value[currentArea]
 })
 
+const updateGroupCompletion = (group: ChecklistGroup) => {
+  // Un grupo pasa a Revisado cuando todos sus sub-items dejan de estar en PENDING
+  group.isCompleted = group.items.every(it => it.status !== 'PENDING')
+}
 
+const setSubItemStatus = (item: ChecklistSubItem, newStatus: 'OK' | 'OBS' | 'N/A') => {
+  item.status = newStatus
+  // Encontrar el grupo contenedor y actualizar su estado
+  const currentGroups = currentAreaChecklistGroups.value
+  const parentGroup = currentGroups.find(g => g.items.some(i => i.id === item.id))
+  if (parentGroup) {
+    updateGroupCompletion(parentGroup)
+  }
+}
 
-const triggerObsFromChecklist = (item: ChecklistItem) => {
-  item.status = 'OBS'
+const triggerObsFromChecklistSubItem = (item: ChecklistSubItem, groupName: string) => {
+  setSubItemStatus(item, 'OBS')
   obsForm.value.title = item.title
-  obsForm.value.category = item.category
-  obsForm.value.description = `Hallazgo detectado en checklist: ${item.specification}`
+  obsForm.value.category = groupName
+  obsForm.value.description = `Hallazgo técnico en ${groupName}: ${item.specification}`
   obsForm.value.severity = 'MODERADA'
   openObservationModal()
 }
@@ -2812,7 +2972,7 @@ const handleAppLogout = async () => {
   cursor: pointer;
 }
 
-/* SUB-TAB 3: CHECKLIST PANE */
+/* SUB-TAB 3: CHECKLIST PANE (ESTRUCTURA DE ESPECIALIDADES E ITEMS SECUNDARIOS) */
 .checklist-pane {
   overflow-y: auto;
   padding: 20px 24px;
@@ -2820,12 +2980,13 @@ const handleAppLogout = async () => {
 .checklist-top-control {
   margin-bottom: 16px;
 }
-.checklist-instruction h3 { margin: 0 0 4px 0; font-size: 1.15rem; }
-.checklist-instruction p { margin: 0 0 12px 0; font-size: 0.82rem; color: #8b949e; }
+.checklist-instruction h3 { margin: 0 0 4px 0; font-size: 1.25rem; font-weight: 700; color: #fff; }
+.checklist-instruction p { margin: 0 0 12px 0; font-size: 0.85rem; color: #8b949e; }
 .checklist-areas-scroller {
   display: flex;
   gap: 6px;
   overflow-x: auto;
+  padding-bottom: 4px;
 }
 .cl-area-pill {
   background: #131b26;
@@ -2836,50 +2997,140 @@ const handleAppLogout = async () => {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 .cl-area-pill.active {
   background: #003366;
   border-color: #58a6ff;
   color: #fff;
 }
-.checklist-grid-items {
+
+/* Grupos y Acordeones de Especialidades */
+.checklist-groups-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   max-width: 960px;
 }
-.cl-item-row {
-  background: #111823;
+.cl-group-box {
+  background: #101722;
   border: 1px solid #1f2b3c;
-  border-radius: 10px;
-  padding: 14px 18px;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+.cl-group-box.is-completed {
+  border-color: rgba(46, 160, 67, 0.4);
+}
+.cl-group-box.is-expanded {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.cl-group-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  background: #131b27;
+  transition: background 0.2s;
+}
+.cl-group-header:hover {
+  background: #162232;
+}
+.cl-group-title-col {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-.cl-item-icon-col {
-  font-size: 1.5rem;
-}
-.cl-item-details-col {
+  gap: 14px;
   flex: 1;
 }
-.cl-element-category {
-  font-size: 0.68rem;
-  color: #00a896;
-  text-transform: uppercase;
-  font-weight: 700;
+.cl-group-icon {
+  font-size: 1.4rem;
 }
-.cl-element-title {
-  margin: 2px 0 3px 0;
-  font-size: 0.95rem;
+.cl-group-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.cl-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cl-title-row h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
   color: #fff;
 }
-.cl-element-spec {
+.cl-group-status-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.cl-group-status-badge.status-pending {
+  background: rgba(255, 171, 0, 0.15);
+  border: 1px solid rgba(255, 171, 0, 0.4);
+  color: #ffab00;
+}
+.cl-group-status-badge.status-reviewed {
+  background: rgba(46, 160, 67, 0.18);
+  border: 1px solid rgba(46, 160, 67, 0.5);
+  color: #3fb950;
+}
+.cl-group-summary-line {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: #8b949e;
 }
-.cl-item-actions-col {
+.cl-group-arrow-col {
+  font-size: 0.85rem;
+  color: #8b949e;
+  padding-left: 12px;
+}
+
+/* Sub-items (Puntos interiores evaluables) */
+.cl-subitems-container {
+  padding: 8px 16px 14px 16px;
+  background: #0c121b;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #1a2534;
+}
+.cl-subitem-row {
+  background: #111823;
+  border: 1px solid #1c2737;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+.cl-subitem-info {
+  flex: 1;
+}
+.subitem-title {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 2px;
+}
+.subitem-spec {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #8b949e;
+  line-height: 1.35;
+}
+.cl-subitem-actions {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
@@ -2888,9 +3139,9 @@ const handleAppLogout = async () => {
   background: #182230;
   border: 1px solid #27364b;
   color: #8b949e;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
