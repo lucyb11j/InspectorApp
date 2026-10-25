@@ -505,13 +505,14 @@
                     <p class="subitem-spec">{{ item.specification }}</p>
                   </div>
 
-                  <!-- Botones OK, OBS, N/A -->
+                  <!-- Botones OK, OBS, N/A, NV -->
                   <div class="cl-subitem-actions">
                     <button 
                       type="button" 
                       class="btn-status-choice btn-ok" 
                       :class="{ selected: item.status === 'OK' }"
                       @click="setSubItemStatus(item, 'OK')"
+                      title="Conforme: Cumple el criterio de aceptación aplicable"
                     >
                       ✓ OK
                     </button>
@@ -520,6 +521,7 @@
                       class="btn-status-choice btn-obs" 
                       :class="{ selected: item.status === 'OBS' }"
                       @click="triggerObsFromChecklistSubItem(item, group.name)"
+                      title="Observado: Requiere corrección o elemento faltante previsto"
                     >
                       ⚠ OBS
                     </button>
@@ -528,8 +530,18 @@
                       class="btn-status-choice btn-na" 
                       :class="{ selected: item.status === 'N/A' }"
                       @click="setSubItemStatus(item, 'N/A')"
+                      title="No aplica: No corresponde al inmueble o alcance"
                     >
                       — N/A
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn-status-choice btn-nv" 
+                      :class="{ selected: item.status === 'NV' }"
+                      @click="setSubItemStatus(item, 'NV')"
+                      title="No verificado: Falta de acceso, suministro o condición técnica de prueba"
+                    >
+                      👁 NV
                     </button>
                   </div>
                 </div>
@@ -1499,7 +1511,7 @@ interface ChecklistSubItem {
   id: string
   title: string
   specification: string
-  status: 'PENDING' | 'OK' | 'OBS' | 'N/A'
+  status: 'PENDING' | 'OK' | 'OBS' | 'N/A' | 'NV'
 }
 
 interface ChecklistGroup {
@@ -1900,7 +1912,7 @@ const updateGroupCompletion = (group: ChecklistGroup) => {
   group.isCompleted = group.items.every(it => it.status !== 'PENDING')
 }
 
-const setSubItemStatus = (item: ChecklistSubItem, newStatus: 'OK' | 'OBS' | 'N/A') => {
+const setSubItemStatus = (item: ChecklistSubItem, newStatus: 'OK' | 'OBS' | 'N/A' | 'NV') => {
   item.status = newStatus
   // Encontrar el grupo contenedor y actualizar su estado
   const currentGroups = currentAreaChecklistGroups.value
@@ -1916,18 +1928,33 @@ const triggerObsFromChecklistSubItem = (item: ChecklistSubItem, groupName: strin
   // Mapear nombre de grupo al catálogo canónico si difiere
   let targetCategory = groupName
   if (!checklistCatalog[targetCategory]) {
-    if (groupName.toLowerCase().includes('carpintería') || groupName.toLowerCase().includes('mamparas')) {
+    const gn = groupName.toLowerCase()
+    if (gn.includes('aluminio') || gn.includes('mampara') || gn.includes('ventana')) {
       targetCategory = 'Carpintería de aluminio, vidrio y mamparas'
-    } else if (groupName.toLowerCase().includes('eléctrica') || groupName.toLowerCase().includes('tablero')) {
-      targetCategory = 'Instalaciones eléctricas'
-    } else if (groupName.toLowerCase().includes('sanitaria') || groupName.toLowerCase().includes('grifería') || groupName.toLowerCase().includes('hidro')) {
-      targetCategory = 'Instalaciones sanitarias'
-    } else if (groupName.toLowerCase().includes('closet') || groupName.toLowerCase().includes('puerta')) {
+    } else if (gn.includes('cerrajería') || gn.includes('cerradura') || gn.includes('herraje')) {
+      targetCategory = 'Cerrajería y herrajes'
+    } else if (gn.includes('madera') || gn.includes('melamina') || gn.includes('closet') || gn.includes('puerta')) {
       targetCategory = 'Carpintería de madera y melamina'
-    } else if (groupName.toLowerCase().includes('cocina') || groupName.toLowerCase().includes('equipo')) {
+    } else if (gn.includes('eléctrica') || gn.includes('tablero') || gn.includes('iluminac')) {
+      targetCategory = 'Instalaciones eléctricas'
+    } else if (gn.includes('aparato') || gn.includes('grifería') || gn.includes('inodoro')) {
+      targetCategory = 'Aparatos sanitarios y griferías'
+    } else if (gn.includes('evacuación') || gn.includes('impermeabiliz') || gn.includes('sumidero') || gn.includes('drenaje')) {
+      targetCategory = 'Evacuación e impermeabilización'
+    } else if (gn.includes('sanitaria') || gn.includes('hidro') || gn.includes('agua') || gn.includes('desagüe')) {
+      targetCategory = 'Instalaciones sanitarias'
+    } else if (gn.includes('gas') || gn.includes('calentador') || gn.includes('terma')) {
+      targetCategory = 'Gas y calentamiento de agua'
+    } else if (gn.includes('cocina') || gn.includes('equipo') || gn.includes('electro')) {
       targetCategory = 'Equipamiento y electrodomésticos'
-    } else if (groupName.toLowerCase().includes('seguridad') || groupName.toLowerCase().includes('incendio') || groupName.toLowerCase().includes('alarma')) {
+    } else if (gn.includes('seguridad') || gn.includes('incendio') || gn.includes('alarma') || gn.includes('baranda')) {
       targetCategory = 'Seguridad y elementos complementarios'
+    } else if (gn.includes('estructura') || gn.includes('concreto')) {
+      targetCategory = 'Estructuras — inspección visual'
+    } else if (gn.includes('document') || gn.includes('plano') || gn.includes('especific')) {
+      targetCategory = 'Documentación y correspondencia'
+    } else if (gn.includes('limpieza') || gn.includes('entrega')) {
+      targetCategory = 'Limpieza y entrega final'
     }
   }
 
@@ -1949,8 +1976,8 @@ const triggerObsFromChecklistSubItem = (item: ChecklistSubItem, groupName: strin
   // Dejar el título en blanco para escribir o elegir de la lista desplegable de observaciones típicas
   obsForm.value.title = ''
   
-  // Mensaje en Detalle Técnico Adicional: Indicar NO-CONFORMIDAD (defecto técnico) en lugar de decir que cumple
-  obsForm.value.description = `No-conformidad detectada en ${targetCategory} (${matchedSub || 'Componente'}): Se evidencia defecto o desvío respecto a la norma de entrega: "${item.title}". No cumple con el criterio de aceptación técnica especificado.`
+  // Mensaje en Detalle Técnico Adicional: Indicar NO-CONFORMIDAD objetiva según criterios de inspección
+  obsForm.value.description = `Hallazgo registrado en ${targetCategory} (${matchedSub || 'Componente'}): Condición observada en "${item.title}". No satisface el criterio de comprobación o requiere subsanación/evaluación técnica.`
   obsForm.value.severity = 'MODERADA'
   
   openObservationModal()
@@ -1980,6 +2007,7 @@ interface ObservationRecord {
 
 const checklistCatalog: Record<string, string[]> = {
   'Arquitectura y acabados': [
+    'Muros, tabiques y revoques',
     'Paredes y muros',
     'Tarrajeo y enlucidos',
     'Empaste y pintura',
@@ -1996,80 +2024,71 @@ const checklistCatalog: Record<string, string[]> = {
     'Nivelación y pendientes'
   ],
   'Carpintería de madera y melamina': [
+    'Puertas de madera y marcos',
+    'Muebles de cocina y tableros',
+    'Clósets, repisas y cajonería',
     'Puertas interiores',
-    'Puerta principal y marcos',
-    'Clósets y vestidores',
-    'Muebles de cocina (altos/bajos)',
-    'Cajones y correderas',
-    'Tapacantos y repisas'
+    'Puerta principal y marcos'
   ],
   'Carpintería de aluminio, vidrio y mamparas': [
-    'Ventanas corredizas y proyectantes',
-    'Mamparas corredizas',
-    'Perfiles de aluminio',
-    'Felpas y hermeticidad',
-    'Vidrios y cristales templados',
-    'Barandas acristaladas'
+    'Ventanas y mamparas',
+    'Cristales y vidrios',
+    'Perfiles de aluminio'
   ],
-  'Cerrajería y accesorios': [
-    'Cerraduras principales e interiores',
-    'Pestillos y cerrojos',
-    'Bisagras y topes de piso',
-    'Manijas y manijones',
-    'Jaladores de muebles'
+  'Cerrajería y herrajes': [
+    'Cerraduras y cilindros',
+    'Seguros, pestillos y mecanismos de cierre',
+    'Bisagras y topes'
   ],
   'Instalaciones eléctricas': [
-    'Tomacorrientes 220V',
-    'Interruptores y conmutadores',
-    'Puntos de luz y luminarias',
-    'Tablero General (TG)',
-    'Llaves termomagnéticas y diferenciales',
-    'Puesta a tierra'
+    'Tablero general y protecciones',
+    'Tomacorrientes y placas',
+    'Alumbrado e interruptores'
   ],
   'Instalaciones sanitarias': [
-    'Inodoros y fluxómetros',
-    'Lavatorios y pedestales',
-    'Lavaderos de cocina / lavandería',
-    'Griferías y mezcladoras',
-    'Duchas y cabezales',
-    'Desagües, sifones y trampas P',
+    'Redes interiores de agua',
+    'Desagües y ventilación sanitaria'
+  ],
+  'Aparatos sanitarios y griferías': [
+    'Inodoros y accesorios',
+    'Lavatorios y muebles de baño',
+    'Duchas y mezcladoras',
+    'Lavadero y pozas'
+  ],
+  'Evacuación e impermeabilización': [
+    'Pendientes y empozamiento en zonas húmedas',
+    'Impermeabilización de recintos sanitarios',
     'Sumideros y registros'
   ],
-  'Impermeabilización y evacuación de agua': [
-    'Impermeabilización de ducha',
-    'Pisos de baños y sellos húmedos',
-    'Balcones y terrazas',
-    'Pendientes hacia sumideros'
-  ],
   'Gas y calentamiento de agua': [
-    'Puntos y llaves de paso de gas',
-    'Tuberías y ventilación normada',
-    'Terma / Calentador de agua',
-    'Conexiones flexibles certificadas'
+    'Puntos y llaves de corte de gas',
+    'Ventilación de recintos de gas',
+    'Calentador o terma'
   ],
   'Ventilación y climatización': [
-    'Extractores de aire de baños',
-    'Rejillas de ventilación',
-    'Ductos de evacuación',
-    'Preinstalación de aire acondicionado'
+    'Ventilación mecánica y extractores',
+    'Ductos y rejillas'
   ],
   'Equipamiento y electrodomésticos': [
     'Campana extractora',
-    'Encimera (cocina empotrada)',
+    'Cocina o encimera',
     'Horno empotrado',
-    'Equipos fijos auxiliares'
+    'Terma o calentador'
   ],
   'Seguridad y elementos complementarios': [
-    'Detectores de humo y temperatura',
-    'Barandas de escaleras y balcones',
-    'Válvulas generales de corte',
+    'Barandas y protección contra caídas',
+    'Detectores y alarmas',
+    'Válvulas de corte general',
     'Intercomunicador'
   ],
+  'Estructuras — inspección visual': [
+    'Indicios en concreto y elementos constructivos'
+  ],
+  'Documentación y correspondencia': [
+    'Verificación contra planos y acabados'
+  ],
   'Limpieza y entrega final': [
-    'Limpieza profunda de obra',
-    'Retiro de manchas de pintura/cemento',
-    'Vidrios limpios sin adhesivos',
-    'Protecciones retiradas'
+    'Limpieza profunda de obra'
   ]
 }
 
@@ -3498,7 +3517,8 @@ const handleAppLogout = async () => {
 }
 .btn-status-choice.btn-ok.selected { background: #008000; color: #fff; border-color: #008000; }
 .btn-status-choice.btn-obs.selected { background: #FF8C00; color: #fff; border-color: #FF8C00; }
-.btn-status-choice.btn-na.selected { background: #38465a; color: #fff; }
+.btn-status-choice.btn-na.selected { background: #38465a; color: #fff; border-color: #4b5e78; }
+.btn-status-choice.btn-nv.selected { background: #2563eb; color: #fff; border-color: #3b82f6; }
 
 /* SUB-TAB 4: OBSERVACIONES */
 .observations-pane {

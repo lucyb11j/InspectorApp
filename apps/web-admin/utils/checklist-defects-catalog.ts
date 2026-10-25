@@ -1,368 +1,374 @@
 // Catálogo técnico de especialidades, subcategorías y observaciones típicas recurrentes (QA/QC)
+// Actualizado con las definiciones objetivas y sin juicios de causalidad prematuros según RNE y especificaciones
 export const TYPICAL_DEFECTS_CATALOG: Record<string, Record<string, string[]>> = {
   'Arquitectura y acabados': {
+    'Muros, tabiques y revoques': [
+      'Fisura visible en muro o tabique (registrar ubicación, orientación y ancho aprox.)',
+      'Desviación aparente de verticalidad en muro (registrar medición instrumental)',
+      'Irregularidad superficial o abombamiento aparente en muro',
+      'Fisura en encuentro entre muro y elemento constructivo',
+      'Desprendimiento o sonido hueco en revoque/tarrajeo al percutir suavemente'
+    ],
     'Paredes y muros': [
-      'Fisura capilar diagonal en tabiquería o enlucido',
-      'Desplome o falta de verticalidad en tabique (desviación > 3mm)',
-      'Alabeo, panza o hendidura en superficie de muro',
-      'Fisura en encuentro entre muro y losa/columna (junta fría)',
+      'Fisura visible en muro o tabique (registrar ubicación, orientación y ancho aprox.)',
+      'Desviación aparente de verticalidad en tabique (registrar medición)',
+      'Irregularidad superficial o abombamiento aparente en muro',
+      'Fisura en encuentro entre muro y columna o viga',
       'Humedad o eflorescencia salina visible en muro'
     ],
     'Tarrajeo y enlucidos': [
-      'Desprendimiento o sonido a hueco en revoque/tarrajeo',
-      'Rugosidad excesiva o falta de afinado en tarrajeo',
+      'Desprendimiento o sonido hueco en revoque/tarrajeo al percutir suavemente',
+      'Rugosidad excesiva o falta de afinado homogéneo en tarrajeo',
       'Porosidad abierta y coqueras en esquinas de vanos',
-      'Encuentros muro-columna sin bruña de dilatación'
+      'Encuentros muro-columna sin bruña de dilatación prevista'
     ],
     'Empaste y pintura': [
-      'Pintura con huellas visibles de rodillo o traslapes bajo luz rasante',
-      'Ampollas, desprendimiento o falta de adherencia en pintura látex',
+      'Pintura con marcas de aplicación, traslapes o acabado irregular bajo luz rasante',
+      'Pintura con ampollamiento, descascaramiento o pérdida visible de adherencia',
       'Variación de tonalidad o manchas de obra en pintura',
-      'Empaste deficiente con rayaduras y masillado irregular',
-      'Falta de segunda mano de pintura en recortes perimetrales'
+      'Empaste con rayaduras o masillado irregular visible',
+      'Falta de segunda mano de pintura o cobertura incompleta en recortes perimetrales'
     ],
     'Cielos rasos y bruñas': [
-      'Desnivel o pandeo (deflexión) en falso techo de drywall',
-      'Bruña arquitectónica perimetral desalineada o con rebabas',
-      'Fisura longitudinal en junta de placas de yeso/drywall',
-      'Mancha de condensación o filtración en cielo raso'
+      'Desnivel, deformación o pandeo visible en cielo raso',
+      'Fisura visible en junta de placas de falso techo',
+      'Bruña perimetral desalineada, con rebabas o remate deficiente',
+      'Mancha visible en cielo raso (indicar si presenta humedad activa)'
     ],
     'Molduras y drywall': [
-      'Tornillos de fijación expuestos o sin masillar en drywall',
+      'Fijaciones expuestas o sin masillar en placas de yeso/drywall',
       'Moldura decorativa despegada o con unión abierta en esquina',
       'Falta de refuerzo interno para soporte de cargas suspendidas'
     ],
     'Zócalos y contrazócalos': [
-      'Zócalo despegado o con sonido a hueco (falta de pegamento)',
-      'Falta de sellado superior con masilla/silicona entre zócalo y muro',
-      'Corte de zócalo astillado o junta abierta mayor a 2mm',
+      'Zócalo suelto o con sonido hueco al percutir suavemente',
+      'Sello superior elástico ausente o discontinuo en encuentro con muro (según detalle constructivo previsto)',
+      'Corte visiblemente astillado o junta abierta entre piezas de zócalo',
       'Desalineación de plomo en encuentros de esquinas'
     ]
   },
   'Pisos y revestimientos': {
     'Porcelanato y cerámicos': [
-      'Presencia de cejas (desnivel entre piezas adyacentes > 1mm)',
-      'Piezas desportilladas o quiñadas en esquinas',
-      'Piezas cerámicas sueltas o con sonido a hueco al percutir',
+      'Diferencia de nivel entre piezas de revestimiento (cejas; registrar medición instrumental)',
+      'Pieza de revestimiento desportillada, fisurada o quiñada',
+      'Pieza cerámica suelta o con sonido hueco al percutir suavemente',
       'Diferencia visible de lote o tono entre baldosas instaladas'
     ],
     'Pisos laminados': [
-      'Piso laminado con sensación amortiguada o hundimiento al pisar',
-      'Juntas abiertas entre tablas de piso flotante',
-      'Levantamiento o englobamiento por falta de holgura perimetral',
-      'Pérdida de capa protectora o rayas profundas de obra'
+      'Piso laminado presenta zona amortiguada o hundimiento aparente al pisar',
+      'Piso con crujidos, piezas con movimiento perceptible o juntas deterioradas',
+      'Separación o junta abierta visible entre tablas de piso flotante',
+      'Pérdida de capa protectora o rayas visibles de obra'
     ],
     'Pisos vinílicos': [
-      'Ampollamiento o burbujas de aire atrapadas bajo el vinílico',
+      'Ampollamiento o burbujas de aire visibles bajo el vinílico',
       'Despegue en extremos o juntas de traslape',
-      'Marcas o hendiduras por base irregular sin nivelar'
+      'Marcas o hendiduras por base irregular'
     ],
     'Juntas y alineación': [
       'Líneas de junta desalineadas o fuera de escuadra geométrica',
-      'Ancho irregular en juntas de colocación',
-      'Junta de dilatación estructural obstruida o sin elastómero'
+      'Ancho irregular en juntas de colocación entre baldosas',
+      'Junta de dilatación estructural obstruida o sin elastómero previsto'
     ],
     'Fragua y encuentros': [
       'Fragua decolorada, manchada o con tonalidad dispareja',
-      'Fragua fisurada, pulverulenta o con vacíos de llenado',
+      'Fragua fisurada, porosa o con desprendimiento de material',
       'Falta de limpieza final de fragua (velo cementicio superficial)'
     ],
     'Nivelación y pendientes': [
-      'Pendiente insuficiente hacia sumidero con acumulación de agua',
-      'Desnivel marcado en umbral de paso entre ambientes contiguos',
-      'Charcos o contrapendiente en zonas húmedas'
+      'Evacuación deficiente o empozamiento de agua durante prueba (registrar método y duración)',
+      'Diferencia de nivel perceptible en umbral de paso entre ambientes contiguos',
+      'Pendiente con dirección contraria al punto de desagüe'
     ]
   },
   'Carpintería de madera y melamina': {
     'Puertas interiores': [
-      'Puerta roza o raspa contra el marco o el piso al girar',
-      'Alabeo o deformación en hoja de puerta interior',
-      'Holgura perimetral irregular (luz mayor a 4mm o menor a 2mm)',
-      'Chapa o manija suelta con holgura en pestillo'
+      'Puerta presenta rozamiento con el marco o con el piso al abrir/cerrar',
+      'Hoja de puerta presenta desviación o alabeo visible',
+      'Holgura perimetral irregular entre hoja y marco de puerta'
     ],
     'Puerta principal y marcos': [
-      'Cerradura de seguridad dura o pestillo no encaja con suavidad',
-      'Marco de puerta desaplomado o con anclaje flojo al muro',
-      'Defectos de acabado o barniz con rayaduras de obra',
-      'Falta de sello acústico/cortaviento inferior'
+      'Puerta principal presenta rozamiento con el marco o con el piso al abrir/cerrar',
+      'Holgura perimetral irregular entre hoja y marco de puerta',
+      'Marco de puerta con desaplomado o fijación deficiente al muro',
+      'Acabado o barniz con rayaduras o manchas de obra'
     ],
     'Clósets y vestidores': [
-      'Puertas corredizas se traban o descarrilan en riel superior/inferior',
-      'Cajones con correderas telescópicas duras o desalineadas',
-      'Tapacantos de melamina despegados o astillados',
-      'Repisas interiores pandeadas o sin soporte intermedio'
+      'Puerta corrediza de clóset trabada o con dificultad de rodadura en riel',
+      'Puerta batiente desalineada o sin retención adecuada',
+      'Cajonera con correderas duras o roce en estructura del mueble',
+      'Repisa interior presenta deformación visible o canto desprendido'
     ],
     'Muebles de cocina (altos/bajos)': [
-      'Puertas de reposteros desalineadas o sin cierre suave funcional',
-      'Bisagras tipo cangrejo flojas o con tornillos falseados',
-      'Fondo de mueble bajo con humedad o deformación',
-      'Falta de sellado antihongos en unión con pared o tablero'
+      'Puerta de repostero desalineada o con rozamiento al cerrar',
+      'Puerta que no mantiene su posición de apertura o cierre',
+      'Módulo con fijación aparentemente deficiente al muro',
+      'Fondo del mueble deteriorado o con indicios de humedad',
+      'Mecanismo de cierre suave no funciona o mecanismo ofrecido no instalado (cuando corresponda a lo contratado)',
+      'Bisagra floja o con fijación deficiente en panel de melamina',
+      'Cajón presenta dificultad de desplazamiento o traba en correderas',
+      'Tapacanto de melamina despegado, astillado o con filo cortante'
     ],
     'Cajones y correderas': [
       'Cajonera descolgada o con roce lateral',
-      'Freno o autocierre de corredera inoperativo',
-      'Tiradores o jaladores flojos y desalineados'
+      'Freno o mecanismo de autocierre de corredera inoperativo',
+      'Tiradores o jaladores flojos o desalineados'
     ],
     'Tapacantos y repisas': [
       'Tapacanto PVC desprendido en bordes expuestos',
       'Filos cortantes en cantos de melamina sin perfilar',
-      'Falta de tapatornillos adhesivos embellecedores'
+      'Tapa-tornillos adhesivos embellecedores faltantes'
     ]
   },
   'Carpintería de aluminio, vidrio y mamparas': {
     'Ventanas corredizas y proyectantes': [
-      'Hoja de ventana atascada en riel por suciedad o deformación',
-      'Seguro o pestillo caracol inoperativo / no traba',
-      'Falta de orificios de desagüe pluvial (cortagotera/lloraderos) en perfil',
-      'Filtración de aire o silbido por falta de felpas'
+      'Hoja corrediza presenta dificultad o resistencia de desplazamiento en rieles',
+      'Cierre incompleto, holgura perceptible o mecanismo de apertura que no opera correctamente',
+      'Seguros, pestillos o mecanismos de cierre no traban o presentan desalineación',
+      'Falta de orificios de desagüe pluvial (lloraderos) en perfil de ventana',
+      'Sellado perimetral con discontinuidades visibles y entrada de aire o agua observada en prueba'
     ],
     'Mamparas corredizas': [
-      'Mampara desencajada con cierre duro o falta de arrastre',
+      'Mampara corrediza presenta dificultad de desplazamiento o atasco en riel',
+      'Seguros, pestillos o mecanismos de cierre no traban o presentan desalineación',
       'Riel inferior deformado o con tornillos sobresalientes',
-      'Cierre perimetral no hermético con ingreso de polvo'
+      'Cierre perimetral con holgura que permite ingreso de polvo o viento'
     ],
     'Perfiles de aluminio': [
-      'Perfil de aluminio abollado, quiñado o con pintura electrostática rayada',
-      'Uniones a 45 grados abiertas en esquinas de marco',
-      'Falta de tapas embellecedoras en extremos de perfiles'
+      'Perfil de aluminio abollado, quiñado o con pintura rayada',
+      'Uniones a inglete abiertas en esquinas de marco',
+      'Tapas embellecedoras ausentes en extremos de perfiles'
     ],
     'Felpas y hermeticidad': [
-      'Felpa perimetral rota, desprendida o incompleta',
-      'Sellado perimetral exterior con silicona neutra ausente o agrietada',
+      'Felpa perimetral ausente, deteriorada o desprendida',
+      'Sellado perimetral exterior con discontinuidades visibles',
       'Espacio visible entre perfiles en posición cerrada'
     ],
     'Vidrios y cristales templados': [
-      'Cristal templado con rayadura profunda de obra',
-      'Presencia de quiñes o despostilladuras en borde de vidrio',
-      'Manchas de salpicadura de soldadura o pintura indelebles',
-      'Falta de sello de seguridad o grabado de vidrio templado reglamentario'
+      'Vidrio o cristal con rayadura, quiñe o daño superficial visible',
+      'Presencia de burbujas internas o quiñes en bordes',
+      'Manchas de salpicadura de soldadura o pintura difíciles de remover',
+      'Grabado reglamentario de vidrio de seguridad ausente (según especificación)'
     ],
     'Barandas acristaladas': [
-      'Baranda con oscilación o cabeceo estructural (anclaje flojo)',
-      'Vidrio laminado con delaminación o burbujas internas',
-      'Pasamanos desalineado o con aristas vivas cortantes'
+      'Baranda con movimiento perceptible o fijación aparentemente deficiente; restringir el uso y solicitar evaluación si existen indicios de inseguridad',
+      'Vidrio de baranda con daño superficial, quiñe o astillado visible (contrastar aptitud con especificación)',
+      'Pasamanos desalineado o con aristas vivas'
     ]
   },
-  'Cerrajería y accesorios': {
+  'Cerrajería y herrajes': {
     'Cerraduras principales e interiores': [
-      'Cerradura traba la llave al girar el cilindro',
-      'Pestillo no retrae completamente al bajar la manija',
+      'Cerradura presenta dificultad u oposición al giro de la llave',
+      'Pestillo no encaja suavemente en el recibidor del marco',
       'Contrafrontal desalineado impidiendo el cierre sin empujar con fuerza',
-      'Juego o tambaleo en cilindro de seguridad'
+      'Cilindro de seguridad con juego o tambaleo'
     ],
     'Pestillos y cerrojos': [
-      'Cerrojo pasador inoperativo en puertas de baño',
+      'Cerradura o cerrojo de baño presenta traba o dificultad de operación',
       'Pestillo magnético sin fuerza de retención',
       'Falta de holgura para el ingreso del pestillo en el marco'
     ],
     'Bisagras y topes de piso': [
-      'Bisagras chirrían o presentan restos de óxido/pintura',
+      'Bisagras ruidosas o con restos de pintura de obra',
       'Falta de tornillos en paletas de bisagras',
-      'Tope de puerta mal ubicado permitiendo que la manija golpee el muro',
+      'Tope de puerta ausente o no evita contacto de manija con muro (verificar especificación)',
       'Tope de piso flojo o despegado'
     ],
     'Manijas y manijones': [
-      'Manija floja con juego axial excesivo',
+      'Manija de puerta floja o con juego axial perceptible',
       'Manija caída o con resorte de retorno vencido',
-      'Rayaduras o acabado desprendido en manija metálica'
+      'Acabado metálico con rayaduras o desprendimiento'
     ],
     'Jaladores de muebles': [
-      'Jalador de clóset/repostero desalineado respecto al adyacente',
-      'Tornillo de sujeción largo rozando el interior del cajón'
+      'Jalador de clóset o repostero desalineado respecto al adyacente',
+      'Tornillo de sujeción sobresaliente en el interior del cajón'
     ]
   },
   'Instalaciones eléctricas': {
     'Tomacorrientes 220V': [
-      'Tomacorriente sin energía (circuito abierto)',
-      'Falta de continuidad de puesta a tierra (borne de tierra desconectado)',
-      'Placa de tomacorriente desaplomada, floja o separada del muro',
-      'Polaridad invertida o fase invertida en tomacorriente'
+      'Tomacorriente con resultado anómalo en la comprobación realizada; requiere verificación eléctrica',
+      'Indicación de anomalía en la comprobación de puesta a tierra (especificar método e instrumento utilizado)',
+      'Placa de tomacorriente floja, desaplomada o separada del muro',
+      'Placa ubicada en posición diferente a la indicada en plano de acabados'
     ],
     'Interruptores y conmutadores': [
-      'Interruptor conmutador no apaga la luz desde uno de los puntos',
+      'Interruptor no acciona el centro de luz correspondiente',
+      'Interruptor conmutador no conmuta la luminaria desde uno de los puntos',
       'Mecanismo de balancín duro o trabado',
-      'Placa sucia con manchas de pintura de obra o rajada'
+      'Placa sucia con salpicaduras de pintura o rajada'
     ],
     'Puntos de luz y luminarias': [
+      'Centro de iluminación sin respuesta en la prueba o accesorio flojo/dañado',
       'Punto de luz descentrado respecto al eje del ambiente',
-      'Portalámparas o soquete provisional quebrado o falso contacto',
-      'Luminaria empotrada (spotlight) parpadea o no enciende'
+      'Portalámparas provisional quebrado o con falso contacto'
     ],
     'Tablero General (TG)': [
-      'Falta de rotulación y leyenda técnica identificando cada circuito',
-      'Gabinete o tapa sin conexión de puesta a tierra equipotencial',
-      'Llaves termomagnéticas sobredimensionadas para la sección de cable',
-      'Presencia de cables sueltos o terminales sin prensar'
+      'Tablero general sin leyenda o rotulación identificando circuitos',
+      'Interruptor diferencial: prueba funcional mediante botón TEST no satisfactoria (cuando la prueba esté contemplada y pueda realizarse de forma segura)',
+      'Conexión de puesta a tierra del gabinete metálico o tapa: por verificar',
+      'Llaves termomagnéticas flojas en riel DIN'
     ],
     'Llaves termomagnéticas y diferenciales': [
-      'Disyuntor diferencial de 30mA no dispara al accionar botón de TEST',
-      'Termomagnético flojo en riel DIN del tablero',
-      'Falta de peineta de interconexión o puentes de cable inadecuados'
+      'Interruptor diferencial: prueba funcional mediante botón TEST no satisfactoria',
+      'Dispositivo flojo o mal anclado en riel DIN',
+      'Falta de peineta de interconexión reglamentaria'
     ],
     'Puesta a tierra': [
-      'Falta de bornera de tierra general rotulada',
-      'Cable verde/amarillo ausente en circuitos derivados'
+      'Indicación de anomalía en la comprobación de puesta a tierra',
+      'Conexión de puesta a tierra del gabinete o tapa: por verificar'
     ]
   },
   'Instalaciones sanitarias': {
-    'Inodoros y fluxómetros': [
-      'Filtración o fuga continua de agua limpia en la taza (válvula flapper)',
-      'Perno de fijación al piso flojo o inodoro con movimiento/cabeceo',
-      'Falta de cordón de silicona antihongos en base del inodoro',
-      'Manguera flexible de abasto estrangulada o goteando'
+    'Redes accesibles y llaves de paso': [
+      'Llave de paso de agua presenta goteo o fuga visible',
+      'Llave de corte general de agua inaccesible o de difícil operación',
+      'Tubería visible con marcas de golpe o soporte flojo'
     ],
-    'Lavatorios y pedestales': [
-      'Filtración en desagüe trampa P debajo del lavamanos',
-      'Lavatorio flojo o sin anclaje rígido a muro',
-      'Falta de sellado perimetral contra enchape cerámico',
-      'Caudal de agua fría o caliente insuficiente'
+    'Puntos de lavadora': [
+      'Ausencia del punto previsto en planos, fuga en la llave de agua o drenaje que presenta evacuación deficiente',
+      'Punto de desagüe de lavadora: ubicación o altura por verificar con plano o especificación de referencia',
+      'Llave de corte de agua de lavadora presenta fuga o goteo al abrir'
     ],
-    'Lavaderos de cocina / lavandería': [
-      'Goteo o fuga en conexión de tubería de desagüe de lavadero',
-      'Rebose de lavadero obstruido o sin conectar',
-      'Falta de silicona perimetral bajo la pestaña de acero inoxidable'
-    ],
-    'Griferías y mezcladoras': [
-      'Goteo continuo por cartucho cerámico defectuoso',
-      'Mezcladora invertida (agua caliente conectada en lado derecho)',
-      'Aireador de grifería atascado con restos de arena o cemento',
-      'Cuerpo de grifería gira sobre la encimera al abrir'
-    ],
-    'Duchas y cabezales': [
-      'Presión deficiente o rociado obstruido en cabezal de ducha',
-      'Brazo de ducha con inclinación negativa o goteo en rosca',
-      'Maneral de ducha flojo o con giro falseado'
-    ],
-    'Desagües, sifones y trampas P': [
-      'Evacuación lenta con retorno de olores por falta de sello hidráulico',
-      'Abrazadera o tuerca de unión de desagüe partida o mal enroscada',
-      'Falta de registro de inspección roscado hermético'
-    ],
-    'Sumideros y registros': [
-      'Rejilla de sumidero floja o atascada con fragua de obra',
-      'Tapa de registro no enrosca al ras del piso terminado'
+    'Desagües y ventilación sanitaria': [
+      'Evacuación lenta en trampa de desagüe o retorno de olores',
+      'Tapa de registro roscado no asienta al ras de piso terminado',
+      'Filtro o rejilla de sumidero floja o atascada'
     ]
   },
-  'Impermeabilización y evacuación de agua': {
-    'Impermeabilización de ducha': [
-      'Filtración de humedad visible en muro colindante a la ducha',
-      'Falta de sellador impermeable en esquinas y encuentro piso-muro',
-      'Bandeja de ducha con retención de agua por contrapendiente'
+  'Aparatos sanitarios y griferías': {
+    'Inodoro y accesorios': [
+      'Inodoro presenta movimiento al aplicar una comprobación suave',
+      'Descarga con funcionamiento irregular, llenado continuo del tanque o fuga visible después de accionar la descarga',
+      'Fuga o goteo visible en válvula de abasto o manguera flexible de conexión',
+      'Sello perimetral en la base del aparato ausente o deteriorado'
     ],
-    'Pisos de baños y sellos húmedos': [
-      'Fragua absorbente en piso de ducha sin aditivo hidrófugo',
-      'Cordón de silicona antihongos perimetral ennegrecido o agrietado'
+    'Lavatorios y pedestales': [
+      'Lavatorio presenta movimiento al aplicar una comprobación suave',
+      'Grifería presenta goteo o fuga en caño, maneral o base',
+      'Evacuación lenta de agua en el pozuelo durante la prueba realizada',
+      'Caudal irregular o dificultad para operar el mando de la grifería',
+      'Disposición de agua fría/caliente no conforme con lo esperado o especificado'
     ],
-    'Balcones y terrazas': [
-      'Filtración hacia losa inferior en borde de balcón',
-      'Falta de goterón o canaleta de corte de agua en borde de fachada',
-      'Empozamiento de agua de lluvia por pendiente deficiente'
+    'Lavaderos de cocina / lavandería': [
+      'Grifería presenta goteo o fuga visible en caño, maneral o base',
+      'Pozuelo de lavadero con retención de agua o evacuación lenta durante prueba de descarga',
+      'Fuga visible en conexiones accesibles o trampa de desagüe bajo el mueble',
+      'Disposición de agua fría/caliente no conforme con lo especificado (verificar plano)'
     ],
-    'Pendientes hacia sumideros': [
-      'Agua no evacúa hacia la rejilla y forma charcos en esquinas',
-      'Rejilla de sumidero colocada en cota superior a la del piso terminado'
+    'Duchas y cabezales': [
+      'Caudal irregular, fuga visible en conexiones accesibles o dificultad para operar el mando de la grifería',
+      'Rociador de ducha con chorro obstruido o brazo con inclinación negativa',
+      'Maneral de mezcladora flojo o con giro falseado'
+    ],
+    'Poza o lavadero de servicio': [
+      'Poza de lavado presenta movimiento al aplicar una comprobación suave',
+      'Grifería móvil presenta fuga o goteo en caño/flexible',
+      'Evacuación lenta en trampa de desagüe'
+    ]
+  },
+  'Evacuación e impermeabilización': {
+    'Sumideros y drenajes': [
+      'Evacuación deficiente o empozamiento de agua durante prueba en ducha (registrar método, duración y zona afectada)',
+      'Evacuación deficiente o empozamiento de agua observado en piso durante prueba (registrar duración y zona)',
+      'Sumidero con drenaje lento o cota de rejilla sobre nivel de piso'
+    ],
+    'Sellos y juntas húmedas': [
+      'Sello perimetral elástico deteriorado o ausente en encuentro ducha-muro (según detalle constructivo)',
+      'Ausencia o discontinuidad visible de sellos y paso de agua al exterior durante prueba controlada',
+      'Sello elástico deteriorado en juntas de dilatación o encuentro de fachada'
     ]
   },
   'Gas y calentamiento de agua': {
     'Puntos y llaves de paso de gas': [
-      'Llave de paso de gas inaccesible o bloqueada por mobiliario',
-      'Válvula de corte de gas dura o con sello dañado',
-      'Punto de gas sin tapón de seguridad reglamentario'
+      'Acceso a llave de paso de gas obstruido o de difícil manipulación',
+      'Válvula de corte de gas dura o con sello deteriorado',
+      'Componente, conexión o condición de ventilación que requiere comprobación respecto del diseño del sistema',
+      'Punto de conexión de gas sin tapón de protección reglamentario (cuando no haya equipo conectado)'
     ],
-    'Tuberías y ventilación normada': [
-      'Rejilla de ventilación inferior/superior normada ausente o bloqueada',
-      'Tubería de cobre sin aislamiento o expuesta a golpes'
+    'Rejillas y ventilación de gas': [
+      'Rejilla de ventilación prevista ausente, obstruida o dañada; contrastar con el diseño y el sistema de gas',
+      'Ducto de ventilación con restricción de paso de aire aparente'
     ],
     'Terma / Calentador de agua': [
-      'Chimenea / ducto de evacuación de monóxido sin pendiente positiva exterior',
-      'Goteo en válvula de sobrepresión o en llave de paso de agua',
-      'Falta de toma eléctrica exclusiva con puesta a tierra para terma'
-    ],
-    'Conexiones flexibles certificadas': [
-      'Manguera flexible de gas no certificada o vencida',
-      'Falta de abrazadera o conexión rápida con sello elastomérico'
+      'Equipo que no enciende o no responde a los controles durante una prueba autorizada y segura, cuando esté incluido en la entrega',
+      'Fuga o goteo visible en conexiones hidráulicas o descarga en válvula de alivio (indicar punto exacto y condición de funcionamiento del equipo)',
+      'Ducto de evacuación de gases: trazado o pendiente por verificar respecto al proyecto (si es a gas)'
     ]
   },
   'Ventilación y climatización': {
     'Extractores de aire de baños': [
-      'Extractor de aire inoperativo o sin encendido sincronizado',
-      'Succión deficiente (falla prueba de retención de papel en rejilla)',
-      'Extractor con ruido o vibración excesiva por aspas desbalanceadas',
-      'Falta de compuerta antirretorno permitiendo ingreso de olores del ducto'
+      'Extractor de aire sin funcionamiento en la prueba de encendido',
+      'Extracción aparentemente insuficiente en la prueba realizada; requiere comprobación adicional si corresponde',
+      'Extractor con ruido o vibración anormal durante el giro'
     ],
-    'Rejillas de ventilación': [
-      'Rejilla de extracción atascada de polvo o pintura de obra',
+    'Rejillas y ductos': [
+      'Rejilla de extracción atascada con polvo de obra o pintura',
       'Fijación suelta o marco despegado del cielo raso'
     ],
-    'Ductos de evacuación': [
-      'Ducto corrugado flexible estrangulado impidiendo el flujo de aire',
-      'Falta de hermeticidad en empalme de extracción'
-    ],
     'Preinstalación de aire acondicionado': [
-      'Tubo de drenaje de condensados obstruido (falla prueba de purga)',
-      'Tuberías frigoríficas de cobre sin tapón hermético deshumidificado',
-      'Caja de paso para unidad evaporadora mal aplomada'
+      'Preinstalación de A/C: tubo de drenaje con obstrucción en prueba de purga',
+      'Tapa de pase o caja de preinstalación ausente o dañada',
+      'Puntos de preinstalación no coincidentes con el plano del proyecto'
     ]
   },
   'Equipamiento y electrodomésticos': {
     'Campana extractora': [
-      'Campana extractora sin tiro activo hacia el exterior',
-      'Filtros metálicos antigrasa abollados o mal encajados',
-      'Luminaria de campana o botonera de velocidad defectuosa'
+      'Campana extractora: funcionamiento o modalidad de extracción por verificar (recirculación o ducto exterior según proyecto)',
+      'Filtros metálicos antigrasa abollados o mal asentados',
+      'Botonera o iluminación de campana no responde'
     ],
     'Encimera (cocina empotrada)': [
-      'Encendido eléctrico piezoeléctrico no activa en una o más hornillas',
-      'Llama irregular con puntas amarillas (combustión deficiente)',
-      'Vidrio vitrocerámico o cubierta de acero con rayas de obra'
+      'Cocina encimera: equipo que no enciende o no responde a los controles durante prueba autorizada y segura',
+      'Llama irregular con combustión deficiente observada',
+      'Cubierta o quemador con rayaduras o manchas de obra'
     ],
     'Horno empotrado': [
-      'Puerta de horno no cierra herméticamente (fuga de calor)',
-      'Termostato o perilla selectora gira en falso',
+      'Horno empotrado: puerta no asienta correctamente o selector no operativo',
       'Falta de ventilación perimetral requerida por fabricante en mueble'
     ],
-    'Equipos fijos auxiliares': [
-      'Intercomunicador no timbra o micrófono/altavoz con ruido estático',
-      'Timbre principal de departamento inoperativo'
+    'Terma o calentador': [
+      'Equipo que no enciende o no responde a los controles durante una prueba autorizada y segura, cuando esté incluido en la entrega',
+      'Fuga o goteo visible en conexiones hidráulicas o descarga en válvula de alivio'
     ]
   },
   'Seguridad y elementos complementarios': {
-    'Detectores de humo y temperatura': [
-      'Detector de humo fotoeléctrico sin luz LED de supervisión (sin energía)',
-      'Detector conserva cobertor plástico protector de obra en el techo',
-      'Sensor de temperatura de cocina desalineado o suelto'
+    'Barandas y protección contra caídas': [
+      'Baranda con movimiento perceptible, fijación aparentemente deficiente o daño visible que amerite evaluación de seguridad (restringir uso si existen indicios de inseguridad)',
+      'Vidrio de baranda con daño superficial, quiñe o astillado visible (contrastar aptitud con especificación)'
     ],
-    'Barandas de escaleras y balcones': [
-      'Altura de baranda reglamentaria inferior a 1.00m',
-      'Separación entre barrotes mayor a 11cm (riesgo de atrapamiento infantil)',
-      'Fijaciones de base sin tapapernos embellecedores'
+    'Detectores y alarmas': [
+      'Detector de humo: indicador de estado o prueba funcional no satisfactorios, según el modelo instalado',
+      'Detector conserva cubierta plástica protectora de obra en el techo',
+      'Dispositivo previsto no instalado según plano de equipamiento'
     ],
-    'Válvulas generales de corte': [
-      'Llave general de corte de agua dura o no cierra al 100%',
-      'Nicho de llaves de paso sin tapa o sin rotulación clara',
-      'Válvula esférica gotea por el vástago al manipular'
+    'Válvulas de corte general': [
+      'Llave general de corte de agua dura o no cierra en su totalidad',
+      'Nicho de llaves de paso sin tapa o sin rotulación clara'
     ],
     'Intercomunicador': [
-      'Pantalla o auricular no comunica con conserjería',
-      'Pulsador de apertura remota de puerta del edificio inoperativo'
+      'Intercomunicador: sin señal de llamada o sin comunicación audible con conserjería',
+      'Pulsador de apertura remota no acciona cerradura eléctrica'
+    ]
+  },
+  'Estructuras — inspección visual': {
+    'Indicios en concreto y elementos constructivos': [
+      'Indicio visual que requiere evaluación técnica especializada (registrar ubicación y foto con escala)',
+      'Fisura visible en elemento de concreto ubicado en encuentro entre muro y losa/techo',
+      'Desprendimiento de recubrimiento de concreto o armadura de refuerzo expuesta visible en elemento estructural'
+    ]
+  },
+  'Documentación y correspondencia': {
+    'Verificación contra planos y acabados': [
+      'Componente previsto en planos o especificaciones que no se encuentra instalado, sujeto a contrastación documental',
+      'Acabado, material o color aparentemente diferente al de la ficha técnica aprobada (distinguir diferencia aparente de discrepancia confirmada)',
+      'Ubicación de punto de instalación difiere del plano proporcionado'
     ]
   },
   'Limpieza y entrega final': {
     'Limpieza profunda de obra': [
-      'Restos de cemento, yeso o pegamento en pisos y esquinas',
-      'Polvo fino de lijado dentro de cajones y clósets',
-      'Zócalos y marcos de ventanas sucios con salpicaduras'
-    ],
-    'Retiro de manchas de pintura/cemento': [
-      'Salpicaduras secas de látex sobre cerámicos o perfiles de aluminio',
-      'Manchas de grasa o silicona en cristales'
-    ],
-    'Vidrios limpios sin adhesivos': [
-      'Stickers o cintas de embalaje de fábrica aún adheridas en lunas',
-      'Restos de pegamento pegajoso en ventanas y mamparas'
-    ],
-    'Protecciones retiradas': [
-      'Plásticos termo-encogibles no retirados en tableros o sanitarios',
-      'Embalajes protectores de obra abandonados en la unidad'
+      'Manchas de pintura, silicona o adhesivo en cristales o perfiles',
+      'Residuos de cemento o polvo de lijado en pisos, esquinas o muebles',
+      'Plásticos o embalajes protectores de obra sin retirar'
     ]
   }
 }
