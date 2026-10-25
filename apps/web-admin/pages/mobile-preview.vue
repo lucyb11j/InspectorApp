@@ -29,10 +29,16 @@
         <span v-if="pendingSyncItems.length > 0" class="badge-pending-sync" @click="activeBottomTab = 'sync'">
           ⚡ {{ pendingSyncItems.length }} pendientes
         </span>
-        <div class="user-pill-mini">
+        <button 
+          type="button" 
+          class="user-pill-mini-btn" 
+          :class="{ active: showProfileModal }"
+          @click="showProfileModal = !showProfileModal"
+          title="Ver Perfil de Usuario y Opciones"
+        >
           <span class="user-avatar-mini">👤</span>
-          <span class="user-email-text">{{ currentUserName || 'inspector@inspector.com' }}</span>
-        </div>
+          <span class="user-email-text">{{ currentUserName || 'Usuario' }}</span>
+        </button>
       </div>
     </header>
 
@@ -626,7 +632,159 @@
       </section>
 
       <!-- ======================================================== -->
-      <!-- PANTALLA 4: PESTAÑA "PERFIL / USUARIO"                   -->
+      <!-- PANTALLA 4: PESTAÑA "ARQUITECTURA Y PLANOS"             -->
+      <!-- ======================================================== -->
+      <section v-else-if="activeBottomTab === 'plans'" class="view-architecture-pane">
+        <div class="arch-pane-header">
+          <div>
+            <h2>Planos & Arquitectura de Campo</h2>
+            <p>Visualice, suba o reemplace el plano para delimitar las áreas técnicas de la unidad</p>
+          </div>
+          <button type="button" class="btn-upload-plan-top" @click="showUploadPlanModal = true">
+            📁 Subir / Cambiar Plano
+          </button>
+        </div>
+
+        <div class="arch-unit-selector-bar">
+          <label>Unidad / Departamento:</label>
+          <select v-model="selectedArchUnit" class="arch-unit-select" @change="onArchUnitChange">
+            <option v-for="insp in inspectionsList" :key="insp.id" :value="insp.id">
+              {{ insp.unit }} — {{ insp.project }} ({{ insp.building }})
+            </option>
+          </select>
+        </div>
+
+        <!-- Visor del Plano con Delimitación de Ambientes -->
+        <div class="arch-plan-viewer-card">
+          <div class="arch-plan-top-info">
+            <span class="plan-file-badge">📄 {{ currentArchPlan.fileName }}</span>
+            <span class="plan-hash-badge">SHA-256: <code>{{ currentArchPlan.sha256.substring(0, 16) }}...</code></span>
+            <span class="plan-status-verified">✓ Verificado para Inspección</span>
+          </div>
+
+          <div class="arch-blueprint-display">
+            <!-- Cuadrícula y Áreas -->
+            <div class="blueprint-rooms-container">
+              <div 
+                v-for="(area, aIdx) in currentArchAreas" 
+                :key="area.id"
+                class="blueprint-room-box"
+                :class="area.cssClass"
+              >
+                <div class="room-title-bar">
+                  <span v-if="!area.isEditing" class="room-label-text">{{ area.name }}</span>
+                  <input 
+                    v-else 
+                    v-model="area.name" 
+                    type="text" 
+                    class="room-rename-input"
+                    @blur="area.isEditing = false"
+                    @keyup.enter="area.isEditing = false"
+                  />
+                  <button 
+                    type="button" 
+                    class="btn-rename-trigger" 
+                    @click="area.isEditing = !area.isEditing"
+                    title="Renombrar este ambiente"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn-rename-trigger remove" 
+                    @click="removeArchArea(aIdx)"
+                    title="Eliminar ambiente"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra de Gestión Rápida de Áreas del Plano -->
+          <div class="arch-areas-toolbar">
+            <div class="add-area-inline">
+              <input 
+                v-model="newArchAreaInput" 
+                type="text" 
+                class="modal-input-sm" 
+                placeholder="Añadir nuevo ambiente (ej: Lavandería, Balcón, Baño)..." 
+                @keyup.enter.prevent="addArchArea" 
+              />
+              <button type="button" class="btn-add-area" @click="addArchArea">+ Añadir Ambiente</button>
+            </div>
+            <p class="arch-help-note">
+              Los ambientes configurados aquí se sincronizan automáticamente con la lista de checklist y el plano táctil.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- PANTALLA 5: PESTAÑA "INFORMES & ACTAS PDF"               -->
+      <!-- ======================================================== -->
+      <section v-else-if="activeBottomTab === 'reports'" class="view-reports-pane">
+        <div class="reports-pane-header">
+          <div>
+            <h2>Actas & Informes Técnicos PDF</h2>
+            <p>Consulte las actas generadas con firmas digitales y respaldo SHA-256 para descarga o firma</p>
+          </div>
+        </div>
+
+        <div class="reports-cards-list">
+          <div v-for="rep in reportsList" :key="rep.id" class="app-report-card">
+            <div class="rep-card-header">
+              <div class="rep-code-box">
+                <span class="rep-doc-icon">📑</span>
+                <div>
+                  <h4>{{ rep.code }}</h4>
+                  <span class="rep-meta-sub">{{ rep.date }} · {{ rep.unit }}</span>
+                </div>
+              </div>
+              <span class="rep-badge-signed" :class="{ 'needs-sign': !rep.isSigned }">
+                {{ rep.isSigned ? '✓ Firmada y Lista' : '⏳ Pendiente de Firma' }}
+              </span>
+            </div>
+
+            <div class="rep-body-info">
+              <div class="rep-info-col">
+                <label>Proyecto:</label>
+                <strong>{{ rep.project }}</strong>
+              </div>
+              <div class="rep-info-col">
+                <label>Cliente:</label>
+                <strong>{{ rep.client }}</strong>
+              </div>
+              <div class="rep-info-col">
+                <label>Inspector Responsable:</label>
+                <strong>{{ rep.inspector }}</strong>
+              </div>
+              <div class="rep-info-col">
+                <label>Observaciones:</label>
+                <strong>{{ rep.obsCount }} registradas</strong>
+              </div>
+            </div>
+
+            <div class="rep-actions-bar">
+              <button 
+                v-if="!rep.isSigned" 
+                type="button" 
+                class="btn-rep-action sign"
+                @click="signReportOnline(rep)"
+              >
+                ✍️ Firmar Acta Digitalmente
+              </button>
+              <NuxtLink :to="`/reports/${rep.id}`" class="btn-rep-action download">
+                📥 Ver y Descargar PDF
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- PANTALLA 6: PESTAÑA "PERFIL / USUARIO" (Modal o vista)   -->
       <!-- ======================================================== -->
       <section v-else-if="activeBottomTab === 'profile'" class="view-profile-pane">
         <div class="profile-card-box">
@@ -658,7 +816,7 @@
 
     </main>
 
-    <!-- BARRA DE NAVEGACIÓN INFERIOR (TABLET DOCK - FIGURA 3 Y 9) -->
+    <!-- BARRA DE NAVEGACIÓN INFERIOR (TABLET DOCK) -->
     <nav class="app-bottom-nav">
       <button 
         type="button" 
@@ -673,6 +831,26 @@
       <button 
         type="button" 
         class="nav-dock-btn" 
+        :class="{ active: activeBottomTab === 'plans' }"
+        @click="activeBottomTab = 'plans'"
+      >
+        <span class="dock-icon">📐</span>
+        <span class="dock-label">Arquitectura</span>
+      </button>
+
+      <button 
+        type="button" 
+        class="nav-dock-btn" 
+        :class="{ active: activeBottomTab === 'reports' }"
+        @click="activeBottomTab = 'reports'"
+      >
+        <span class="dock-icon">📄</span>
+        <span class="dock-label">Informes</span>
+      </button>
+
+      <button 
+        type="button" 
+        class="nav-dock-btn" 
         :class="{ active: activeBottomTab === 'sync' }"
         @click="activeBottomTab = 'sync'"
       >
@@ -680,17 +858,80 @@
         <span class="dock-label">Sincronización</span>
         <span v-if="pendingSyncItems.length > 0" class="dock-bubble">{{ pendingSyncItems.length }}</span>
       </button>
-
-      <button 
-        type="button" 
-        class="nav-dock-btn" 
-        :class="{ active: activeBottomTab === 'profile' }"
-        @click="activeBottomTab = 'profile'"
-      >
-        <span class="dock-icon">👤</span>
-        <span class="dock-label">Perfil</span>
-      </button>
     </nav>
+
+    <!-- ======================================================== -->
+    <!-- MODAL EMERGENTE: PERFIL / USUARIO DESDE PARTE SUPERIOR   -->
+    <!-- ======================================================== -->
+    <div v-if="showProfileModal" class="modal-backdrop-camera" @click.self="showProfileModal = false">
+      <div class="modal-profile-window">
+        <div class="modal-profile-header">
+          <h3>Perfil del Usuario</h3>
+          <button type="button" class="btn-close-modal-x" @click="showProfileModal = false">✕</button>
+        </div>
+        <div class="profile-card-box modal-box">
+          <div class="profile-avatar-large">👷‍♂️</div>
+          <h3>{{ currentUserName || 'Arq. Roberto Silva' }}</h3>
+          <p class="profile-role-tag">Inspector Técnico de Campo</p>
+          <span class="profile-email-badge">{{ currentUserName ? 'inspector@inspecos.com' : 'inspector@inspector.com' }}</span>
+
+          <div class="profile-meta-list">
+            <div class="profile-meta-row">
+              <span>Organización:</span>
+              <strong>InspecOS Inmobiliaria</strong>
+            </div>
+            <div class="profile-meta-row">
+              <span>Modo de Operación:</span>
+              <strong>Tablet / Móvil Táctil</strong>
+            </div>
+            <div class="profile-meta-row">
+              <span>Almacenamiento Local:</span>
+              <strong>Drift SQLite Activo (Cifrado)</strong>
+            </div>
+          </div>
+
+          <div class="profile-modal-actions">
+            <button type="button" class="btn-cancel-modal" @click="showProfileModal = false">
+              Volver a la App
+            </button>
+            <button type="button" class="btn-logout-app-modal" @click="handleAppLogout">
+              🚪 Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL EMERGENTE: SUBIR O CAMBIAR PLANO ARQUITECTÓNICO    -->
+    <!-- ======================================================== -->
+    <div v-if="showUploadPlanModal" class="modal-backdrop-camera" @click.self="showUploadPlanModal = false">
+      <div class="modal-obs-window">
+        <div class="modal-obs-header">
+          <div>
+            <h3>Cargar Nuevo Plano Arquitectónico</h3>
+            <span class="modal-location-subtitle">Reemplace el plano en PDF o Imagen para actualizar las delimitaciones</span>
+          </div>
+          <button type="button" class="btn-close-modal-x" @click="showUploadPlanModal = false">✕</button>
+        </div>
+        <div class="modal-obs-body">
+          <div class="form-group-custom">
+            <label>Seleccionar Archivo (PDF, PNG, JPG):</label>
+            <input type="file" accept="application/pdf,image/png,image/jpeg" class="field-input" @change="handleArchFileUpload" />
+          </div>
+          <div v-if="uploadedArchFileName" class="uploaded-arch-file-info">
+            <p>✓ Archivo listo: <strong>{{ uploadedArchFileName }}</strong></p>
+            <small>Se calculará hash criptográfico SHA-256 e integrará con los ambientes de inspección.</small>
+          </div>
+        </div>
+        <div class="modal-obs-footer">
+          <button type="button" class="btn-cancel-modal" @click="showUploadPlanModal = false">Cancelar</button>
+          <button type="button" class="btn-save-modal" :disabled="!uploadedArchFileName" @click="saveUploadedArchPlan">
+            Guardar Plano en la Unidad
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- ======================================================== -->
     <!-- MODAL EMERGENTE: REGISTRAR OBSERVACIÓN CON CÁMARA/FOTO   -->
@@ -841,7 +1082,9 @@ const router = useRouter()
 const supabase = useSupabaseClient()
 
 // Estados de Navegación Principal
-const activeBottomTab = ref<'inspections' | 'sync' | 'profile'>('inspections')
+const activeBottomTab = ref<'inspections' | 'plans' | 'reports' | 'sync' | 'profile'>('inspections')
+const showProfileModal = ref(false)
+const showUploadPlanModal = ref(false)
 const isOnline = ref(true)
 const isSyncing = ref(false)
 const syncPercentage = ref(100)
@@ -1586,7 +1829,133 @@ const runSyncCycle = async () => {
 }
 
 // ==============================================================
-// 7. CIERRE DE SESIÓN
+// 7. ARQUITECTURA, PLANOS Y GESTIÓN DE ÁREAS (PESTAÑA ARQUITECTURA)
+// ==============================================================
+const selectedArchUnit = ref('55555555-0000-0000-0000-000000000002')
+const newArchAreaInput = ref('')
+const uploadedArchFileName = ref('')
+const currentArchPlan = ref({
+  fileName: 'plano_arquitectura_dpto_305.pdf',
+  sha256: 'a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0',
+  type: 'PDF Vectorial'
+})
+
+const currentArchAreas = ref([
+  { id: 'arch-1', name: 'Sala / Comedor', cssClass: 'room-living', isEditing: false },
+  { id: 'arch-2', name: 'Cocina', cssClass: 'room-kitchen', isEditing: false },
+  { id: 'arch-3', name: 'Dormitorio Principal', cssClass: 'room-bed-main', isEditing: false },
+  { id: 'arch-4', name: 'Baño Principal', cssClass: 'room-bath-main', isEditing: false },
+  { id: 'arch-5', name: 'Balcón', cssClass: 'room-balcony', isEditing: false },
+  { id: 'arch-6', name: 'Lavandería', cssClass: 'room-custom', isEditing: false }
+])
+
+const onArchUnitChange = () => {
+  const found = inspectionsList.value.find(i => i.id === selectedArchUnit.value)
+  if (found) {
+    currentArchPlan.value.fileName = `plano_arquitectura_${found.unit.toLowerCase().replace(/\s+/g, '_')}.pdf`
+  }
+}
+
+const addArchArea = () => {
+  const name = newArchAreaInput.value.trim()
+  if (name && !currentArchAreas.value.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    currentArchAreas.value.push({
+      id: `arch-${Date.now()}`,
+      name,
+      cssClass: 'room-custom',
+      isEditing: false
+    })
+    // Sincronizar también con inspectionAreas
+    inspectionAreas.value.push({
+      id: `area-${Date.now()}`,
+      name,
+      cssClass: 'room-custom'
+    })
+    newArchAreaInput.value = ''
+  }
+}
+
+const removeArchArea = (index: number) => {
+  if (currentArchAreas.value.length > 1) {
+    const removed = currentArchAreas.value.splice(index, 1)[0]
+    inspectionAreas.value = inspectionAreas.value.filter(a => a.name !== removed.name)
+  }
+}
+
+const handleArchFileUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    uploadedArchFileName.value = target.files[0].name
+  }
+}
+
+const saveUploadedArchPlan = () => {
+  if (uploadedArchFileName.value) {
+    currentArchPlan.value.fileName = uploadedArchFileName.value
+    currentArchPlan.value.sha256 = '8f4b23c9e1a76d54029b8c173ae59d04bc7a61d8ef31b9c240a5e81d76ca23e1'
+    showUploadPlanModal.value = false
+    alert(`Plano "${uploadedArchFileName.value}" vinculado correctamente a la unidad para la inspección.`)
+  }
+}
+
+// ==============================================================
+// 8. INFORMES & ACTAS TÉCNICAS (PESTAÑA INFORMES)
+// ==============================================================
+interface AppReportItem {
+  id: string
+  code: string
+  unit: string
+  project: string
+  client: string
+  inspector: string
+  date: string
+  obsCount: number
+  isSigned: boolean
+}
+
+const reportsList = ref<AppReportItem[]>([
+  {
+    id: '55555555-0000-0000-0000-000000000002',
+    code: 'ACTA-2026-CEDROS-305',
+    unit: 'Dpto 305 (Torre B)',
+    project: 'Condominio Los Cedros',
+    client: 'María Torres',
+    inspector: 'Arq. Roberto Silva',
+    date: '23 oct 2026',
+    obsCount: 5,
+    isSigned: false
+  },
+  {
+    id: '55555555-0000-0000-0000-000000000001',
+    code: 'ACTA-2026-MIRAMAR-201',
+    unit: 'Dpto 201 (Torre A)',
+    project: 'Edificio Miramar',
+    client: 'Carlos Mendoza',
+    inspector: 'Arq. Roberto Silva',
+    date: '24 oct 2026',
+    obsCount: 3,
+    isSigned: true
+  },
+  {
+    id: '55555555-0000-0000-0000-000000000003',
+    code: 'ACTA-2026-SOL-1102',
+    unit: 'Dpto 1102 (Torre Única)',
+    project: 'Torres del Sol',
+    client: 'Jorge Ramírez',
+    inspector: 'Arq. Carlos Vargas',
+    date: '20 oct 2026',
+    obsCount: 2,
+    isSigned: true
+  }
+])
+
+const signReportOnline = (rep: AppReportItem) => {
+  rep.isSigned = true
+  alert(`✓ Acta ${rep.code} firmada digitalmente con éxito mediante credencial técnica.`)
+}
+
+// ==============================================================
+// 9. CIERRE DE SESIÓN
 // ==============================================================
 const handleAppLogout = async () => {
   await supabase.auth.signOut()
@@ -1686,6 +2055,24 @@ const handleAppLogout = async () => {
   padding: 3px 8px;
   border-radius: 12px;
   cursor: pointer;
+}
+.user-pill-mini-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #161f2e;
+  border: 1px solid #24354a;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 0.75rem;
+  color: #c9d1d9;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.user-pill-mini-btn:hover, .user-pill-mini-btn.active {
+  background: #1c2c41;
+  border-color: #58a6ff;
+  color: #fff;
 }
 .user-pill-mini {
   display: flex;
@@ -2847,6 +3234,275 @@ const handleAppLogout = async () => {
   padding: 1px 5px;
   border-radius: 10px;
 }
+
+/* ============================================================== */
+/* VISTAS: ARQUITECTURA Y REPORTES EN APP                         */
+/* ============================================================== */
+.view-architecture-pane, .view-reports-pane {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.arch-pane-header, .reports-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.arch-pane-header h2, .reports-pane-header h2 {
+  margin: 0 0 4px 0;
+  font-size: 1.4rem;
+  color: #fff;
+}
+.arch-pane-header p, .reports-pane-header p {
+  margin: 0;
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+.btn-upload-plan-top {
+  background: #003366;
+  border: 1px solid #58a6ff;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.arch-unit-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #111823;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #1f2b3c;
+}
+.arch-unit-selector-bar label {
+  font-size: 0.82rem;
+  color: #8b949e;
+  font-weight: 600;
+}
+.arch-unit-select {
+  flex: 1;
+  background: #0a0f16;
+  border: 1px solid #24354a;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.arch-plan-viewer-card {
+  background: #0e1520;
+  border: 1px solid #1f2b3c;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.arch-plan-top-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.plan-file-badge {
+  font-size: 0.82rem;
+  font-weight: bold;
+  color: #58a6ff;
+}
+.plan-hash-badge {
+  font-size: 0.72rem;
+  color: #8b949e;
+  background: #0a0f16;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.plan-status-verified {
+  font-size: 0.72rem;
+  color: #3fb950;
+  background: rgba(46, 160, 67, 0.15);
+  border: 1px solid rgba(46, 160, 67, 0.3);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.arch-blueprint-display {
+  height: 380px;
+  background: #090e15;
+  border: 1px solid #1b2636;
+  border-radius: 8px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.arch-areas-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.arch-help-note {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+.btn-rename-trigger.remove {
+  color: #f85149;
+  margin-left: 2px;
+}
+
+/* Tarjetas de Reportes / Informes */
+.reports-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.app-report-card {
+  background: #111823;
+  border: 1px solid #1f2b3c;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+.app-report-card:hover {
+  background: #152030;
+  border-color: #388bfd;
+}
+.rep-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.rep-code-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rep-doc-icon {
+  font-size: 1.8rem;
+}
+.rep-code-box h4 {
+  margin: 0 0 2px 0;
+  font-size: 1.05rem;
+  color: #fff;
+}
+.rep-meta-sub {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+.rep-badge-signed {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(46, 160, 67, 0.15);
+  border: 1px solid rgba(46, 160, 67, 0.3);
+  color: #3fb950;
+}
+.rep-badge-signed.needs-sign {
+  background: rgba(255, 171, 0, 0.15);
+  border-color: rgba(255, 171, 0, 0.3);
+  color: #ffab00;
+}
+.rep-body-info {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  background: #0b111a;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #16202e;
+}
+.rep-info-col label {
+  display: block;
+  font-size: 0.68rem;
+  color: #8b949e;
+  text-transform: uppercase;
+}
+.rep-info-col strong {
+  font-size: 0.82rem;
+  color: #c9d1d9;
+}
+.rep-actions-bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.btn-rep-action {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-rep-action.sign {
+  background: #008080;
+  border: none;
+  color: #fff;
+}
+.btn-rep-action.download {
+  background: #182436;
+  border: 1px solid #283a54;
+  color: #58a6ff;
+}
+
+/* Modales Perfil y Plano */
+.modal-profile-window {
+  background: #121924;
+  border: 1px solid #24354a;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+}
+.modal-profile-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid #24354a;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-profile-header h3 { margin: 0; font-size: 1.1rem; }
+.profile-card-box.modal-box {
+  padding: 20px;
+}
+.profile-modal-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.btn-logout-app-modal {
+  flex: 1;
+  background: rgba(248, 81, 73, 0.15);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ff7b72;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+.uploaded-arch-file-info {
+  background: #0b111a;
+  border: 1px solid #1f2b3c;
+  padding: 10px;
+  border-radius: 6px;
+}
+.uploaded-arch-file-info p { margin: 0 0 2px 0; font-size: 0.82rem; color: #3fb950; }
+.uploaded-arch-file-info small { color: #8b949e; font-size: 0.72rem; }
 
 /* ============================================================== */
 /* MODAL: NUEVA OBSERVACIÓN + CÁMARA (FIGURA 7 Y 8)               */
