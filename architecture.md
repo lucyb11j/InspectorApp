@@ -640,37 +640,29 @@ Prioridades futuras:
 
 # 20. Tecnología y Stack Recomendado
 
-## Stack definitivo recomendado
+## Stack definitivo de producción (Tauri v2 + Supabase + Cloudflare R2)
 
-| Capa | Tecnología |
-|---|---|
-| App inspector | **Flutter** |
-| Lenguaje app | **Dart** |
-| BD offline | **SQLite** |
-| ORM SQLite | **Drift** |
-| Web | **Nuxt** |
-| UI web | **Vue** |
-| Lenguaje web | **TypeScript** |
-| Web Pública | **Astro** |
-| Backend inicial | **Supabase** |
-| BD central | **PostgreSQL** |
-| Auth | **Supabase Auth** |
-| Archivos | **Supabase Storage** |
-| API | **Supabase API / server-side Nuxt cuando corresponda** |
-| IA | **Ollama** |
-| PDF | **HTML + CSS → PDF** |
-| Seguridad BD | **PostgreSQL RLS** |
-| Seguridad web | **Nuxt Security + OWASP** |
-| Control de versiones | **Git + GitHub** |
-| CI/CD | **GitHub Actions** |
-| Contenedores | **Docker** |
-| Testing | Flutter tests + Vitest/Playwright |
-| Documentación | Markdown |
+| Capa | Tecnología | Justificación y Ventajas |
+|---|---|---|
+| **App inspector (Tablet / Móvil)** | **Tauri v2 (Android / iOS / Desktop)** | Unifica el código del frontend con Vue 3 / TypeScript, empaqueta binarios nativos ligeros y ejecuta lógica de alto rendimiento en Rust. |
+| **UI de inspección y Web Admin** | **Vue 3 + Nuxt 3** | Misma base de componentes para la app de campo táctil y el panel administrativo. Reactividad y rendimiento fluidos. |
+| **Lenguaje frontend** | **TypeScript** | Tipado estricto compartido en toda la solución (`packages/shared-types`). |
+| **BD offline en tablet** | **SQLite local (vía Tauri plugin)** | Almacenamiento local persistente sin conexión, independiente de cuotas del navegador o cachés volátiles. |
+| **Motor de evidencias y hashing** | **Rust (Tauri Core) + WebCrypto** | Generación inmediata de miniaturas (thumbnails) y cálculo de hash criptográfico **SHA-256** sin saturar la RAM ni la batería de la tablet. |
+| **Base de datos central (Nube)** | **PostgreSQL (Supabase)** | Modelo relacional robusto para clientes, unidades, checklist, observaciones y auditoría. |
+| **Seguridad de la información** | **PostgreSQL RLS (Row Level Security)** | Control de acceso por fila nativo a nivel de base de datos; aislamiento estricto multi-tenant por organización. |
+| **Autenticación y roles** | **Supabase Auth** | JWT, control de sesiones, roles de inspectores, administradores y clientes. |
+| **Almacenamiento de fotos y PDFs** | **Cloudflare R2** | Almacenamiento compatible S3 de ultra bajo costo: **$0.00 de tarifa por transferencia/descarga (Egress)** y 10 GB gratis al mes para acumulación de miles de fotos de inspección. |
+| **Web Pública de captación** | **Astro** | Velocidad de carga máxima y SEO optimizado para adquisición de clientes. |
+| **Generación de informes** | **HTML + CSS → PDF** | Actas e informes técnicos con firmas digitales, miniaturas fotográficas y coordenadas en plano. |
+| **Testing & CI/CD** | **Vitest + GitHub Actions** | Pruebas unitarias de dominio, cálculo de hashes y validación de sincronización idempotente. |
 
 ## Decisiones Arquitectónicas Clave
 
-*   **No usar Flutter Web para el portal del cliente:** Flutter es ideal para la app del inspector (Android/iOS), pero para el portal del cliente y la web administrativa, Nuxt + Vue ofrece ventajas en SEO, accesibilidad, navegación y mantenimiento.
-*   **Principio central:** **Offline First + Security by Design + Evidence First + Human in the Loop + Multi-tenant desde el inicio.**
+*   **Tauri v2 para la App del Inspector:** En lugar de mantener dos proyectos y dos lenguajes distintos (Dart/Flutter vs. Vue/Nuxt), se unifica la interfaz táctil sobre **Vue 3**, permitiendo que la misma pantalla táctil optimizada (`mobile-preview.vue`) se ejecute como app nativa en tablets Android, iPadOS y PC/Laptops con acceso a SQLite y disco local.
+*   **Aislamiento de costos con Cloudflare R2:** Las evidencias fotográficas pesadas y los informes PDF finales se almacenan en **Cloudflare R2**, eliminando los costos de salida de datos (egress fees) que cobran proveedores tradicionales como AWS S3 o GCP.
+*   **Seguridad Multi-Tenant Inviolable:** Los datos de inspecciones, clientes e inmobiliarias residen en **PostgreSQL con RLS activado**, garantizando que ninguna constructora o cliente pueda ver datos de otra unidad o proyecto.
+*   **Principio central:** **Offline First + Security by Design + Evidence First + Cost Optimization ($0 Egress) + Multi-tenant desde el inicio.**
 
 ---
 
