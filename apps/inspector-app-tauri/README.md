@@ -19,3 +19,4 @@ Aplicación nativa para Tablets (Android / iPadOS) y PC para inspecciones de cam
 - Modo desarrollo (Android tablet): `pnpm tauri android dev`
 - Generar instalador APK (Android): `pnpm tauri android build`
 - Generar instalador Desktop: `pnpm tauri build`
+

@@ -25,3 +25,4 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("Error al iniciar la aplicación nativa InspecOS Tauri v2");
 }
+

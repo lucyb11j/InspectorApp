@@ -307,57 +307,49 @@
                 </div>
               </div>
 
-              <!-- Área Gráfica del Plano con Ambientes Renombrables -->
-              <div class="blueprint-canvas">
+              <!-- Área Gráfica del Plano con Imagen Real del Departamento -->
+              <div class="blueprint-canvas" @click="handlePlanCanvasClick($event)">
                 <div class="blueprint-grid-lines"></div>
 
-                <div class="blueprint-rooms-container">
-                  <div 
-                    v-for="(area, aIdx) in inspectionAreas" 
-                    :key="area.id"
-                    class="blueprint-room-box"
-                    :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
-                    @click.stop="selectAreaFromPlan($event, area.name)"
-                  >
-                    <div class="room-title-bar">
-                      <span v-if="!area.isEditing" class="room-label-text">{{ area.name }}</span>
-                      <input 
-                        v-else 
-                        v-model="area.name" 
-                        type="text" 
-                        class="room-rename-input"
-                        @click.stop
-                        @blur="area.isEditing = false"
-                        @keyup.enter="area.isEditing = false"
-                      />
-                      <button 
-                        type="button" 
-                        class="btn-rename-trigger" 
-                        @click.stop="toggleAreaRename(aIdx)"
-                        title="Renombrar este ambiente"
-                      >
-                        ✏️
-                      </button>
+                <!-- Imagen Real del Plano del Cliente -->
+                <div class="floorplan-image-wrapper">
+                  <img 
+                    :src="activePlanImageUrl" 
+                    alt="Plano Arquitectónico de la Unidad" 
+                    class="floorplan-render-img"
+                  />
+
+                  <!-- Zonas interactivas semi-transparentes sobre el plano real -->
+                  <div class="floorplan-interactive-overlay">
+                    <div 
+                      v-for="(area, aIdx) in inspectionAreas" 
+                      :key="area.id"
+                      class="floorplan-area-chip"
+                      :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
+                      @click.stop="selectAreaFromPlan($event, area.name)"
+                    >
+                      <span class="area-chip-title">{{ area.name }}</span>
+                      <small class="area-canonical-tag">({{ area.canonicalArea }})</small>
                     </div>
                   </div>
-                </div>
 
-                <!-- Pines Interactivos sobre el Plano -->
-                <div 
-                  v-for="(marker, mIdx) in inspectionMarkers" 
-                  :key="marker.id"
-                  class="plan-pin-marker"
-                  :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
-                  :class="[`sev-${marker.severity.toLowerCase()}`, { moving: movingPinIndex === mIdx, selected: selectedMarkerId === marker.id }]"
-                  @click.stop="selectMarkerOnPlan(marker, mIdx)"
-                >
-                  <div class="pin-bubble">
-                    <span class="pin-ico">📍</span>
-                    <span class="pin-idx">{{ mIdx + 1 }}</span>
-                  </div>
-                  <div class="pin-tooltip">
-                    <strong>#{{ mIdx + 1 }} {{ marker.title }}</strong>
-                    <small>{{ marker.area }} · {{ marker.severity }}</small>
+                  <!-- Pines Interactivos sobre el Plano Real -->
+                  <div 
+                    v-for="(marker, mIdx) in inspectionMarkers" 
+                    :key="marker.id"
+                    class="plan-pin-marker"
+                    :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
+                    :class="[`sev-${marker.severity.toLowerCase()}`, { moving: movingPinIndex === mIdx, selected: selectedMarkerId === marker.id }]"
+                    @click.stop="selectMarkerOnPlan(marker, mIdx)"
+                  >
+                    <div class="pin-bubble">
+                      <span class="pin-ico">📍</span>
+                      <span class="pin-idx">{{ mIdx + 1 }}</span>
+                    </div>
+                    <div class="pin-tooltip">
+                      <strong>#{{ mIdx + 1 }} {{ marker.title }}</strong>
+                      <small>{{ marker.area }} · {{ marker.severity }}</small>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -728,16 +720,21 @@
           </div>
 
           <div class="arch-blueprint-display">
-            <!-- Cuadrícula y Áreas -->
-            <div class="blueprint-rooms-container">
-              <div 
-                v-for="(area, aIdx) in currentArchAreas" 
-                :key="area.id"
-                class="blueprint-room-box"
-                :class="area.cssClass"
-              >
-                <div class="room-title-bar">
-                  <span v-if="!area.isEditing" class="room-label-text">{{ area.name }}</span>
+            <!-- Imagen Real del Plano en Vista de Arquitectura -->
+            <div class="floorplan-image-wrapper arch-mode">
+              <img 
+                :src="activePlanImageUrl" 
+                alt="Plano de Arquitectura de la Unidad" 
+                class="floorplan-render-img"
+              />
+              <div class="floorplan-interactive-overlay">
+                <div 
+                  v-for="(area, aIdx) in currentArchAreas" 
+                  :key="area.id"
+                  class="floorplan-area-chip"
+                  :class="area.cssClass"
+                >
+                  <span v-if="!area.isEditing" class="area-chip-title">{{ area.name }}</span>
                   <input 
                     v-else 
                     v-model="area.name" 
@@ -746,6 +743,7 @@
                     @blur="area.isEditing = false"
                     @keyup.enter="area.isEditing = false"
                   />
+                  <small class="area-canonical-tag">↳ {{ area.canonicalArea }}</small>
                   <button 
                     type="button" 
                     class="btn-rename-trigger" 
@@ -1405,21 +1403,72 @@ const closeInspectionDetail = () => {
 // ==============================================================
 const detailSubTab = ref<'summary' | 'plan' | 'checklist' | 'observations'>('summary')
 
-// Ambientes de la Unidad
+// Ambientes de la Unidad y Normalización Canónica (Alineada al checklist.md)
+type CanonicalChecklistArea = 
+  | 'Sala / Comedor'
+  | 'Cocina'
+  | 'Baño Principal'
+  | 'Dormitorio'
+  | 'Lavandería'
+  | 'Balcón'
+
 interface AreaItem {
   id: string
   name: string
+  canonicalArea: CanonicalChecklistArea
   cssClass: string
   isEditing?: boolean
 }
 
+/**
+ * Función de normalización canónica inteligente:
+ * Mapea cualquier variación léxica o de plano (ej: "Dormitorio 1", "Bed 2", "Kitchenette",
+ * "Living Area", "Baño de visitas", "Patio", "Closet") al ambiente canónico del checklist.md
+ * sin crear categorías inexistentes en la matriz de inspección.
+ */
+const normalizeToCanonicalArea = (rawName: string): CanonicalChecklistArea => {
+  const norm = rawName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+  // 1. Cocina / Kitchenette
+  if (norm.includes('cocina') || norm.includes('kitchen') || norm.includes('kitchenette') || norm.includes('repostero')) {
+    return 'Cocina'
+  }
+
+  // 2. Baños (Principal, Visitas, Secundario, Bath, Toilette)
+  if (norm.includes('bano') || norm.includes('bath') || norm.includes('toilet') || norm.includes('ss.hh') || norm.includes('sshh') || norm.includes('aseo')) {
+    return 'Baño Principal'
+  }
+
+  // 3. Dormitorios y Clósets (Dormitorio 1, 2, Principal, Master, Bedroom, Bed, Cuarto, Closet)
+  if (norm.includes('dorm') || norm.includes('habitaci') || norm.includes('bed') || norm.includes('cuarto') || norm.includes('closet') || norm.includes('vestidor')) {
+    return 'Dormitorio'
+  }
+
+  // 4. Lavandería y Patio de servicio (Laundry, Lavand, Servicio, Ropas)
+  if (norm.includes('lavand') || norm.includes('laundry') || norm.includes('servicio') || norm.includes('tendal')) {
+    return 'Lavandería'
+  }
+
+  // 5. Balcón / Terraza (Balcony, Terraza, Balcon, Patio exterior)
+  if (norm.includes('balcon') || norm.includes('terraza') || norm.includes('balcony') || norm.includes('patio')) {
+    return 'Balcón'
+  }
+
+  // 6. Por defecto: Sala / Comedor (Living, Dining, Comedor, Estar, Hall, Ingreso, Entry)
+  return 'Sala / Comedor'
+}
+
 const inspectionAreas = ref<AreaItem[]>([
-  { id: 'a-1', name: 'Sala / Comedor', cssClass: 'room-living' },
-  { id: 'a-2', name: 'Cocina', cssClass: 'room-kitchen' },
-  { id: 'a-3', name: 'Dormitorio Principal', cssClass: 'room-bed-main' },
-  { id: 'a-4', name: 'Baño Principal', cssClass: 'room-bath-main' },
-  { id: 'a-5', name: 'Balcón', cssClass: 'room-balcony' }
+  { id: 'a-1', name: 'Living Area / Sala', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+  { id: 'a-2', name: 'Kitchen / Cocina', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
+  { id: 'a-3', name: 'Bedroom / Dormitorio', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+  { id: 'a-4', name: 'Bath / Baño', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' },
+  { id: 'a-5', name: 'Patio / Balcón', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
+  { id: 'a-6', name: 'Closet / Vestidor', canonicalArea: 'Dormitorio', cssClass: 'room-custom' }
 ])
+
+// Imagen de plano real vinculada a la inspección actual
+const activePlanImageUrl = ref<string>('/demo-floorplan.png')
 
 const activeSelectedArea = ref('Sala / Comedor')
 const newAreaNameInput = ref('')
@@ -1439,10 +1488,12 @@ const removeAreaFromPlan = (idx: number) => {
 
 const addNewAreaToInspection = () => {
   const name = newAreaNameInput.value.trim()
-  if (name && !inspectionAreas.value.some(a => a.name === name)) {
+  if (name && !inspectionAreas.value.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    const canonical = normalizeToCanonicalArea(name)
     inspectionAreas.value.push({
       id: `area-${Date.now()}`,
       name,
+      canonicalArea: canonical,
       cssClass: 'room-custom'
     })
     activeSelectedArea.value = name
@@ -1961,10 +2012,14 @@ const generateChecklistGroupsForArea = (areaName: string): ChecklistGroup[] => {
 
 const currentAreaChecklistGroups = computed(() => {
   const currentArea = activeSelectedArea.value
-  if (!checklistGroupsStore.value[currentArea]) {
-    checklistGroupsStore.value[currentArea] = generateChecklistGroupsForArea(currentArea)
+  // Obtener el nombre canónico correspondiente (según matriz del checklist.md)
+  const canonical = normalizeToCanonicalArea(currentArea)
+  const storeKey = `${currentArea}__${canonical}`
+  
+  if (!checklistGroupsStore.value[storeKey]) {
+    checklistGroupsStore.value[storeKey] = generateChecklistGroupsForArea(canonical)
   }
-  return checklistGroupsStore.value[currentArea]
+  return checklistGroupsStore.value[storeKey]
 })
 
 const updateGroupCompletion = (group: ChecklistGroup) => {
@@ -2464,9 +2519,11 @@ const onArchUnitChange = () => {
 const addArchArea = () => {
   const name = newArchAreaInput.value.trim()
   if (name && !currentArchAreas.value.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    const canonical = normalizeToCanonicalArea(name)
     currentArchAreas.value.push({
       id: `arch-${Date.now()}`,
       name,
+      canonicalArea: canonical,
       cssClass: 'room-custom',
       isEditing: false
     })
@@ -2474,6 +2531,7 @@ const addArchArea = () => {
     inspectionAreas.value.push({
       id: `area-${Date.now()}`,
       name,
+      canonicalArea: canonical,
       cssClass: 'room-custom'
     })
     newArchAreaInput.value = ''
@@ -2487,10 +2545,15 @@ const removeArchArea = (index: number) => {
   }
 }
 
+const uploadedArchFileUrl = ref<string>('')
+
 const handleArchFileUpload = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
-    uploadedArchFileName.value = target.files[0].name
+    const file = target.files[0]
+    uploadedArchFileName.value = file.name
+    // Crear URL local en memoria para renderizar la imagen real de inmediato en el visor
+    uploadedArchFileUrl.value = URL.createObjectURL(file)
   }
 }
 
@@ -2498,6 +2561,9 @@ const saveUploadedArchPlan = () => {
   if (uploadedArchFileName.value) {
     currentArchPlan.value.fileName = uploadedArchFileName.value
     currentArchPlan.value.sha256 = '8f4b23c9e1a76d54029b8c173ae59d04bc7a61d8ef31b9c240a5e81d76ca23e1'
+    if (uploadedArchFileUrl.value) {
+      activePlanImageUrl.value = uploadedArchFileUrl.value
+    }
     showUploadPlanModal.value = false
     alert(`Plano "${uploadedArchFileName.value}" vinculado correctamente a la unidad para la inspección.`)
   }
@@ -3144,7 +3210,80 @@ const handleAppLogout = async () => {
   background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
   background-size: 26px 26px;
+  pointer-events: none;
 }
+
+/* Contenedor del Plano Real con Imagen y Superposición Interactiva */
+.floorplan-image-wrapper {
+  position: relative;
+  max-width: 92%;
+  max-height: 90%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  background: #ffffff;
+}
+.floorplan-image-wrapper.arch-mode {
+  max-width: 100%;
+  max-height: 100%;
+  height: 100%;
+}
+.floorplan-render-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  display: block;
+}
+.floorplan-interactive-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  align-content: flex-start;
+}
+.floorplan-area-chip {
+  pointer-events: auto;
+  background: rgba(13, 21, 32, 0.85);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.floorplan-area-chip:hover {
+  background: rgba(0, 51, 102, 0.9);
+  border-color: #58a6ff;
+  transform: translateY(-1px);
+}
+.floorplan-area-chip.active {
+  background: #003366;
+  border-color: #00e5a3;
+  box-shadow: 0 0 12px rgba(0, 229, 163, 0.5);
+}
+.area-chip-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.area-canonical-tag {
+  font-size: 0.65rem;
+  color: #00e5a3;
+  font-weight: 600;
+}
+
 .blueprint-rooms-container {
   width: 90%;
   height: 86%;

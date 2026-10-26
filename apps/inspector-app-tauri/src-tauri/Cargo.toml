@@ -20,3 +20,4 @@ hex = "0.4"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
