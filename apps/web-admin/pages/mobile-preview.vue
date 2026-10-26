@@ -307,26 +307,29 @@
                 </div>
               </div>
 
-              <!-- Barra Superior de Ambientes Fuera del Plano (Chips Horizontales con Selección y Tipo) -->
+              <!-- Barra Superior de Ambientes Fuera del Plano (Dos filas o acomodación fluida sin desborde) -->
               <div class="floorplan-top-areas-bar">
                 <div class="top-areas-title">
-                  <span>🏠 Ambientes:</span>
+                  <span>Ambientes:</span>
                 </div>
-                <div class="top-areas-chips-scroll">
+                <div 
+                  class="top-areas-chips-container"
+                  :class="{ 'allow-scroll': inspectionAreas.length > 10 }"
+                >
                   <div 
                     v-for="(area, aIdx) in inspectionAreas" 
                     :key="area.id"
-                    class="floorplan-area-chip-out"
+                    class="floorplan-area-chip-compact"
                     :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
                     @click.stop="activeSelectedArea = area.name"
                   >
+                    <span class="area-chip-icon">{{ getAreaIcon(area.canonicalArea) }}</span>
                     <span class="area-chip-title">{{ area.name }}</span>
-                    <span class="area-canonical-badge">↳ {{ area.canonicalArea }}</span>
                     <button 
                       type="button" 
                       class="btn-chip-retype" 
                       @click.stop="openRecategorizeModal(area)"
-                      title="Cambiar categoría de checklist o renombrar"
+                      :title="`Tipo actual: ${area.canonicalArea}. Clic para recategorizar o renombrar`"
                     >
                       ⚙️
                     </button>
@@ -1488,18 +1491,33 @@ const normalizeToCanonicalArea = (rawName: string): CanonicalChecklistArea => {
 }
 
 const inspectionAreas = ref<AreaItem[]>([
-  { id: 'a-1', name: 'Living Area / Sala', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
-  { id: 'a-2', name: 'Kitchen / Cocina', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
-  { id: 'a-3', name: 'Bedroom / Dormitorio', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
-  { id: 'a-4', name: 'Bath / Baño', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' },
-  { id: 'a-5', name: 'Patio / Balcón', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
-  { id: 'a-6', name: 'Closet / Vestidor', canonicalArea: 'Dormitorio', cssClass: 'room-custom' }
+  { id: 'a-1', name: 'Living Area', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+  { id: 'a-2', name: 'Kitchen', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
+  { id: 'a-3', name: 'Dining Area', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+  { id: 'a-4', name: 'Bedroom', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+  { id: 'a-5', name: 'Bath', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' },
+  { id: 'a-6', name: 'Closet', canonicalArea: 'Lavandería', cssClass: 'room-custom' },
+  { id: 'a-7', name: 'Patio', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
+  { id: 'a-8', name: 'Entry', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' }
 ])
+
+// Helper para obtener el icono representativo del tipo de ambiente
+const getAreaIcon = (canonical: CanonicalChecklistArea): string => {
+  switch (canonical) {
+    case 'Sala / Comedor': return '🛋️'
+    case 'Cocina': return '🍳'
+    case 'Baño Principal': return '🚿'
+    case 'Dormitorio': return '🛏️'
+    case 'Lavandería': return '🧺'
+    case 'Balcón': return '🌿'
+    default: return '📍'
+  }
+}
 
 // Imagen de plano real vinculada a la inspección actual
 const activePlanImageUrl = ref<string>('/demo-floorplan.png')
 
-const activeSelectedArea = ref('Living Area / Sala')
+const activeSelectedArea = ref('Living Area')
 const newAreaNameInput = ref('')
 const showAreasSidebar = ref(false)
 
@@ -3294,74 +3312,78 @@ const handleAppLogout = async () => {
   pointer-events: none;
 }
 
-/* Barra Superior de Ambientes Fuera del Plano (Chips Horizontales con Selección y Tipo) */
+/* Barra Superior de Ambientes Fuera del Plano (Chips Compactos en Dos Filas o Cuadrícula Fluida) */
 .floorplan-top-areas-bar {
-  background: #111a26;
-  border-bottom: 1px solid #1f2e42;
+  background: #0f1622;
+  border-bottom: 1px solid #1c2838;
   padding: 8px 14px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  overflow-x: auto;
+  gap: 12px;
   flex-shrink: 0;
   z-index: 10;
 }
 .top-areas-title {
   display: flex;
   align-items: center;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  color: #58a6ff;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
-.top-areas-chips-scroll {
+.top-areas-chips-container {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: nowrap;
-}
-.floorplan-area-chip-out {
-  background: #162334;
-  border: 1px solid #283e58;
-  border-radius: 20px;
-  padding: 4px 10px;
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap; /* Acomodar en dos filas para ver todos sin deslizar */
   gap: 6px;
+  align-items: center;
+  flex: 1;
+}
+.top-areas-chips-container.allow-scroll {
+  /* Si hay más de 10 ambientes, habilitar scroll horizontal suave */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.floorplan-area-chip-compact {
+  background: #141d2a;
+  border: 1px solid #24354b;
+  border-radius: 16px;
+  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
-.floorplan-area-chip-out:hover {
-  background: #1d314a;
+.floorplan-area-chip-compact:hover {
+  background: #1a2738;
   border-color: #58a6ff;
 }
-.floorplan-area-chip-out.active {
-  background: #004488;
+.floorplan-area-chip-compact.active {
+  background: #003366;
   border-color: #00e5a3;
-  box-shadow: 0 0 10px rgba(0, 229, 163, 0.4);
+  box-shadow: 0 0 8px rgba(0, 229, 163, 0.4);
 }
-.floorplan-area-chip-out .area-chip-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #fff;
+.area-chip-icon {
+  font-size: 0.85rem;
+  line-height: 1;
 }
-.floorplan-area-chip-out .area-canonical-badge {
-  font-size: 0.65rem;
-  color: #00e5a3;
+.floorplan-area-chip-compact .area-chip-title {
+  font-size: 0.74rem;
   font-weight: 600;
-  background: rgba(0, 229, 163, 0.12);
-  padding: 1px 6px;
-  border-radius: 8px;
+  color: #fff;
 }
 .btn-chip-retype {
   background: transparent;
   border: none;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   cursor: pointer;
-  padding: 0 2px;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+  padding: 0 1px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
 }
 .btn-chip-retype:hover {
   opacity: 1;
