@@ -307,31 +307,44 @@
                 </div>
               </div>
 
-              <!-- Área Gráfica del Plano con Imagen Real del Departamento -->
+              <!-- Barra Superior de Ambientes Fuera del Plano (Chips Horizontales con Selección y Tipo) -->
+              <div class="floorplan-top-areas-bar">
+                <div class="top-areas-title">
+                  <span>🏠 Ambientes:</span>
+                </div>
+                <div class="top-areas-chips-scroll">
+                  <div 
+                    v-for="(area, aIdx) in inspectionAreas" 
+                    :key="area.id"
+                    class="floorplan-area-chip-out"
+                    :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
+                    @click.stop="activeSelectedArea = area.name"
+                  >
+                    <span class="area-chip-title">{{ area.name }}</span>
+                    <span class="area-canonical-badge">↳ {{ area.canonicalArea }}</span>
+                    <button 
+                      type="button" 
+                      class="btn-chip-retype" 
+                      @click.stop="openRecategorizeModal(area)"
+                      title="Cambiar categoría de checklist o renombrar"
+                    >
+                      ⚙️
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Área Gráfica del Plano con Imagen Real del Departamento (Agrandado y Limpio) -->
               <div class="blueprint-canvas" @click="handlePlanCanvasClick($event)">
                 <div class="blueprint-grid-lines"></div>
 
-                <!-- Imagen Real del Plano del Cliente -->
+                <!-- Imagen Real del Plano del Cliente (Sin tags estorbando la vista) -->
                 <div class="floorplan-image-wrapper">
                   <img 
                     :src="activePlanImageUrl" 
                     alt="Plano Arquitectónico de la Unidad" 
                     class="floorplan-render-img"
                   />
-
-                  <!-- Zonas interactivas semi-transparentes sobre el plano real -->
-                  <div class="floorplan-interactive-overlay">
-                    <div 
-                      v-for="(area, aIdx) in inspectionAreas" 
-                      :key="area.id"
-                      class="floorplan-area-chip"
-                      :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
-                      @click.stop="selectAreaFromPlan($event, area.name)"
-                    >
-                      <span class="area-chip-title">{{ area.name }}</span>
-                      <small class="area-canonical-tag">({{ area.canonicalArea }})</small>
-                    </div>
-                  </div>
 
                   <!-- Pines Interactivos sobre el Plano Real -->
                   <div 
@@ -396,19 +409,20 @@
                   >
                     <div class="area-item-name">
                       <span class="area-bullet"></span>
-                      <span v-if="!area.isEditing">{{ area.name }}</span>
-                      <input 
-                        v-else 
-                        v-model="area.name" 
-                        type="text" 
-                        class="inline-rename-field" 
-                        @click.stop 
-                        @blur="area.isEditing = false"
-                        @keyup.enter="area.isEditing = false"
-                      />
+                      <div class="area-texts-column">
+                        <span class="area-name-display">{{ area.name }}</span>
+                        <small class="area-type-tag">↳ Checklist: <strong>{{ area.canonicalArea }}</strong></small>
+                      </div>
                     </div>
                     <div class="area-item-controls">
-                      <button type="button" class="btn-mini-rename" @click.stop="toggleAreaRename(aIdx)">✏️</button>
+                      <button 
+                        type="button" 
+                        class="btn-mini-rename" 
+                        @click.stop="openRecategorizeModal(area)"
+                        title="Recategorizar o renombrar ambiente"
+                      >
+                        ⚙️
+                      </button>
                       <button type="button" class="btn-mini-delete" @click.stop="removeAreaFromPlan(aIdx)">✕</button>
                     </div>
                   </div>
@@ -720,48 +734,13 @@
           </div>
 
           <div class="arch-blueprint-display">
-            <!-- Imagen Real del Plano en Vista de Arquitectura -->
+            <!-- Imagen Real del Plano en Vista de Arquitectura (Agrandado y limpio) -->
             <div class="floorplan-image-wrapper arch-mode">
               <img 
                 :src="activePlanImageUrl" 
                 alt="Plano de Arquitectura de la Unidad" 
                 class="floorplan-render-img"
               />
-              <div class="floorplan-interactive-overlay">
-                <div 
-                  v-for="(area, aIdx) in currentArchAreas" 
-                  :key="area.id"
-                  class="floorplan-area-chip"
-                  :class="area.cssClass"
-                >
-                  <span v-if="!area.isEditing" class="area-chip-title">{{ area.name }}</span>
-                  <input 
-                    v-else 
-                    v-model="area.name" 
-                    type="text" 
-                    class="room-rename-input"
-                    @blur="area.isEditing = false"
-                    @keyup.enter="area.isEditing = false"
-                  />
-                  <small class="area-canonical-tag">↳ {{ area.canonicalArea }}</small>
-                  <button 
-                    type="button" 
-                    class="btn-rename-trigger" 
-                    @click="area.isEditing = !area.isEditing"
-                    title="Renombrar este ambiente"
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    type="button" 
-                    class="btn-rename-trigger remove" 
-                    @click="removeArchArea(aIdx)"
-                    title="Eliminar ambiente"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -961,6 +940,56 @@
               🚪 Cerrar Sesión
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MODAL EMERGENTE: RECATEGORIZAR / RENOMBRAR AMBIENTE     -->
+    <!-- ======================================================== -->
+    <div v-if="showRecategorizeModal && editingAreaTarget" class="modal-backdrop-camera" @click.self="showRecategorizeModal = false">
+      <div class="modal-obs-window modal-recat-window">
+        <div class="modal-obs-header">
+          <div>
+            <h3>Configurar Ambiente Técnico</h3>
+            <span class="modal-location-subtitle">Ajuste el nombre visible en plano y asocie el tipo de checklist correspondiente</span>
+          </div>
+          <button type="button" class="btn-close-modal-x" @click="showRecategorizeModal = false">✕</button>
+        </div>
+
+        <div class="modal-obs-body">
+          <div class="form-group-custom">
+            <label>Nombre del Ambiente en Plano:</label>
+            <input 
+              v-model="editingAreaForm.name" 
+              type="text" 
+              class="field-input" 
+              placeholder="Ej: Closet / Lavandería, Kitchenette..." 
+            />
+            <small class="field-help-text">Este nombre se mostrará en los tags y reportes de la unidad.</small>
+          </div>
+
+          <div class="form-group-custom">
+            <label>Tipo de Checklist Técnico a Evaluar (Canónico):</label>
+            <select v-model="editingAreaForm.canonicalArea" class="field-input">
+              <option value="Sala / Comedor">Sala / Comedor (Muros, cielo raso, pisos, TG, puerta ingreso, alarma)</option>
+              <option value="Cocina">Cocina (Muebles reposteros, encimera, grifería, campana, gas)</option>
+              <option value="Baño Principal">Baño Principal (Inodoro, ducha, lavatorio, ventilación, sellos húmedos)</option>
+              <option value="Dormitorio">Dormitorio (Clósets, cajonería, ventana, puertas interiores)</option>
+              <option value="Lavandería">Lavandería (Poza de lavado, grifería de servicio, puntos lavadora, terma/calentador)</option>
+              <option value="Balcón">Balcón / Terraza (Barandas, cristales templados, sumideros pluviales)</option>
+            </select>
+            <small class="field-help-text">
+              <strong>Importante:</strong> Aunque en el plano diga "Closet", si contiene instalaciones sanitarias o lavadero puede evaluarse como <strong>Lavandería</strong> con su checklist correspondiente.
+            </small>
+          </div>
+        </div>
+
+        <div class="modal-obs-footer">
+          <button type="button" class="btn-cancel-modal" @click="showRecategorizeModal = false">Cancelar</button>
+          <button type="button" class="btn-save-modal" @click="saveRecategorizedArea">
+            Guardar Configuración
+          </button>
         </div>
       </div>
     </div>
@@ -1470,9 +1499,58 @@ const inspectionAreas = ref<AreaItem[]>([
 // Imagen de plano real vinculada a la inspección actual
 const activePlanImageUrl = ref<string>('/demo-floorplan.png')
 
-const activeSelectedArea = ref('Sala / Comedor')
+const activeSelectedArea = ref('Living Area / Sala')
 const newAreaNameInput = ref('')
 const showAreasSidebar = ref(false)
+
+// Modal de Recategorización y Renombrado de Ambiente
+const showRecategorizeModal = ref(false)
+const editingAreaTarget = ref<AreaItem | null>(null)
+const editingAreaForm = ref<{ name: string; canonicalArea: CanonicalChecklistArea }>({
+  name: '',
+  canonicalArea: 'Sala / Comedor'
+})
+
+const openRecategorizeModal = (area: AreaItem) => {
+  editingAreaTarget.value = area
+  editingAreaForm.value = {
+    name: area.name,
+    canonicalArea: area.canonicalArea
+  }
+  showRecategorizeModal.value = true
+}
+
+const saveRecategorizedArea = () => {
+  if (editingAreaTarget.value && editingAreaForm.value.name.trim()) {
+    const oldName = editingAreaTarget.value.name
+    const newName = editingAreaForm.value.name.trim()
+    const newCanonical = editingAreaForm.value.canonicalArea
+
+    editingAreaTarget.value.name = newName
+    editingAreaTarget.value.canonicalArea = newCanonical
+
+    // Si el ambiente activo era este, actualizar la referencia activa
+    if (activeSelectedArea.value === oldName) {
+      activeSelectedArea.value = newName
+    }
+
+    // Actualizar también en currentArchAreas si existe
+    const archMatch = currentArchAreas.value.find(a => a.id === editingAreaTarget.value?.id || a.name === oldName)
+    if (archMatch) {
+      archMatch.name = newName
+      archMatch.canonicalArea = newCanonical
+    }
+
+    // Actualizar marcadores que estuvieran en este ambiente
+    inspectionMarkers.value.forEach(m => {
+      if (m.area === oldName) {
+        m.area = newName
+      }
+    })
+
+    showRecategorizeModal.value = false
+  }
+}
 
 const toggleAreaRename = (idx: number) => {
   if (inspectionAreas.value[idx]) {
@@ -2012,8 +2090,11 @@ const generateChecklistGroupsForArea = (areaName: string): ChecklistGroup[] => {
 
 const currentAreaChecklistGroups = computed(() => {
   const currentArea = activeSelectedArea.value
-  // Obtener el nombre canónico correspondiente (según matriz del checklist.md)
-  const canonical = normalizeToCanonicalArea(currentArea)
+  
+  // 1. Buscar si el ambiente tiene una asignación canónica manual configurada
+  const foundArea = inspectionAreas.value.find(a => a.name === currentArea)
+  const canonical = foundArea ? foundArea.canonicalArea : normalizeToCanonicalArea(currentArea)
+  
   const storeKey = `${currentArea}__${canonical}`
   
   if (!checklistGroupsStore.value[storeKey]) {
@@ -3213,29 +3294,102 @@ const handleAppLogout = async () => {
   pointer-events: none;
 }
 
-/* Contenedor del Plano Real con Imagen y Superposición Interactiva */
+/* Barra Superior de Ambientes Fuera del Plano (Chips Horizontales con Selección y Tipo) */
+.floorplan-top-areas-bar {
+  background: #111a26;
+  border-bottom: 1px solid #1f2e42;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  z-index: 10;
+}
+.top-areas-title {
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #58a6ff;
+  white-space: nowrap;
+}
+.top-areas-chips-scroll {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.floorplan-area-chip-out {
+  background: #162334;
+  border: 1px solid #283e58;
+  border-radius: 20px;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.floorplan-area-chip-out:hover {
+  background: #1d314a;
+  border-color: #58a6ff;
+}
+.floorplan-area-chip-out.active {
+  background: #004488;
+  border-color: #00e5a3;
+  box-shadow: 0 0 10px rgba(0, 229, 163, 0.4);
+}
+.floorplan-area-chip-out .area-chip-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+.floorplan-area-chip-out .area-canonical-badge {
+  font-size: 0.65rem;
+  color: #00e5a3;
+  font-weight: 600;
+  background: rgba(0, 229, 163, 0.12);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.btn-chip-retype {
+  background: transparent;
+  border: none;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.btn-chip-retype:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+/* Contenedor del Plano Real con Imagen (Agrandado para ocupar máximo espacio) */
 .floorplan-image-wrapper {
   position: relative;
-  max-width: 92%;
-  max-height: 90%;
+  width: 96%;
+  height: 94%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
   background: #ffffff;
 }
 .floorplan-image-wrapper.arch-mode {
-  max-width: 100%;
-  max-height: 100%;
-  height: 100%;
+  width: 98%;
+  height: 98%;
 }
 .floorplan-render-img {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: 520px;
+  max-height: 100%;
   object-fit: contain;
   display: block;
 }
@@ -3516,6 +3670,22 @@ const handleAppLogout = async () => {
   background: #008080;
   display: inline-block;
   margin-right: 6px;
+}
+.area-texts-column {
+  display: flex;
+  flex-direction: column;
+}
+.area-name-display {
+  font-weight: 700;
+  color: #fff;
+  font-size: 0.8rem;
+}
+.area-type-tag {
+  color: #00e5a3;
+  font-size: 0.7rem;
+}
+.area-type-tag strong {
+  color: #58a6ff;
 }
 .inline-rename-field {
   background: #000;
