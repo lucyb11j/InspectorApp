@@ -100,6 +100,13 @@
             <div class="obs-text-col">
               <h3 class="obs-item-title">{{ obs.title }}</h3>
               <p class="obs-item-desc">{{ obs.description }}</p>
+
+              <!-- Metadatos de Medición Instrumental si aplica -->
+              <div v-if="obs.hasMeasurements" class="obs-measurement-box">
+                <span class="measurement-tag">📏 Medición Cuantitativa:</span>
+                <strong>{{ obs.measuredValue }} {{ obs.measurementUnit }}</strong>
+                <span v-if="obs.instrumentUsed" class="instrument-tag">| Instrumento: <em>{{ obs.instrumentUsed }}</em></span>
+              </div>
               
               <div class="obs-tech-meta">
                 <p>📍 <strong>Ubicación en Plano:</strong> Coordenadas (X: {{ obs.markerX }}%, Y: {{ obs.markerY }}%)</p>
@@ -466,6 +473,26 @@ const printReport = () => {
   font-size: 0.82rem;
   color: #444;
   line-height: 1.4;
+}
+.obs-measurement-box {
+  background: #f0f7ff;
+  border-left: 3px solid #1a73e8;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  color: #1a56db;
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.obs-measurement-box .measurement-tag {
+  font-weight: 700;
+  color: #0d47a1;
+}
+.obs-measurement-box .instrument-tag {
+  color: #4b5563;
+  font-size: 0.74rem;
 }
 .obs-tech-meta p {
   margin: 3px 0;

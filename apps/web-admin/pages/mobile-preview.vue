@@ -597,6 +597,13 @@
                 📍 <em>Ubicación:</em> {{ obs.locationDetails }}
               </p>
 
+              <!-- Medición Cuantitativa si fue registrada con instrumentos -->
+              <div v-if="obs.hasMeasurements" class="obs-card-measurements-line">
+                <span class="badge-measure-tag">📏 Medición:</span>
+                <span class="badge-measure-val">{{ obs.measuredValue }} {{ obs.measurementUnit }}</span>
+                <span v-if="obs.instrumentUsed" class="badge-measure-inst">({{ obs.instrumentUsed }})</span>
+              </div>
+
               <p class="obs-card-desc">{{ obs.description }}</p>
 
               <!-- Evidencias Fotográficas -->
@@ -1069,7 +1076,7 @@
           </div>
 
           <!-- Categoría (Especialidad principal) y Subcategoría (Componente) vinculadas -->
-          <div class="form-row-custom">
+          <div class="form-row-custom obs-category-split-row">
             <div class="form-col">
               <label>Categoría / Especialidad:</label>
               <select v-model="obsForm.category" class="field-input" @change="onObsCategoryChange">
@@ -1086,6 +1093,59 @@
                   {{ sub }}
                 </option>
               </select>
+            </div>
+          </div>
+
+          <!-- Medidas e Instrumentos de Medición (Casilla desplegable opcional) -->
+          <div class="measurements-section-card">
+            <label class="measurements-toggle-label">
+              <input 
+                type="checkbox" 
+                v-model="obsForm.hasMeasurements" 
+                class="measurements-checkbox"
+              />
+              <span class="measurements-toggle-text">
+                📏 <strong>Medidas e instrumentos</strong>
+                <small>(Habilitar para registrar mediciones instrumentales cuantitativas)</small>
+              </span>
+            </label>
+
+            <!-- Las 3 casillas en una sola fila compacta cuando se activa -->
+            <div v-if="obsForm.hasMeasurements" class="measurements-fields-row">
+              <div class="measure-col measure-val-col">
+                <label>Valor medido:</label>
+                <input 
+                  v-model="obsForm.measuredValue" 
+                  type="text" 
+                  class="field-input measure-input" 
+                  placeholder="Ej: 0.4, 2.5, 220" 
+                />
+              </div>
+
+              <div class="measure-col measure-unit-col">
+                <label>Unidad:</label>
+                <select v-model="obsForm.measurementUnit" class="field-input measure-select">
+                  <option value="mm">mm (milímetros)</option>
+                  <option value="cm">cm (centímetros)</option>
+                  <option value="m">m (metros)</option>
+                  <option value="V">V (voltios)</option>
+                  <option value="A">A (amperios)</option>
+                  <option value="Ω">Ω (ohmios)</option>
+                  <option value="%">% (porcentaje / humedad)</option>
+                  <option value="lux">lux (iluminancia)</option>
+                  <option value="dB">dB (nivel sonoro)</option>
+                </select>
+              </div>
+
+              <div class="measure-col measure-inst-col">
+                <label>Instrumento empleado:</label>
+                <input 
+                  v-model="obsForm.instrumentUsed" 
+                  type="text" 
+                  class="field-input measure-input" 
+                  placeholder="Ej: Fisurómetro, Nivel láser, Multímetro..." 
+                />
+              </div>
             </div>
           </div>
 
@@ -1999,6 +2059,10 @@ interface ObservationRecord {
   category: string
   subcategory?: string
   locationDetails?: string
+  hasMeasurements?: boolean
+  measuredValue?: string
+  measurementUnit?: string
+  instrumentUsed?: string
   severity: string
   area: string
   status: string
@@ -2158,6 +2222,10 @@ const obsForm = ref({
   category: 'Arquitectura y acabados',
   subcategory: 'Paredes y muros',
   locationDetails: '',
+  hasMeasurements: false,
+  measuredValue: '',
+  measurementUnit: 'mm',
+  instrumentUsed: '',
   severity: 'MODERADA'
 })
 
@@ -2284,6 +2352,10 @@ const saveObservationWithPhoto = () => {
     category: obsForm.value.category,
     subcategory: obsForm.value.subcategory,
     locationDetails: obsForm.value.locationDetails,
+    hasMeasurements: obsForm.value.hasMeasurements,
+    measuredValue: obsForm.value.hasMeasurements ? obsForm.value.measuredValue : '',
+    measurementUnit: obsForm.value.hasMeasurements ? obsForm.value.measurementUnit : '',
+    instrumentUsed: obsForm.value.hasMeasurements ? obsForm.value.instrumentUsed : '',
     severity: obsForm.value.severity,
     area: activeSelectedArea.value,
     status: 'PENDIENTE',
@@ -2313,6 +2385,10 @@ const saveObservationWithPhoto = () => {
   obsForm.value.title = ''
   obsForm.value.description = ''
   obsForm.value.locationDetails = ''
+  obsForm.value.hasMeasurements = false
+  obsForm.value.measuredValue = ''
+  obsForm.value.measurementUnit = 'mm'
+  obsForm.value.instrumentUsed = ''
   capturedPhotosList.value = []
   pendingCoordinates.value = null
   showObsModal.value = false
@@ -4542,6 +4618,100 @@ const handleAppLogout = async () => {
   margin: 2px 0 6px 0;
 }
 
+/* Medición e instrumentos en tarjeta */
+.obs-card-measurements-line {
+  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin: 4px 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+}
+.badge-measure-tag {
+  color: #79c0ff;
+  font-weight: bold;
+}
+.badge-measure-val {
+  color: #fff;
+  font-weight: 700;
+}
+.badge-measure-inst {
+  color: #8b949e;
+  font-style: italic;
+}
+
+/* Sección de Medidas e Instrumentos en Modal (Checklist + 3 campos compactos) */
+.measurements-section-card {
+  background: #0d1520;
+  border: 1px solid #1f3044;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.measurements-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.measurements-checkbox {
+  width: 17px;
+  height: 17px;
+  accent-color: #58a6ff;
+  cursor: pointer;
+}
+.measurements-toggle-text {
+  font-size: 0.8rem;
+  color: #c9d1d9;
+}
+.measurements-toggle-text strong {
+  color: #58a6ff;
+}
+.measurements-toggle-text small {
+  color: #8b949e;
+  font-size: 0.72rem;
+  margin-left: 4px;
+}
+.measurements-fields-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background: #111a27;
+  border: 1px solid #253952;
+  border-radius: 6px;
+  padding: 10px;
+}
+.measure-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.measure-col label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #8b949e;
+}
+.measure-val-col {
+  flex: 1.2;
+}
+.measure-unit-col {
+  flex: 1;
+}
+.measure-inst-col {
+  flex: 2;
+}
+.measure-input, .measure-select {
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  height: 36px;
+}
+
 /* Alerta de selección activa en el plano */
 .text-picking-alert {
   color: #00e5a3;
@@ -4695,6 +4865,43 @@ const handleAppLogout = async () => {
     z-index: 50;
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.7);
     border-left: 1px solid #24354a;
+  }
+
+  /* Subcategoría bajo Categoría en mobile para que ingrese completamente */
+  .obs-category-split-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  /* Checklist alineado en mobile: botones de estado (OK, OBS, N/A, NV) debajo del texto */
+  .cl-subitem-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+  .cl-subitem-actions {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+  }
+  .cl-subitem-actions .btn-status-choice {
+    padding: 8px 4px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Medidas e instrumentos compactos en móvil */
+  .measurements-fields-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .measure-col {
+    width: 100% !important;
   }
 }
 

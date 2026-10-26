@@ -223,6 +223,13 @@ export interface Database {
           area_id: string | null
           title: string
           description: string | null
+          category?: string | null
+          subcategory?: string | null
+          location_details?: string | null
+          has_measurements?: boolean | null
+          measured_value?: string | null
+          measurement_unit?: string | null
+          instrument_used?: string | null
           severity: string
           status: string
           sync_status: string
@@ -236,6 +243,13 @@ export interface Database {
           area_id?: string | null
           title: string
           description?: string | null
+          category?: string | null
+          subcategory?: string | null
+          location_details?: string | null
+          has_measurements?: boolean | null
+          measured_value?: string | null
+          measurement_unit?: string | null
+          instrument_used?: string | null
           severity?: string
           status?: string
           sync_status?: string
@@ -249,6 +263,13 @@ export interface Database {
           area_id?: string | null
           title?: string
           description?: string | null
+          category?: string | null
+          subcategory?: string | null
+          location_details?: string | null
+          has_measurements?: boolean | null
+          measured_value?: string | null
+          measurement_unit?: string | null
+          instrument_used?: string | null
           severity?: string
           status?: string
           sync_status?: string
