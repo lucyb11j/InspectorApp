@@ -182,8 +182,9 @@
           </div>
 
           <div class="sub-header-actions">
-            <!-- Botón para alternar panel lateral de ambientes (Siempre disponible para gestionar ambientes) -->
+            <!-- Botón para alternar panel lateral de ambientes (Solo en pestaña Plano) -->
             <button 
+              v-if="detailSubTab === 'plan'"
               type="button" 
               class="btn-toggle-areas-drawer" 
               :class="{ active: showAreasSidebar }"
@@ -192,7 +193,7 @@
             >
               🏢 Ambientes ({{ inspectionAreas.length }})
             </button>
-            <!-- En la pestaña Plano ya no va el botón Defecto: el registro se efectúa desde Checklist o el panel de modificación -->
+            <!-- En la pestaña Plano no va el botón Defecto; en Checklist y demás se llama '+ Nueva Observación' -->
             <button 
               v-if="detailSubTab !== 'plan'"
               type="button" 
@@ -200,7 +201,7 @@
               @click="openObservationModal()"
             >
               <span class="plus-sign">+</span>
-              <span>Defecto</span>
+              <span>Nueva Observación</span>
             </button>
           </div>
         </div>
@@ -1085,6 +1086,56 @@
     </nav>
 
     <!-- ======================================================== -->
+    <!-- MODAL SOBRESALIENTE: AMBIENTE COMPLETADO (CELEBRACIÓN & SIGUIENTE) -->
+    <!-- ======================================================== -->
+    <div v-if="showRoomCompletedModal" class="modal-backdrop-camera modal-completed-overlay" @click.self="showRoomCompletedModal = false">
+      <div class="modal-completed-hero-window">
+        <div class="completed-hero-header">
+          <div class="completed-hero-trophy">🎉</div>
+          <h2>¡Ambiente Completado!</h2>
+          <span class="completed-hero-room-badge">
+            {{ getAreaIcon(currentTourArea.canonicalArea) }} {{ currentTourArea.name }} ({{ currentAreaStats.completedItems }}/{{ currentAreaStats.totalItems }} verificados)
+          </span>
+        </div>
+
+        <div class="completed-hero-body">
+          <p class="completed-hero-text">
+            Has completado todas las comprobaciones y tolerancias técnicas de <strong>{{ currentTourArea.name }}</strong> sin dejar elementos pendientes.
+          </p>
+
+          <div v-if="currentAreaStats.obsCount > 0" class="completed-hero-obs-summary">
+            ⚠️ Se registraron <strong>{{ currentAreaStats.obsCount }} observaciones</strong> con fotos y pines en este recinto.
+          </div>
+          <div v-else class="completed-hero-clean-summary">
+            ✅ Recinto conforme sin observaciones técnicas registradas.
+          </div>
+        </div>
+
+        <div class="completed-hero-actions">
+          <button type="button" class="btn-stay-room-modal" @click="showRoomCompletedModal = false">
+            Permanecer en este ambiente
+          </button>
+          <button 
+            v-if="hasNextTourArea" 
+            type="button" 
+            class="btn-advance-room-hero"
+            @click="advanceToNextRoomFromModal"
+          >
+            Continuar a {{ inspectionAreas[currentTourAreaIndex + 1]?.name }} ▶
+          </button>
+          <button 
+            v-else 
+            type="button" 
+            class="btn-advance-room-hero btn-finish-all-hero"
+            @click="showRoomCompletedModal = false; detailSubTab = 'summary'"
+          >
+            🏆 Ver Resumen General de Inspección
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
     <!-- MODAL EMERGENTE: PERFIL / USUARIO DESDE PARTE SUPERIOR   -->
     <!-- ======================================================== -->
     <div v-if="showProfileModal" class="modal-backdrop-camera" @click.self="showProfileModal = false">
@@ -1912,6 +1963,12 @@ interface ChecklistGroup {
 
 // Tour guiado y progreso por ambiente
 const showMiniMapInChecklist = ref(true)
+const showRoomCompletedModal = ref(false)
+
+const advanceToNextRoomFromModal = () => {
+  showRoomCompletedModal.value = false
+  goToNextTourArea()
+}
 
 const currentTourAreaIndex = computed(() => {
   const idx = inspectionAreas.value.findIndex(a => a.name === activeSelectedArea.value)
@@ -2361,7 +2418,31 @@ const currentAreaChecklistGroups = computed(() => {
 
 const updateGroupCompletion = (group: ChecklistGroup) => {
   // Un grupo pasa a Revisado cuando todos sus sub-items dejan de estar en PENDING
+  const wasCompleted = group.isCompleted
   group.isCompleted = group.items.every(it => it.status !== 'PENDING')
+
+  // Auto-colapsar este grupo y desplegar el siguiente si se completó en este toque
+  if (!wasCompleted && group.isCompleted) {
+    const currentGroups = currentAreaChecklistGroups.value
+    const currentIdx = currentGroups.findIndex(g => g.id === group.id)
+    if (currentIdx !== -1) {
+      // Cerrar categoría completada
+      group.isExpanded = false
+
+      // Desplegar automáticamente la siguiente categoría que tenga puntos pendientes
+      const nextPendingGroup = currentGroups.slice(currentIdx + 1).find(g => !g.isCompleted)
+      if (nextPendingGroup) {
+        nextPendingGroup.isExpanded = true
+      }
+    }
+
+    // Verificar si tras completar esta categoría todo el ambiente quedó 100% verificado
+    setTimeout(() => {
+      if (currentAreaStats.value.isAllDone) {
+        showRoomCompletedModal.value = true
+      }
+    }, 250)
+  }
 }
 
 const setSubItemStatus = (item: ChecklistSubItem, newStatus: 'OK' | 'OBS' | 'N/A' | 'NV') => {
@@ -4286,40 +4367,58 @@ const handleAppLogout = async () => {
 /* 2. Barra Deslizante de Pasos (Stepper) */
 .tour-steps-scroller {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 8px 12px;
+  background: #0f1722;
+  border: 1px solid #1f2f44;
+  border-radius: 12px;
+  margin-bottom: 2px;
 }
 .tour-step-pill {
-  background: #131b26;
-  border: 1px solid #212c3d;
-  color: #8b949e;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.78rem;
+  background: #141e2b;
+  border: 1px solid #27384d;
+  color: #c9d1d9;
+  padding: 8px 14px;
+  border-radius: 24px;
+  font-size: 0.82rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+.tour-step-pill:hover {
+  background: #1c2b3d;
+  border-color: #58a6ff;
+  color: #fff;
 }
 .tour-step-pill.current {
   border-color: #58a6ff;
   color: #fff;
-  background: rgba(88, 166, 255, 0.12);
+  background: rgba(88, 166, 255, 0.18);
+  box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
 }
 .tour-step-pill.active {
-  background: #003366;
+  background: #004080;
   border-color: #58a6ff;
   color: #fff;
 }
 .tour-step-pill .step-num {
-  font-size: 0.7rem;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1px 5px;
+  font-size: 0.72rem;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
   border-radius: 10px;
   font-weight: 700;
+}
+.tour-step-pill .step-icon {
+  font-size: 1rem;
+}
+.tour-step-pill .step-name {
+  font-size: 0.82rem;
 }
 
 /* 3. Contenedor Split-View (Mini Plano + Checklist) */
@@ -4331,9 +4430,9 @@ const handleAppLogout = async () => {
 @media (min-width: 992px) {
   .tour-split-container.with-map {
     display: grid;
-    grid-template-columns: 380px 1fr;
-    gap: 16px;
-    align-items: start;
+    grid-template-columns: 460px 1fr;
+    gap: 18px;
+    align-items: stretch;
   }
 }
 
@@ -4346,6 +4445,7 @@ const handleAppLogout = async () => {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 .mini-plan-header {
   padding: 10px 14px;
@@ -4382,13 +4482,15 @@ const handleAppLogout = async () => {
 .mini-blueprint-canvas {
   position: relative;
   width: 100%;
-  height: 260px;
+  flex: 1;
+  min-height: 480px;
   background: #06090e;
   overflow: hidden;
   cursor: crosshair;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 12px;
 }
 .mini-blueprint-grid {
   position: absolute;
@@ -4401,14 +4503,21 @@ const handleAppLogout = async () => {
 }
 .floorplan-image-wrapper.mini-mode {
   position: relative;
-  max-width: 95%;
-  max-height: 95%;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .floorplan-render-img.mini-img {
-  max-height: 240px;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   display: block;
   border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
 /* Pines en el Mini Plano */
@@ -5803,6 +5912,128 @@ const handleAppLogout = async () => {
   animation: pulse 1.5s infinite;
 }
 
+/* Modal Hero Sobresaliente: Ambiente Completado */
+.modal-completed-overlay {
+  background: rgba(4, 8, 14, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 999;
+}
+.modal-completed-hero-window {
+  background: #0f1824;
+  border: 2px solid #2ea043;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 520px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(46, 160, 67, 0.35);
+  animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.completed-hero-trophy {
+  font-size: 3.8rem;
+  margin-bottom: 12px;
+  animation: bounceTrophy 1.2s infinite alternate;
+}
+@keyframes bounceTrophy {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-8px); }
+}
+.completed-hero-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 1.65rem;
+  color: #3fb950;
+  font-weight: 800;
+}
+.completed-hero-room-badge {
+  display: inline-block;
+  background: rgba(88, 166, 255, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  color: #58a6ff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+.completed-hero-body {
+  width: 100%;
+  margin-bottom: 26px;
+}
+.completed-hero-text {
+  font-size: 0.92rem;
+  color: #c9d1d9;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+.completed-hero-obs-summary {
+  background: rgba(255, 140, 0, 0.15);
+  border: 1px solid rgba(255, 140, 0, 0.4);
+  color: #ff9800;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.completed-hero-clean-summary {
+  background: rgba(46, 160, 67, 0.15);
+  border: 1px solid rgba(46, 160, 67, 0.4);
+  color: #3fb950;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.completed-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+.btn-advance-room-hero {
+  background: #238636;
+  border: 1px solid #2ea043;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  padding: 14px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(35, 134, 54, 0.5);
+  transition: all 0.2s ease;
+}
+.btn-advance-room-hero:hover {
+  background: #2ea043;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(35, 134, 54, 0.7);
+}
+.btn-finish-all-hero {
+  background: #004d99;
+  border-color: #58a6ff;
+  box-shadow: 0 6px 20px rgba(0, 77, 153, 0.5);
+}
+.btn-stay-room-modal {
+  background: transparent;
+  border: 1px solid #24354a;
+  color: #8b949e;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-stay-room-modal:hover {
+  color: #fff;
+  border-color: #58a6ff;
+}
+
+/* Modal Obs Footer */
 .modal-obs-footer {
   margin-top: 6px;
   padding-top: 12px;
