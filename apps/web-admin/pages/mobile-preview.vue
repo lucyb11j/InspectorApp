@@ -139,8 +139,9 @@
               ← Mis Inspecciones
             </button>
             <div class="unit-current-title">
-              <h2>{{ selectedInspection.project }} — {{ selectedInspection.unit }}</h2>
-              <span class="unit-subtitle">{{ selectedInspection.building }} · Piso {{ selectedInspection.floor }} · {{ selectedInspection.client }}</span>
+              <span class="unit-condensed-label">
+                {{ selectedInspection.unit }} ({{ selectedInspection.building }})
+              </span>
             </div>
           </div>
 
@@ -181,18 +182,23 @@
           </div>
 
           <div class="sub-header-actions">
-            <!-- Botón para alternar panel lateral de ambientes cuando estamos en el Plano -->
+            <!-- Botón para alternar panel lateral de ambientes (Siempre disponible para gestionar ambientes) -->
             <button 
-              v-if="detailSubTab === 'plan'" 
               type="button" 
               class="btn-toggle-areas-drawer" 
               :class="{ active: showAreasSidebar }"
               @click="showAreasSidebar = !showAreasSidebar"
-              title="Mostrar / Ocultar panel de Ambientes para máxima visualización del plano"
+              title="Mostrar / Ocultar panel de Ambientes de la unidad"
             >
               🏢 Ambientes ({{ inspectionAreas.length }})
             </button>
-            <button type="button" class="btn-new-obs-action" @click="openObservationModal()">
+            <!-- En la pestaña Plano ya no va el botón Defecto: el registro se efectúa desde Checklist o el panel de modificación -->
+            <button 
+              v-if="detailSubTab !== 'plan'"
+              type="button" 
+              class="btn-new-obs-action" 
+              @click="openObservationModal()"
+            >
               <span class="plus-sign">+</span>
               <span>Defecto</span>
             </button>
@@ -294,7 +300,9 @@
                   <span v-else-if="movingPinIndex !== null" class="text-moving-alert">
                     MODO REUBICACIÓN: Toque en el plano donde reubicar el Pin #{{ movingPinIndex + 1 }}
                   </span>
-                  <span v-else>Toque cualquier punto o habitación del plano para situar una observación con foto</span>
+                  <span v-else class="text-plan-guide-note">
+                    Esta pestaña es para verificación, modificación y renombre de ambientes según tipología, y para visualizar todos los pines. Toque un pin para ver sus detalles, reubicarlo o modificar su observación en el Checklist.
+                  </span>
                 </div>
                 <div class="legend-controls">
                   <button v-if="isPickingPinForModal" class="btn-cancel-move-sm" @click.stop="cancelPickPinForModal">
@@ -376,7 +384,7 @@
               class="plan-sidebar-info"
               :class="{ 'sidebar-visible': showAreasSidebar, 'sidebar-hidden': !showAreasSidebar && !selectedMarkerItem }"
             >
-              <!-- Barra de Control de Pin Seleccionado -->
+              <!-- Barra de Control de Pin Seleccionado (Visualización, Reubicación y Modificación) -->
               <div v-if="selectedMarkerItem" class="selected-pin-toolbar">
                 <div class="selected-pin-header">
                   <span class="pin-tag-badge">Pin #{{ getMarkerIndex(selectedMarkerItem.id) + 1 }}</span>
@@ -385,7 +393,28 @@
                 <h4 class="pin-toolbar-title">{{ selectedMarkerItem.title }}</h4>
                 <p class="pin-toolbar-area">Zona: <strong>{{ selectedMarkerItem.area }}</strong> ({{ selectedMarkerItem.x }}%, {{ selectedMarkerItem.y }}%)</p>
 
+                <!-- Vista previa de los datos de la observación registrada -->
+                <div v-if="selectedMarkerObservation" class="pin-obs-preview-box">
+                  <div class="pin-obs-tags">
+                    <span class="badge-severity" :class="`sev-${selectedMarkerObservation.severity.toLowerCase()}`">{{ selectedMarkerObservation.severity }}</span>
+                    <span class="badge-cat-sm">{{ selectedMarkerObservation.category }}</span>
+                  </div>
+                  <p v-if="selectedMarkerObservation.locationDetails" class="pin-obs-loc">
+                    📍 {{ selectedMarkerObservation.locationDetails }}
+                  </p>
+                  <p class="pin-obs-desc">{{ selectedMarkerObservation.description }}</p>
+                </div>
+
                 <div class="pin-toolbar-actions">
+                  <!-- Botón Modificar que redirige al Checklist con todos los datos cargados -->
+                  <button 
+                    type="button" 
+                    class="btn-action-edit-obs" 
+                    @click="navigateToEditObservationFromPlan(selectedMarkerItem)"
+                    title="Modificar los datos de esta observación en la pestaña Checklist"
+                  >
+                    ✏️ Modificar Observación
+                  </button>
                   <button type="button" class="btn-action-move" @click="startPinMove(selectedMarkerItem)">
                     🔄 Reubicar Pin
                   </button>
@@ -735,9 +764,14 @@
                   <span class="badge-area">{{ obs.area }}</span>
                   <span class="badge-status">{{ obs.status }}</span>
                 </div>
-                <button type="button" class="btn-delete-obs-item" @click="deleteObservationItem(obs.id)" title="Eliminar observación">
-                  🗑️
-                </button>
+                <div class="obs-actions-right">
+                  <button type="button" class="btn-edit-obs-item" @click="openEditObservationModal(obs)" title="Modificar observación">
+                    ✏️ Modificar
+                  </button>
+                  <button type="button" class="btn-delete-obs-item" @click="deleteObservationItem(obs.id)" title="Eliminar observación">
+                    🗑️
+                  </button>
+                </div>
               </div>
 
               <h4 class="obs-card-title">{{ obs.title }}</h4>
@@ -1181,7 +1215,7 @@
       <div class="modal-obs-window">
         <div class="modal-obs-header">
           <div class="modal-title-wrap">
-            <h3>Nueva Observación Técnica</h3>
+            <h3>{{ editingObservationId ? 'Modificar Observación Técnica' : 'Nueva Observación Técnica' }}</h3>
             <span class="modal-location-subtitle">
               Ambiente: <strong>{{ activeSelectedArea }}</strong> 
               <span v-if="pendingCoordinates">· Coordenadas: ({{ pendingCoordinates.x }}%, {{ pendingCoordinates.y }}%)</span>
@@ -1441,7 +1475,7 @@
           <div class="modal-obs-footer">
             <button type="button" class="btn-cancel-modal" @click="showObsModal = false">Cancelar</button>
             <button type="submit" class="btn-save-modal">
-              Guardar Observación
+              {{ editingObservationId ? 'Guardar Cambios' : 'Guardar Observación' }}
             </button>
           </div>
 
@@ -2639,7 +2673,54 @@ const startPickPinFromModal = () => {
   detailSubTab.value = 'plan'
 }
 
+// Observación activa para edición
+const editingObservationId = ref<string | null>(null)
+
+// Encuentra la observación vinculada al marcador seleccionado
+const selectedMarkerObservation = computed(() => {
+  if (!selectedMarkerItem.value) return null
+  return inspectionObservations.value.find(o => o.id === selectedMarkerItem.value?.obsId || o.title === selectedMarkerItem.value?.title) || null
+})
+
+// Abre modal para editar una observación existente
+const openEditObservationModal = (obs: ObservationRecord) => {
+  editingObservationId.value = obs.id
+  obsForm.value.title = obs.title
+  obsForm.value.description = obs.description || ''
+  obsForm.value.category = obs.category
+  obsForm.value.subcategory = obs.subcategory || ''
+  obsForm.value.locationDetails = obs.locationDetails || ''
+  obsForm.value.hasMeasurements = !!obs.hasMeasurements
+  obsForm.value.measuredValue = obs.measuredValue || ''
+  obsForm.value.measurementUnit = obs.measurementUnit || 'mm'
+  obsForm.value.instrumentUsed = obs.instrumentUsed || ''
+  obsForm.value.severity = obs.severity
+
+  // Coordenadas del marcador asociado si existe
+  const marker = inspectionMarkers.value.find(m => m.obsId === obs.id)
+  if (marker) {
+    pendingCoordinates.value = { x: marker.x, y: marker.y }
+  }
+
+  capturedPhotosList.value = obs.photos ? [...obs.photos] : []
+  showObsModal.value = true
+}
+
+// Abre la observación y cambia a la pestaña Checklist orientando el área
+const navigateToEditObservationFromPlan = (marker: MarkerItem) => {
+  const obs = inspectionObservations.value.find(o => o.id === marker.obsId || o.title === marker.title)
+  if (obs) {
+    // 1. Orientar el ambiente activo al ambiente de la observación
+    activeSelectedArea.value = obs.area || marker.area
+    // 2. Cambiar a la pestaña Checklist donde se gestiona la evaluación técnica
+    detailSubTab.value = 'checklist'
+    // 3. Abrir el modal de edición cargado con los datos guardados
+    openEditObservationModal(obs)
+  }
+}
+
 const openObservationModal = (coords?: { x: number; y: number }) => {
+  editingObservationId.value = null
   if (coords) {
     pendingCoordinates.value = coords
   } else if (!pendingCoordinates.value) {
@@ -2685,6 +2766,60 @@ const removeCapturedPhoto = (index: number) => {
 const saveObservationWithPhoto = () => {
   if (!obsForm.value.title) return
 
+  // MODO EDICIÓN
+  if (editingObservationId.value) {
+    const existingObs = inspectionObservations.value.find(o => o.id === editingObservationId.value)
+    if (existingObs) {
+      existingObs.title = obsForm.value.title
+      existingObs.description = obsForm.value.description
+      existingObs.category = obsForm.value.category
+      existingObs.subcategory = obsForm.value.subcategory
+      existingObs.locationDetails = obsForm.value.locationDetails
+      existingObs.hasMeasurements = obsForm.value.hasMeasurements
+      existingObs.measuredValue = obsForm.value.hasMeasurements ? obsForm.value.measuredValue : ''
+      existingObs.measurementUnit = obsForm.value.hasMeasurements ? obsForm.value.measurementUnit : ''
+      existingObs.instrumentUsed = obsForm.value.hasMeasurements ? obsForm.value.instrumentUsed : ''
+      existingObs.severity = obsForm.value.severity
+      if (capturedPhotosList.value.length > 0) {
+        existingObs.photos = [...capturedPhotosList.value]
+      }
+
+      // Actualizar marcador vinculado
+      const linkedMarker = inspectionMarkers.value.find(m => m.obsId === existingObs.id || m.title === existingObs.title)
+      if (linkedMarker) {
+        linkedMarker.title = obsForm.value.title
+        linkedMarker.severity = obsForm.value.severity
+        if (pendingCoordinates.value) {
+          linkedMarker.x = pendingCoordinates.value.x
+          linkedMarker.y = pendingCoordinates.value.y
+        }
+      }
+
+      // Actualizar en cola Outbox
+      pendingSyncItems.value.push({
+        id: existingObs.id,
+        type: 'OBSERVATION_UPDATE',
+        title: obsForm.value.title,
+        sha256: existingObs.photos[0]?.sha256 || ''
+      })
+    }
+
+    // Reset y cerrar modal
+    editingObservationId.value = null
+    obsForm.value.title = ''
+    obsForm.value.description = ''
+    obsForm.value.locationDetails = ''
+    obsForm.value.hasMeasurements = false
+    obsForm.value.measuredValue = ''
+    obsForm.value.measurementUnit = 'mm'
+    obsForm.value.instrumentUsed = ''
+    capturedPhotosList.value = []
+    pendingCoordinates.value = null
+    showObsModal.value = false
+    return
+  }
+
+  // MODO CREACIÓN NUEVA OBSERVACIÓN
   const newObsId = `obs-${Date.now()}`
   const coords = pendingCoordinates.value || {
     x: 40 + Math.round(Math.random() * 20),
@@ -3842,17 +3977,71 @@ const handleAppLogout = async () => {
   font-size: 0.75rem;
   color: #8b949e;
 }
+.pin-obs-preview-box {
+  background: #0d141e;
+  border: 1px solid #1f2c3d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pin-obs-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.badge-cat-sm {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.pin-obs-loc {
+  margin: 0;
+  font-size: 0.73rem;
+  color: #a0aec0;
+}
+.pin-obs-desc {
+  margin: 0;
+  font-size: 0.76rem;
+  color: #c9d1d9;
+  line-height: 1.35;
+}
 .pin-toolbar-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+}
+.btn-action-edit-obs {
+  background: #003366;
+  border: 1px solid #58a6ff;
+  color: #fff;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.btn-action-edit-obs:hover {
+  background: #004d99;
 }
 .btn-action-move {
   background: #238636;
   border: none;
   color: #fff;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   font-weight: bold;
   cursor: pointer;
 }
@@ -3860,9 +4049,9 @@ const handleAppLogout = async () => {
   background: rgba(248, 81, 73, 0.15);
   border: 1px solid rgba(248, 81, 73, 0.4);
   color: #ff7b72;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.76rem;
   cursor: pointer;
 }
 
@@ -4513,6 +4702,27 @@ const handleAppLogout = async () => {
 .badge-status {
   font-size: 0.7rem;
   color: #8b949e;
+}
+.obs-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-edit-obs-item {
+  background: rgba(88, 166, 255, 0.12);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  color: #58a6ff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-edit-obs-item:hover {
+  background: #003366;
+  border-color: #58a6ff;
+  color: #fff;
 }
 .btn-delete-obs-item {
   background: transparent;
@@ -5569,6 +5779,21 @@ const handleAppLogout = async () => {
   padding: 6px 8px;
   font-size: 0.8rem;
   height: 36px;
+}
+
+/* Etiqueta condensada del departamento en cabecera */
+.unit-condensed-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* Nota guía en el plano */
+.text-plan-guide-note {
+  font-size: 0.76rem;
+  color: #8b949e;
+  line-height: 1.35;
 }
 
 /* Alerta de selección activa en el plano */
