@@ -448,113 +448,258 @@
           </div>
         </div>
 
-        <!-- SUB-PESTAÑA 3: CHECKLIST DE VERIFICACIÓN (ESTRUCTURA AGRUPADA CON ESTADO PENDIENTE/REVISADO) -->
-        <div v-show="detailSubTab === 'checklist'" class="detail-content-pane checklist-pane">
-          <div class="checklist-top-control">
-            <div class="checklist-instruction">
-              <h3>{{ activeSelectedArea }}</h3>
-              <p>Especialidades y componentes evaluables de la unidad. Cada sección pasa de <strong>Pendiente</strong> a <strong>Revisado</strong> cuando todos sus puntos son verificados.</p>
+        <!-- SUB-PESTAÑA 3: CHECKLIST DE VERIFICACIÓN (TOUR GUIADO + SPLIT-VIEW CON PLANO CONTEXTUAL) -->
+        <div v-show="detailSubTab === 'checklist'" class="detail-content-pane checklist-pane tour-guided-mode">
+          
+          <!-- BARRA DE RECORRIDO DEL TOUR GUIADO (PASO A PASO) -->
+          <div class="guided-tour-bar">
+            <div class="tour-stepper-left">
+              <span class="tour-step-badge">
+                Ambiente {{ currentTourAreaIndex + 1 }} de {{ inspectionAreas.length }}
+              </span>
+              <div class="tour-room-meta">
+                <span class="tour-room-icon">{{ getAreaIcon(currentTourArea.canonicalArea) }}</span>
+                <div class="tour-room-headings">
+                  <h3>{{ currentTourArea.name }}</h3>
+                  <small class="tour-canonical-tag">Checklist Canónico: <strong>{{ currentTourArea.canonicalArea }}</strong></small>
+                </div>
+              </div>
             </div>
 
-            <!-- Selector de Áreas para Checklist -->
-            <div class="checklist-areas-scroller">
+            <!-- Mini Progreso del Ambiente Actual -->
+            <div class="tour-progress-middle">
+              <div class="tour-progress-info">
+                <span class="tour-progress-label">
+                  {{ currentAreaStats.completedItems }}/{{ currentAreaStats.totalItems }} verificados
+                </span>
+                <span v-if="currentAreaStats.obsCount > 0" class="tour-obs-count-chip">
+                  ⚠️ {{ currentAreaStats.obsCount }} obs
+                </span>
+              </div>
+              <div class="tour-progress-track">
+                <div 
+                  class="tour-progress-fill" 
+                  :style="{ width: `${currentAreaStats.percent}%` }"
+                  :class="{ 'is-complete': currentAreaStats.isAllDone }"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Controles de Navegación del Tour (Anterior / Siguiente) -->
+            <div class="tour-nav-controls">
               <button 
-                v-for="area in inspectionAreas" 
-                :key="area.id"
                 type="button" 
-                class="cl-area-pill"
-                :class="{ active: activeSelectedArea === area.name }"
-                @click="activeSelectedArea = area.name"
+                class="btn-tour-nav btn-tour-prev" 
+                :disabled="!hasPreviousTourArea"
+                @click="goToPreviousTourArea"
+                title="Ir al ambiente anterior en el recorrido"
               >
-                {{ area.name }}
+                ◀ Ant
+              </button>
+
+              <button 
+                type="button" 
+                class="btn-tour-toggle-minimap"
+                :class="{ active: showMiniMapInChecklist }"
+                @click="showMiniMapInChecklist = !showMiniMapInChecklist"
+                title="Mostrar u ocultar vista de plano en checklist"
+              >
+                📐 {{ showMiniMapInChecklist ? 'Ocultar Plano' : 'Ver Plano' }}
+              </button>
+
+              <button 
+                type="button" 
+                class="btn-tour-nav btn-tour-next" 
+                :disabled="!hasNextTourArea"
+                @click="goToNextTourArea"
+                title="Ir al siguiente ambiente en el recorrido"
+              >
+                Sig ▶
               </button>
             </div>
           </div>
 
-          <!-- Especialidades Principales y Componentes Internos -->
-          <div class="checklist-groups-wrapper">
-            <div 
-              v-for="group in currentAreaChecklistGroups" 
-              :key="group.id" 
-              class="cl-group-box"
-              :class="{ 'is-completed': group.isCompleted, 'is-expanded': group.isExpanded }"
+          <!-- LISTA RÁPIDA DE PASOS (STEPPER DE AMBIENTES) -->
+          <div class="tour-steps-scroller">
+            <button 
+              v-for="(area, aIdx) in inspectionAreas" 
+              :key="area.id"
+              type="button" 
+              class="tour-step-pill"
+              :class="{ 
+                active: activeSelectedArea === area.name,
+                current: aIdx === currentTourAreaIndex
+              }"
+              @click="goToTourAreaByIndex(aIdx)"
             >
-              <!-- Cabecera de Especialidad Principal (Item Principal) -->
-              <div class="cl-group-header" @click="group.isExpanded = !group.isExpanded">
-                <div class="cl-group-title-col">
-                  <span class="cl-group-icon">{{ group.icon }}</span>
-                  <div class="cl-group-texts">
-                    <div class="cl-title-row">
-                      <h4>{{ group.name }}</h4>
-                      <span 
-                        class="cl-group-status-badge" 
-                        :class="group.isCompleted ? 'status-reviewed' : 'status-pending'"
-                      >
-                        {{ group.isCompleted ? '✓ Revisado' : '⏳ Pendiente' }}
-                      </span>
+              <span class="step-num">{{ aIdx + 1 }}</span>
+              <span class="step-icon">{{ getAreaIcon(area.canonicalArea) }}</span>
+              <span class="step-name">{{ area.name }}</span>
+            </button>
+          </div>
+
+          <!-- CONTENIDO PRINCIPAL: SPLIT-VIEW (MINI PLANO CONTEXTUAL + CHECKLIST DE LA HABITACIÓN) -->
+          <div class="tour-split-container" :class="{ 'with-map': showMiniMapInChecklist }">
+            
+            <!-- PANEL IZQUIERDO / SUPERIOR: MINI-PLANO CONTEXTUAL DE LA HABITACIÓN ACTIVA -->
+            <div v-if="showMiniMapInChecklist" class="tour-mini-plan-card">
+              <div class="mini-plan-header">
+                <div class="mini-plan-title">
+                  <span>📍 Ubicación en Plano: <strong>{{ currentTourArea.name }}</strong></span>
+                  <small>Toque en el plano para situar un pin de observación en este ambiente</small>
+                </div>
+                <div class="mini-plan-pins-summary">
+                  <span class="mini-pins-badge">{{ currentAreaMarkers.length }} pines en zona</span>
+                </div>
+              </div>
+
+              <!-- Lienzo Interactivo Contextual -->
+              <div class="mini-blueprint-canvas" @click="handlePlanCanvasClick($event)">
+                <div class="mini-blueprint-grid"></div>
+                <div class="floorplan-image-wrapper mini-mode">
+                  <img 
+                    :src="activePlanImageUrl" 
+                    alt="Plano de Inspección" 
+                    class="floorplan-render-img mini-img"
+                  />
+
+                  <!-- Pines interactivos visibles en el mini mapa -->
+                  <div 
+                    v-for="(marker, mIdx) in inspectionMarkers" 
+                    :key="marker.id"
+                    class="plan-pin-marker mini-pin"
+                    :style="{ left: `${marker.x}%`, top: `${marker.y}%` }"
+                    :class="[
+                      `sev-${marker.severity.toLowerCase()}`, 
+                      { 
+                        'highlight-zone': marker.area === activeSelectedArea,
+                        'faded-pin': marker.area !== activeSelectedArea
+                      }
+                    ]"
+                    @click.stop="selectMarkerOnPlan(marker, mIdx)"
+                    :title="`#${mIdx + 1} ${marker.title} (${marker.area})`"
+                  >
+                    <div class="pin-bubble mini-bubble">
+                      <span class="pin-idx">{{ mIdx + 1 }}</span>
                     </div>
-                    <p class="cl-group-summary-line">{{ group.summary }}</p>
                   </div>
                 </div>
-
-                <div class="cl-group-arrow-col">
-                  <span class="arrow-indicator">{{ group.isExpanded ? '▲' : '▼' }}</span>
-                </div>
               </div>
+            </div>
 
-              <!-- Lista de Componentes Internos (Items Secundarios) -->
-              <div v-if="group.isExpanded" class="cl-subitems-container">
+            <!-- PANEL DERECHO / INFERIOR: CHECKLIST TÉCNICO DEL AMBIENTE ACTIVO -->
+            <div class="tour-checklist-items-pane">
+              
+              <!-- Especialidades Principales y Componentes Internos -->
+              <div class="checklist-groups-wrapper">
                 <div 
-                  v-for="item in group.items" 
-                  :key="item.id" 
-                  class="cl-subitem-row"
+                  v-for="group in currentAreaChecklistGroups" 
+                  :key="group.id" 
+                  class="cl-group-box"
+                  :class="{ 'is-completed': group.isCompleted, 'is-expanded': group.isExpanded }"
                 >
-                  <div class="cl-subitem-info">
-                    <span class="subitem-title">{{ item.title }}</span>
-                    <p class="subitem-spec">{{ item.specification }}</p>
+                  <!-- Cabecera de Especialidad Principal (Item Principal) -->
+                  <div class="cl-group-header" @click="group.isExpanded = !group.isExpanded">
+                    <div class="cl-group-title-col">
+                      <span class="cl-group-icon">{{ group.icon }}</span>
+                      <div class="cl-group-texts">
+                        <div class="cl-title-row">
+                          <h4>{{ group.name }}</h4>
+                          <span 
+                            class="cl-group-status-badge" 
+                            :class="group.isCompleted ? 'status-reviewed' : 'status-pending'"
+                          >
+                            {{ group.isCompleted ? '✓ Revisado' : '⏳ Pendiente' }}
+                          </span>
+                        </div>
+                        <p class="cl-group-summary-line">{{ group.summary }}</p>
+                      </div>
+                    </div>
+
+                    <div class="cl-group-arrow-col">
+                      <span class="arrow-indicator">{{ group.isExpanded ? '▲' : '▼' }}</span>
+                    </div>
                   </div>
 
-                  <!-- Botones OK, OBS, N/A, NV -->
-                  <div class="cl-subitem-actions">
-                    <button 
-                      type="button" 
-                      class="btn-status-choice btn-ok" 
-                      :class="{ selected: item.status === 'OK' }"
-                      @click="setSubItemStatus(item, 'OK')"
-                      title="Conforme: Cumple el criterio de aceptación aplicable"
+                  <!-- Lista de Componentes Internos (Items Secundarios) -->
+                  <div v-if="group.isExpanded" class="cl-subitems-container">
+                    <div 
+                      v-for="item in group.items" 
+                      :key="item.id" 
+                      class="cl-subitem-row"
                     >
-                      ✓ OK
-                    </button>
-                    <button 
-                      type="button" 
-                      class="btn-status-choice btn-obs" 
-                      :class="{ selected: item.status === 'OBS' }"
-                      @click="triggerObsFromChecklistSubItem(item, group.name)"
-                      title="Observado: Requiere corrección o elemento faltante previsto"
-                    >
-                      ⚠ OBS
-                    </button>
-                    <button 
-                      type="button" 
-                      class="btn-status-choice btn-na" 
-                      :class="{ selected: item.status === 'N/A' }"
-                      @click="setSubItemStatus(item, 'N/A')"
-                      title="No aplica: No corresponde al inmueble o alcance"
-                    >
-                      — N/A
-                    </button>
-                    <button 
-                      type="button" 
-                      class="btn-status-choice btn-nv" 
-                      :class="{ selected: item.status === 'NV' }"
-                      @click="setSubItemStatus(item, 'NV')"
-                      title="No verificado: Falta de acceso, suministro o condición técnica de prueba"
-                    >
-                      👁 NV
-                    </button>
+                      <div class="cl-subitem-info">
+                        <span class="subitem-title">{{ item.title }}</span>
+                        <p class="subitem-spec">{{ item.specification }}</p>
+                      </div>
+
+                      <!-- Botones OK, OBS, N/A, NV -->
+                      <div class="cl-subitem-actions">
+                        <button 
+                          type="button" 
+                          class="btn-status-choice btn-ok" 
+                          :class="{ selected: item.status === 'OK' }"
+                          @click="setSubItemStatus(item, 'OK')"
+                          title="Conforme: Cumple el criterio de aceptación aplicable"
+                        >
+                          ✓ OK
+                        </button>
+                        <button 
+                          type="button" 
+                          class="btn-status-choice btn-obs" 
+                          :class="{ selected: item.status === 'OBS' }"
+                          @click="triggerObsFromChecklistSubItem(item, group.name)"
+                          title="Observado: Requiere corrección o elemento faltante previsto"
+                        >
+                          ⚠ OBS
+                        </button>
+                        <button 
+                          type="button" 
+                          class="btn-status-choice btn-na" 
+                          :class="{ selected: item.status === 'N/A' }"
+                          @click="setSubItemStatus(item, 'N/A')"
+                          title="No aplica: No corresponde al inmueble o alcance"
+                        >
+                          — N/A
+                        </button>
+                        <button 
+                          type="button" 
+                          class="btn-status-choice btn-nv" 
+                          :class="{ selected: item.status === 'NV' }"
+                          @click="setSubItemStatus(item, 'NV')"
+                          title="No verificado: Falta de acceso, suministro o condición técnica de prueba"
+                        >
+                          👁 NV
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              <!-- BANNER DE FINALIZACIÓN DE AMBIENTE Y SALTO AL SIGUIENTE -->
+              <div v-if="currentAreaStats.isAllDone" class="room-completed-card">
+                <div class="room-completed-left">
+                  <span class="completed-badge-icon">🎉</span>
+                  <div>
+                    <h4>¡{{ currentTourArea.name }} Completado!</h4>
+                    <p>Todos los ítems han sido verificados satisfactoriamente ({{ currentAreaStats.completedItems }}/{{ currentAreaStats.totalItems }}).</p>
+                  </div>
+                </div>
+
+                <button 
+                  v-if="hasNextTourArea" 
+                  type="button" 
+                  class="btn-advance-next-room"
+                  @click="goToNextTourArea"
+                >
+                  Continuar a {{ inspectionAreas[currentTourAreaIndex + 1]?.name }} ▶
+                </button>
+                <div v-else class="all-tour-finished-msg">
+                  <span>🏆 ¡Todos los ambientes de la unidad han sido inspeccionados!</span>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -1730,6 +1875,65 @@ interface ChecklistGroup {
   isCompleted: boolean
   items: ChecklistSubItem[]
 }
+
+// Tour guiado y progreso por ambiente
+const showMiniMapInChecklist = ref(true)
+
+const currentTourAreaIndex = computed(() => {
+  const idx = inspectionAreas.value.findIndex(a => a.name === activeSelectedArea.value)
+  return idx !== -1 ? idx : 0
+})
+
+const currentTourArea = computed(() => {
+  return inspectionAreas.value[currentTourAreaIndex.value] || inspectionAreas.value[0]
+})
+
+const hasPreviousTourArea = computed(() => currentTourAreaIndex.value > 0)
+const hasNextTourArea = computed(() => currentTourAreaIndex.value < inspectionAreas.value.length - 1)
+
+const goToTourAreaByIndex = (index: number) => {
+  if (index >= 0 && index < inspectionAreas.value.length) {
+    activeSelectedArea.value = inspectionAreas.value[index].name
+  }
+}
+
+const goToPreviousTourArea = () => {
+  if (hasPreviousTourArea.value) {
+    goToTourAreaByIndex(currentTourAreaIndex.value - 1)
+  }
+}
+
+const goToNextTourArea = () => {
+  if (hasNextTourArea.value) {
+    goToTourAreaByIndex(currentTourAreaIndex.value + 1)
+  }
+}
+
+// Estadísticas de ítems del ambiente activo
+const currentAreaStats = computed(() => {
+  const groups = currentAreaChecklistGroups.value
+  let totalItems = 0
+  let completedItems = 0
+  let obsCount = 0
+
+  groups.forEach(g => {
+    g.items.forEach(it => {
+      totalItems++
+      if (it.status !== 'PENDING') completedItems++
+      if (it.status === 'OBS') obsCount++
+    })
+  })
+
+  const percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+  const isAllDone = totalItems > 0 && completedItems === totalItems
+
+  return { totalItems, completedItems, obsCount, percent, isAllDone }
+})
+
+// Pines asociados al ambiente activo (o los más cercanos)
+const currentAreaMarkers = computed(() => {
+  return inspectionMarkers.value.filter(m => m.area === activeSelectedArea.value)
+})
 
 // Almacén reactivo de grupos de checklist por ambiente
 const checklistGroupsStore = ref<Record<string, ChecklistGroup[]>>({})
@@ -3748,37 +3952,361 @@ const handleAppLogout = async () => {
   cursor: pointer;
 }
 
-/* SUB-TAB 3: CHECKLIST PANE (ESTRUCTURA DE ESPECIALIDADES E ITEMS SECUNDARIOS) */
-.checklist-pane {
+/* SUB-TAB 3: CHECKLIST PANE (TOUR GUIADO + SPLIT-VIEW CONTEXTUAL) */
+.checklist-pane.tour-guided-mode {
   overflow-y: auto;
-  padding: 20px 24px;
-}
-.checklist-top-control {
-  margin-bottom: 16px;
-}
-.checklist-instruction h3 { margin: 0 0 4px 0; font-size: 1.25rem; font-weight: 700; color: #fff; }
-.checklist-instruction p { margin: 0 0 12px 0; font-size: 0.85rem; color: #8b949e; }
-.checklist-areas-scroller {
+  padding: 16px 20px;
   display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 1. Barra Superior del Recorrido / Tour Guiado */
+.guided-tour-bar {
+  background: #111824;
+  border: 1px solid #1f2e42;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.tour-stepper-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tour-step-badge {
+  display: inline-block;
+  background: rgba(88, 166, 255, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  color: #58a6ff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  width: fit-content;
+}
+.tour-room-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tour-room-icon {
+  font-size: 1.6rem;
+}
+.tour-room-headings h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+}
+.tour-canonical-tag {
+  color: #8b949e;
+  font-size: 0.74rem;
+}
+.tour-canonical-tag strong {
+  color: #00e5a3;
+}
+
+/* Barra de progreso central del ambiente */
+.tour-progress-middle {
+  flex: 1;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+}
+.tour-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.76rem;
+  color: #8b949e;
+}
+.tour-obs-count-chip {
+  background: rgba(255, 140, 0, 0.2);
+  border: 1px solid rgba(255, 140, 0, 0.5);
+  color: #ff9800;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.tour-progress-track {
+  height: 6px;
+  background: #1b2636;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.tour-progress-fill {
+  height: 100%;
+  background: #58a6ff;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.tour-progress-fill.is-complete {
+  background: #2ea043;
+}
+
+/* Controles Anterior / Siguiente */
+.tour-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-tour-nav {
+  background: #162232;
+  border: 1px solid #28394f;
+  color: #e6edf3;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-tour-nav:hover:not(:disabled) {
+  background: #003366;
+  border-color: #58a6ff;
+}
+.btn-tour-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-tour-toggle-minimap {
+  background: rgba(0, 128, 128, 0.15);
+  border: 1px solid rgba(0, 128, 128, 0.4);
+  color: #00e5a3;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-tour-toggle-minimap.active {
+  background: #005a5a;
+  border-color: #00e5a3;
+  color: #fff;
+}
+
+/* 2. Barra Deslizante de Pasos (Stepper) */
+.tour-steps-scroller {
+  display: flex;
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
 }
-.cl-area-pill {
+.tour-step-pill {
   background: #131b26;
   border: 1px solid #212c3d;
   color: #8b949e;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   white-space: nowrap;
+  transition: all 0.2s;
 }
-.cl-area-pill.active {
+.tour-step-pill.current {
+  border-color: #58a6ff;
+  color: #fff;
+  background: rgba(88, 166, 255, 0.12);
+}
+.tour-step-pill.active {
   background: #003366;
   border-color: #58a6ff;
   color: #fff;
+}
+.tour-step-pill .step-num {
+  font-size: 0.7rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+/* 3. Contenedor Split-View (Mini Plano + Checklist) */
+.tour-split-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+@media (min-width: 992px) {
+  .tour-split-container.with-map {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+}
+
+/* Mini Plano Contextual de la Habitación Activa */
+.tour-mini-plan-card {
+  background: #0c121b;
+  border: 1px solid #1e2b3c;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+.mini-plan-header {
+  padding: 10px 14px;
+  background: #131c28;
+  border-bottom: 1px solid #1e2b3c;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mini-plan-title {
+  display: flex;
+  flex-direction: column;
+}
+.mini-plan-title span {
+  font-size: 0.8rem;
+  color: #fff;
+}
+.mini-plan-title strong {
+  color: #58a6ff;
+}
+.mini-plan-title small {
+  font-size: 0.68rem;
+  color: #8b949e;
+}
+.mini-pins-badge {
+  background: #1a283c;
+  border: 1px solid #2e435f;
+  color: #00e5a3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.mini-blueprint-canvas {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  background: #06090e;
+  overflow: hidden;
+  cursor: crosshair;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mini-blueprint-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 16px 16px;
+  pointer-events: none;
+}
+.floorplan-image-wrapper.mini-mode {
+  position: relative;
+  max-width: 95%;
+  max-height: 95%;
+}
+.floorplan-render-img.mini-img {
+  max-height: 240px;
+  object-fit: contain;
+  display: block;
+  border-radius: 6px;
+}
+
+/* Pines en el Mini Plano */
+.plan-pin-marker.mini-pin {
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+}
+.pin-bubble.mini-bubble {
+  width: 18px;
+  height: 18px;
+  font-size: 0.62rem;
+}
+.plan-pin-marker.mini-pin.highlight-zone .pin-bubble {
+  border: 2px solid #fff;
+  transform: scale(1.2);
+  box-shadow: 0 0 10px #ff9800;
+  animation: pulse-mini-pin 1.5s infinite;
+}
+@keyframes pulse-mini-pin {
+  0% { transform: scale(1.1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1.1); }
+}
+.plan-pin-marker.mini-pin.faded-pin {
+  opacity: 0.35;
+}
+
+/* Lista de Items del Tour */
+.tour-checklist-items-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Banner de finalización de habitación */
+.room-completed-card {
+  background: linear-gradient(135deg, rgba(46, 160, 67, 0.15) 0%, rgba(20, 32, 48, 0.8) 100%);
+  border: 1px solid rgba(46, 160, 67, 0.5);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  animation: fadeIn 0.3s ease;
+}
+.room-completed-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.completed-badge-icon {
+  font-size: 1.8rem;
+}
+.room-completed-left h4 {
+  margin: 0 0 2px 0;
+  font-size: 1.05rem;
+  color: #3fb950;
+}
+.room-completed-left p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #c9d1d9;
+}
+.btn-advance-next-room {
+  background: #238636;
+  border: 1px solid #2ea043;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);
+  transition: all 0.2s;
+}
+.btn-advance-next-room:hover {
+  background: #2ea043;
+  transform: translateY(-1px);
+}
+.all-tour-finished-msg {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #3fb950;
 }
 
 /* Grupos y Acordeones de Especialidades */
@@ -3786,7 +4314,7 @@ const handleAppLogout = async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 960px;
+  width: 100%;
 }
 .cl-group-box {
   background: #101722;
