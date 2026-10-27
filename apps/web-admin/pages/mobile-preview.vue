@@ -583,10 +583,10 @@
                 </div>
               </div>
 
-              <!-- Lienzo Interactivo Contextual -->
+              <!-- Lienzo Interactivo Contextual con Zoom Focalizado en el Ambiente Activo -->
               <div class="mini-blueprint-canvas" @click="handlePlanCanvasClick($event)">
                 <div class="mini-blueprint-grid"></div>
-                <div class="floorplan-image-wrapper mini-mode">
+                <div class="floorplan-image-wrapper mini-mode" :style="currentAreaZoomStyle">
                   <img 
                     :src="activePlanImageUrl" 
                     alt="Plano de Inspección" 
@@ -2019,6 +2019,28 @@ const currentAreaStats = computed(() => {
   const isAllDone = totalItems > 0 && completedItems === totalItems
 
   return { totalItems, completedItems, obsCount, percent, isAllDone }
+})
+
+// Coordenadas focales (centro x%, y% y factor de escala) de cada ambiente para el tour guiado con zoom
+const areaZoomFocusMap: Record<string, { x: number; y: number; zoom: number }> = {
+  'living area': { x: 50, y: 22, zoom: 1.9 },
+  'entry': { x: 30, y: 30, zoom: 2.3 },
+  'patio': { x: 74, y: 22, zoom: 2.2 },
+  'dining area': { x: 72, y: 48, zoom: 2.2 },
+  'kitchen': { x: 54, y: 56, zoom: 2.3 },
+  'bath': { x: 28, y: 52, zoom: 2.4 },
+  'bedroom': { x: 55, y: 80, zoom: 1.9 },
+  'closet': { x: 28, y: 82, zoom: 2.4 }
+}
+
+const currentAreaZoomStyle = computed(() => {
+  const norm = activeSelectedArea.value.toLowerCase().trim()
+  const focus = areaZoomFocusMap[norm] || { x: 50, y: 50, zoom: 1.8 }
+  return {
+    transformOrigin: `${focus.x}% ${focus.y}%`,
+    transform: `scale(${focus.zoom})`,
+    transition: 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
+  }
 })
 
 // Pines asociados al ambiente activo (o los más cercanos)
@@ -4430,8 +4452,8 @@ const handleAppLogout = async () => {
 @media (min-width: 992px) {
   .tour-split-container.with-map {
     display: grid;
-    grid-template-columns: 460px 1fr;
-    gap: 18px;
+    grid-template-columns: minmax(520px, 48%) 1fr;
+    gap: 20px;
     align-items: stretch;
   }
 }
