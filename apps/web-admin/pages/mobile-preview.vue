@@ -3413,7 +3413,11 @@ const signReportOnline = (rep: AppReportItem) => {
 // 9. CIERRE DE SESIÓN
 // ==============================================================
 const handleAppLogout = async () => {
-  await supabase.auth.signOut()
+  try {
+    await supabase.auth.signOut()
+  } catch (err) {
+    console.warn('Error signing out:', err)
+  }
   router.push('/login')
 }
 </script>

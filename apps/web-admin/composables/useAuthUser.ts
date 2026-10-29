@@ -21,10 +21,18 @@ export const useAuthUser = () => {
   const fetchProfile = async () => {
     // 1. Si no hay sesión o no hay usuario autenticado, chequear si hay datos guardados
     if (!user.value) {
-      const { data: sessionData } = await supabase.auth.getSession()
-      if (sessionData?.session?.user) {
-        user.value = sessionData.session.user
-      } else {
+      try {
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
+        if (sessionErr) {
+          return
+        }
+        if (sessionData?.session?.user) {
+          user.value = sessionData.session.user
+        } else {
+          return
+        }
+      } catch {
+        // En modo offline o si supabase local no está levantado, continuar con datos locales
         return
       }
     }

@@ -14,7 +14,13 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/supabase'],
   supabase: {
     redirect: false, // Desactiva el redireccionamiento estricto obligatorio en desarrollo
+    useSsrCookies: false, // Evita intentos automáticos de refresh_token en SSR cuando se opera offline/local sin contenedor activo
     clientOptions: {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: true,
+        detectSessionInUrl: false
+      },
       realtime: {
         worker: false,
         timeout: 20000,
