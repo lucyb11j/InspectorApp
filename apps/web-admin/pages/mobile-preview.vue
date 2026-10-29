@@ -377,10 +377,10 @@
                   >
                     <div class="pin-bubble">
                       <span class="pin-ico">📍</span>
-                      <span class="pin-idx">{{ mIdx + 1 }}</span>
+                      <span class="pin-idx">{{ getMarkerPinNumber(marker) }}</span>
                     </div>
                     <div class="pin-tooltip">
-                      <strong>#{{ mIdx + 1 }} {{ marker.title }}</strong>
+                      <strong>#{{ getMarkerPinNumber(marker) }} {{ marker.title }}</strong>
                       <small>{{ marker.area }} · {{ marker.severity }}</small>
                     </div>
                   </div>
@@ -396,7 +396,7 @@
               <!-- Barra de Control de Pin Seleccionado (Visualización, Reubicación y Modificación) -->
               <div v-if="selectedMarkerItem" class="selected-pin-toolbar">
                 <div class="selected-pin-header">
-                  <span class="pin-tag-badge">Pin #{{ getMarkerIndex(selectedMarkerItem.id) + 1 }}</span>
+                  <span class="pin-tag-badge">Pin #{{ getMarkerPinNumber(selectedMarkerItem) }}</span>
                   <button type="button" class="btn-close-pin-panel" @click="selectedMarkerId = null">✕</button>
                 </div>
                 <h4 class="pin-toolbar-title">{{ selectedMarkerItem.title }}</h4>
@@ -623,10 +623,10 @@
                       }
                     ]"
                     @click.stop="selectMarkerOnPlan(marker, mIdx)"
-                    :title="`#${mIdx + 1} ${marker.title} (${marker.area})`"
+                    :title="`#${getMarkerPinNumber(marker)} ${marker.title} (${marker.area})`"
                   >
                     <div class="pin-bubble mini-bubble">
-                      <span class="pin-idx">{{ mIdx + 1 }}</span>
+                      <span class="pin-idx">{{ getMarkerPinNumber(marker) }}</span>
                     </div>
                   </div>
                 </div>
@@ -1979,9 +1979,9 @@ interface MarkerItem {
 }
 
 const inspectionMarkers = ref<MarkerItem[]>([
-  { id: 'm-1', x: 28, y: 38, title: 'Fisura capilar en muro norte', area: 'Sala / Comedor', severity: 'MENOR', obsId: 'obs-01' },
-  { id: 'm-2', x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Cocina', severity: 'MODERADA', obsId: 'obs-02' },
-  { id: 'm-3', x: 75, y: 62, title: 'Falta cordón de silicona antihongos', area: 'Baño Principal', severity: 'MODERADA', obsId: 'obs-03' }
+  { id: 'm-1', x: 28, y: 38, title: 'Fisura capilar en muro norte', area: 'Living Area', severity: 'MENOR', obsId: 'obs-01' },
+  { id: 'm-2', x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Kitchen', severity: 'MODERADA', obsId: 'obs-02' },
+  { id: 'm-3', x: 75, y: 62, title: 'Falta cordón de silicona antihongos', area: 'Bath', severity: 'MODERADA', obsId: 'obs-03' }
 ])
 
 const selectedMarkerId = ref<string | null>(null)
@@ -1995,6 +1995,19 @@ const selectedMarkerItem = computed(() => {
 
 const getMarkerIndex = (markerId: string) => {
   return inspectionMarkers.value.findIndex(m => m.id === markerId)
+}
+
+// Devuelve el número de pin unificado que coincide 1:1 con la tarjeta de la lista de Observaciones (#1, #2, ...)
+const getMarkerPinNumber = (marker: MarkerItem): number => {
+  if (marker.obsId) {
+    const obsIdx = inspectionObservations.value.findIndex(o => o.id === marker.obsId)
+    if (obsIdx !== -1) return obsIdx + 1
+  }
+  const titleMatchIdx = inspectionObservations.value.findIndex(o => o.title === marker.title)
+  if (titleMatchIdx !== -1) return titleMatchIdx + 1
+
+  const mIdx = inspectionMarkers.value.findIndex(m => m.id === marker.id)
+  return mIdx !== -1 ? mIdx + 1 : 1
 }
 
 const selectAreaFromPlan = (event: MouseEvent, areaName: string) => {
@@ -2826,7 +2839,7 @@ const inspectionObservations = ref<ObservationRecord[]>([
     subcategory: 'Paredes y muros',
     locationDetails: 'Muro norte contiguo a ventana principal, a 1.20m NPT',
     severity: 'MENOR',
-    area: 'Sala / Comedor',
+    area: 'Living Area',
     status: 'PENDIENTE',
     photos: [
       {
@@ -2844,7 +2857,7 @@ const inspectionObservations = ref<ObservationRecord[]>([
     subcategory: 'Juntas y alineación',
     locationDetails: 'Piso frente al lavadero de cocina',
     severity: 'MODERADA',
-    area: 'Cocina',
+    area: 'Kitchen',
     status: 'PENDIENTE',
     photos: [
       {
@@ -2862,7 +2875,7 @@ const inspectionObservations = ref<ObservationRecord[]>([
     subcategory: 'Lavatorios y pedestales',
     locationDetails: 'Encuentro lavatorio y muro cerámico',
     severity: 'MODERADA',
-    area: 'Baño Principal',
+    area: 'Bath',
     status: 'PENDIENTE',
     photos: [
       {
@@ -2990,9 +3003,45 @@ const showDefectsDropdown = ref(false)
 const selectDefectItem = (defectText: string) => {
   obsForm.value.title = defectText
   showDefectsDropdown.value = false
-  if (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada')) {
-    obsForm.value.description = `${defectText}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
+
+  // 1. Detección Inteligente de Severidad según la tipología del defecto
+  const textLower = defectText.toLowerCase()
+  if (
+    textLower.includes('fisura') || 
+    textLower.includes('fuga') || 
+    textLower.includes('desprendimiento') || 
+    textLower.includes('desaplomado') || 
+    textLower.includes('diferencial') || 
+    textLower.includes('humedad activa') || 
+    textLower.includes('sin puesta a tierra') || 
+    textLower.includes('riesgo') || 
+    textLower.includes('rotura') || 
+    textLower.includes('bloqueo')
+  ) {
+    obsForm.value.severity = 'MAYOR'
+  } else if (
+    textLower.includes('mancha') || 
+    textLower.includes('limpieza') || 
+    textLower.includes('holgura') || 
+    textLower.includes('tono') || 
+    textLower.includes('rayadura superficial') || 
+    textLower.includes('polvo') || 
+    textLower.includes('retocar') || 
+    textLower.includes('adhesivo')
+  ) {
+    obsForm.value.severity = 'MENOR'
+  } else {
+    obsForm.value.severity = 'MODERADA'
   }
+
+  // 2. Generación automática de Detalle Técnico Adicional estructurado
+  const actionRecommendation = obsForm.value.severity === 'MAYOR'
+    ? 'Requiere rectificación prioritaria, resane estructural/técnico y reemplazo de componente por la constructora.'
+    : obsForm.value.severity === 'MENOR'
+      ? 'Requiere limpieza fina de entrega, retoque puntual y remoción de velo de obra.'
+      : 'Requiere calibración, alineación o resane superficial por el contratista previo al acta de entrega.'
+
+  obsForm.value.description = `${defectText}. Criterio de verificación: no cumple tolerancia de entrega según especificaciones del proyecto. Acción requerida: ${actionRecommendation}`
 }
 
 const onDefectInputChanged = () => {
@@ -3201,8 +3250,8 @@ const saveObservationWithPhoto = () => {
     photos
   })
 
-  // 2. Colocar Pin en el Plano
-  inspectionMarkers.value.push({
+  // 2. Colocar Pin en el Plano (unshift para mantener alineación 1:1 con observaciones)
+  inspectionMarkers.value.unshift({
     id: `m-${Date.now()}`,
     x: coords.x,
     y: coords.y,
@@ -4638,11 +4687,16 @@ const handleAppLogout = async () => {
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding: 8px 12px;
+  overflow-y: hidden;
+  padding: 10px 14px;
   background: #0f1722;
   border: 1px solid #1f2f44;
   border-radius: 12px;
-  margin-bottom: 2px;
+  flex-shrink: 0;
+  min-height: 56px;
+  align-items: center;
+  box-sizing: border-box;
+  scrollbar-width: thin;
 }
 .tour-step-pill {
   background: #141e2b;
@@ -4657,6 +4711,9 @@ const handleAppLogout = async () => {
   gap: 8px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
+  height: 38px;
+  box-sizing: border-box;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   transition: all 0.2s ease;
 }
