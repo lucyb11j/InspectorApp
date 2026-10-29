@@ -5,7 +5,7 @@
     <header class="app-top-bar">
       <div class="top-bar-left">
         <div class="brand-badge-mini">
-          <span class="brand-logo-icon">🏢</span>
+          <Building2 :size="18" class="brand-logo-icon-svg" />
           <span class="brand-name-bold">InspecOS</span>
         </div>
         <span class="mode-tag">Tablet / Campo</span>
@@ -27,7 +27,8 @@
 
       <div class="top-bar-right">
         <span v-if="pendingSyncItems.length > 0" class="badge-pending-sync" @click="activeBottomTab = 'sync'">
-          ⚡ {{ pendingSyncItems.length }} pendientes
+          <Zap :size="13" class="inline-svg-icon" />
+          <span>{{ pendingSyncItems.length }} pendientes</span>
         </span>
         <button 
           type="button" 
@@ -36,7 +37,7 @@
           @click="showProfileModal = !showProfileModal"
           title="Ver Perfil y Opciones"
         >
-          <span class="user-avatar-mini">👤</span>
+          <User :size="15" class="user-avatar-mini-svg" />
           <span class="user-email-text">Perfil</span>
         </button>
       </div>
@@ -153,7 +154,8 @@
               :class="{ active: detailSubTab === 'summary' }"
               @click="detailSubTab = 'summary'"
             >
-              📊 Resumen
+              <FileText :size="15" class="tab-icon-svg" />
+              <span>Resumen</span>
             </button>
             <button 
               type="button" 
@@ -161,7 +163,8 @@
               :class="{ active: detailSubTab === 'plan' }"
               @click="detailSubTab = 'plan'"
             >
-              📐 Plano
+              <Compass :size="15" class="tab-icon-svg" />
+              <span>Plano</span>
             </button>
             <button 
               type="button" 
@@ -169,7 +172,8 @@
               :class="{ active: detailSubTab === 'checklist' }"
               @click="detailSubTab = 'checklist'"
             >
-              ✓ Checklist
+              <CheckCircle2 :size="15" class="tab-icon-svg" />
+              <span>Checklist</span>
             </button>
             <button 
               type="button" 
@@ -177,7 +181,8 @@
               :class="{ active: detailSubTab === 'observations' }"
               @click="detailSubTab = 'observations'"
             >
-              ⚠️ Observaciones ({{ inspectionObservations.length }})
+              <AlertTriangle :size="15" class="tab-icon-svg" />
+              <span>Observaciones ({{ inspectionObservations.length }})</span>
             </button>
           </div>
 
@@ -191,7 +196,8 @@
               @click="showAreasSidebar = !showAreasSidebar"
               title="Mostrar / Ocultar panel de Ambientes de la unidad"
             >
-              🏢 Ambientes ({{ inspectionAreas.length }})
+              <Layers :size="15" class="tab-icon-svg" />
+              <span>Ambientes ({{ inspectionAreas.length }})</span>
             </button>
             <!-- En la pestaña Plano no va el botón Defecto; en Checklist y demás se llama '+ Nueva Observación' -->
             <button 
@@ -200,7 +206,7 @@
               class="btn-new-obs-action" 
               @click="openObservationModal()"
             >
-              <span class="plus-sign">+</span>
+              <Plus :size="15" class="tab-icon-svg" />
               <span>Nueva Observación</span>
             </button>
           </div>
@@ -332,7 +338,9 @@
                     :class="[area.cssClass, { active: activeSelectedArea === area.name }]"
                     @click.stop="activeSelectedArea = area.name"
                   >
-                    <span class="area-chip-icon">{{ getAreaIcon(area.canonicalArea) }}</span>
+                    <span class="area-chip-icon">
+                      <component :is="getAreaIconComponent(area.canonicalArea)" :size="14" class="inline-svg-icon" />
+                    </span>
                     <span class="area-chip-title">{{ area.name }}</span>
                     <button 
                       type="button" 
@@ -340,7 +348,7 @@
                       @click.stop="openRecategorizeModal(area)"
                       :title="`Tipo actual: ${area.canonicalArea}. Clic para recategorizar o renombrar`"
                     >
-                      ⚙️
+                      <Settings :size="12" />
                     </button>
                   </div>
                 </div>
@@ -488,7 +496,9 @@
                 Ambiente {{ currentTourAreaIndex + 1 }} de {{ inspectionAreas.length }}
               </span>
               <div class="tour-room-meta">
-                <span class="tour-room-icon">{{ getAreaIcon(currentTourArea.canonicalArea) }}</span>
+                <span class="tour-room-icon">
+                  <component :is="getAreaIconComponent(currentTourArea.canonicalArea)" :size="20" class="inline-svg-icon" />
+                </span>
                 <div class="tour-room-headings">
                   <h3>{{ currentTourArea.name }}</h3>
                   <small class="tour-canonical-tag">Checklist Canónico: <strong>{{ currentTourArea.canonicalArea }}</strong></small>
@@ -503,7 +513,8 @@
                   {{ currentAreaStats.completedItems }}/{{ currentAreaStats.totalItems }} verificados
                 </span>
                 <span v-if="currentAreaStats.obsCount > 0" class="tour-obs-count-chip">
-                  ⚠️ {{ currentAreaStats.obsCount }} obs
+                  <AlertTriangle :size="12" class="inline-svg-icon" />
+                  <span>{{ currentAreaStats.obsCount }} obs</span>
                 </span>
               </div>
               <div class="tour-progress-track">
@@ -524,7 +535,8 @@
                 @click="goToPreviousTourArea"
                 title="Ir al ambiente anterior en el recorrido"
               >
-                ◀ Ant
+                <ChevronLeft :size="15" />
+                <span>Ant</span>
               </button>
 
               <button 
@@ -534,7 +546,8 @@
                 @click="showMiniMapInChecklist = !showMiniMapInChecklist"
                 title="Mostrar u ocultar vista de plano en checklist"
               >
-                📐 {{ showMiniMapInChecklist ? 'Ocultar Plano' : 'Ver Plano' }}
+                <Compass :size="15" class="btn-svg-mini" />
+                <span>{{ showMiniMapInChecklist ? 'Ocultar Plano' : 'Ver Plano' }}</span>
               </button>
 
               <button 
@@ -544,7 +557,8 @@
                 @click="goToNextTourArea"
                 title="Ir al siguiente ambiente en el recorrido"
               >
-                Sig ▶
+                <span>Sig</span>
+                <ChevronRight :size="15" />
               </button>
             </div>
           </div>
@@ -563,7 +577,9 @@
               @click="goToTourAreaByIndex(aIdx)"
             >
               <span class="step-num">{{ aIdx + 1 }}</span>
-              <span class="step-icon">{{ getAreaIcon(area.canonicalArea) }}</span>
+              <span class="step-icon">
+                <component :is="getAreaIconComponent(area.canonicalArea)" :size="14" class="inline-svg-icon" />
+              </span>
               <span class="step-name">{{ area.name }}</span>
             </button>
           </div>
@@ -631,7 +647,9 @@
                   <!-- Cabecera de Especialidad Principal (Item Principal) -->
                   <div class="cl-group-header" @click="group.isExpanded = !group.isExpanded">
                     <div class="cl-group-title-col">
-                      <span class="cl-group-icon">{{ group.icon }}</span>
+                      <span class="cl-group-icon">
+                        <component :is="getCategoryIconComponent(group.name)" :size="20" class="lucide-cat-icon" />
+                      </span>
                       <div class="cl-group-texts">
                         <div class="cl-title-row">
                           <h4>{{ group.name }}</h4>
@@ -639,15 +657,31 @@
                             class="cl-group-status-badge" 
                             :class="group.isCompleted ? 'status-reviewed' : 'status-pending'"
                           >
-                            {{ group.isCompleted ? '✓ Revisado' : '⏳ Pendiente' }}
+                            <Check v-if="group.isCompleted" :size="12" class="inline-badge-icon" />
+                            {{ group.isCompleted ? 'Revisado' : '⏳ Pendiente' }}
                           </span>
                         </div>
                         <p class="cl-group-summary-line">{{ group.summary }}</p>
                       </div>
                     </div>
 
-                    <div class="cl-group-arrow-col">
-                      <span class="arrow-indicator">{{ group.isExpanded ? '▲' : '▼' }}</span>
+                    <div class="cl-group-right-actions">
+                      <!-- Botón Rápido: Marcar Todo Conforme (OK) en un solo toque -->
+                      <button 
+                        v-if="!group.isCompleted"
+                        type="button" 
+                        class="btn-approve-category-ok"
+                        @click.stop="approveGroupAllOk(group)"
+                        title="Marcar todos los ítems pendientes de esta categoría como Conformes (OK) y avanzar"
+                      >
+                        <CheckCheck :size="14" />
+                        <span>Todo OK</span>
+                      </button>
+
+                      <div class="cl-group-arrow-col">
+                        <ChevronUp v-if="group.isExpanded" :size="18" class="arrow-indicator" />
+                        <ChevronDown v-else :size="18" class="arrow-indicator" />
+                      </div>
                     </div>
                   </div>
 
@@ -1049,7 +1083,7 @@
         :class="{ active: activeBottomTab === 'inspections' }"
         @click="activeBottomTab = 'inspections'"
       >
-        <span class="dock-icon">📋</span>
+        <FileText :size="20" class="dock-svg-icon" />
         <span class="dock-label">Inspecciones</span>
       </button>
 
@@ -1059,7 +1093,7 @@
         :class="{ active: activeBottomTab === 'plans' }"
         @click="activeBottomTab = 'plans'"
       >
-        <span class="dock-icon">📐</span>
+        <Compass :size="20" class="dock-svg-icon" />
         <span class="dock-label">Arquitectura</span>
       </button>
 
@@ -1069,7 +1103,7 @@
         :class="{ active: activeBottomTab === 'reports' }"
         @click="activeBottomTab = 'reports'"
       >
-        <span class="dock-icon">📄</span>
+        <FileSpreadsheet :size="20" class="dock-svg-icon" />
         <span class="dock-label">Informes</span>
       </button>
 
@@ -1079,7 +1113,7 @@
         :class="{ active: activeBottomTab === 'sync' }"
         @click="activeBottomTab = 'sync'"
       >
-        <span class="dock-icon">⚡</span>
+        <Zap :size="20" class="dock-svg-icon" />
         <span class="dock-label">Sincronización</span>
         <span v-if="pendingSyncItems.length > 0" class="dock-bubble">{{ pendingSyncItems.length }}</span>
       </button>
@@ -1292,23 +1326,56 @@
                   v-model="obsForm.title" 
                   type="text" 
                   class="field-input defect-single-input" 
-                  placeholder="Escriba o presione ▾ para desplegar opciones..."
+                  :placeholder="isVoiceListening && voiceTargetField === 'title' ? 'Escuchando dictado por voz...' : 'Escriba o presione ▾ para desplegar opciones...'"
+                  :class="{ 'input-voice-active': isVoiceListening && voiceTargetField === 'title' }"
                   required 
                   @input="onDefectInputChanged"
                   @focus="showDefectsDropdown = true"
                 />
-                
-                <!-- Botón flecha integrado en la misma casilla -->
-                <button 
-                  v-if="suggestedDefectsList.length > 0" 
-                  type="button" 
-                  class="btn-toggle-custom-dropdown" 
-                  :class="{ active: showDefectsDropdown }"
-                  @click="showDefectsDropdown = !showDefectsDropdown"
-                  title="Desplegar observaciones típicas directamente bajo la casilla"
-                >
-                  ▾
-                </button>
+
+                <div class="input-actions-cluster">
+                  <!-- Botón Dictado por Voz (Web Speech API) -->
+                  <button 
+                    type="button" 
+                    class="btn-voice-dictation-trigger"
+                    :class="{ 'is-listening': isVoiceListening && voiceTargetField === 'title' }"
+                    @click="toggleVoiceInput('title')"
+                    title="Dictar defecto por voz (Manos libres en obra)"
+                  >
+                    <Mic v-if="!isVoiceListening || voiceTargetField !== 'title'" :size="15" />
+                    <MicOff v-else :size="15" class="animate-pulse text-danger" />
+                  </button>
+                  
+                  <!-- Botón flecha integrado en la misma casilla -->
+                  <button 
+                    v-if="suggestedDefectsList.length > 0" 
+                    type="button" 
+                    class="btn-toggle-custom-dropdown" 
+                    :class="{ active: showDefectsDropdown }"
+                    @click="showDefectsDropdown = !showDefectsDropdown"
+                    title="Desplegar observaciones típicas directamente bajo la casilla"
+                  >
+                    <ChevronDown :size="15" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quick-Picks chips para selección ultra-rápida en 1 solo tap -->
+              <div v-if="suggestedDefectsList.length > 0" class="quick-picks-container">
+                <span class="quick-picks-label">Típicos en 1 tap:</span>
+                <div class="quick-picks-chips-scroll">
+                  <button 
+                    v-for="(qp, qpIdx) in suggestedDefectsList.slice(0, 4)" 
+                    :key="qpIdx"
+                    type="button"
+                    class="btn-quick-pick-chip"
+                    :class="{ selected: obsForm.title === qp }"
+                    @click="selectDefectItem(qp)"
+                    :title="qp"
+                  >
+                    {{ qp.length > 32 ? qp.substring(0, 30) + '...' : qp }}
+                  </button>
+                </div>
               </div>
 
               <!-- Menú Desplegable personalizado directamente bajo la casilla (No se sale de la pantalla) -->
@@ -1459,14 +1526,28 @@
             </button>
           </div>
 
-          <!-- Detalle Técnico Adicional -->
+          <!-- Detalle Técnico Adicional con Dictado por Voz -->
           <div class="form-group-custom">
-            <label>Detalle Técnico Adicional:</label>
+            <div class="field-label-row">
+              <label>Detalle Técnico Adicional:</label>
+              <button 
+                type="button" 
+                class="btn-voice-mini-chip"
+                :class="{ 'is-listening': isVoiceListening && voiceTargetField === 'description' }"
+                @click="toggleVoiceInput('description')"
+                title="Dictar detalle técnico por voz"
+              >
+                <Mic v-if="!isVoiceListening || voiceTargetField !== 'description'" :size="13" />
+                <MicOff v-else :size="13" class="animate-pulse text-danger" />
+                <span>{{ isVoiceListening && voiceTargetField === 'description' ? 'Escuchando...' : 'Dictar por voz' }}</span>
+              </button>
+            </div>
             <textarea 
               v-model="obsForm.description" 
               rows="2" 
               class="field-input textarea" 
-              placeholder="Describa tolerancias milimétricas, desniveles, materiales afectados o recomendaciones de resane..."
+              :placeholder="isVoiceListening && voiceTargetField === 'description' ? 'Escuchando dictado por voz para detalle técnico...' : 'Describa tolerancias milimétricas, desniveles, materiales afectados o recomendaciones de resane...'"
+              :class="{ 'input-voice-active': isVoiceListening && voiceTargetField === 'description' }"
             ></textarea>
           </div>
 
@@ -1538,6 +1619,51 @@
 </template>
 
 <script setup lang="ts">
+import { 
+  Building2, 
+  Check, 
+  CheckCheck, 
+  AlertTriangle, 
+  Sparkles, 
+  Palette, 
+  Maximize2, 
+  Compass, 
+  Zap, 
+  Layers, 
+  ShieldAlert, 
+  Flame, 
+  Droplets, 
+  DoorClosed, 
+  Mic, 
+  MicOff, 
+  Search, 
+  Calendar, 
+  User, 
+  FileText, 
+  RotateCcw, 
+  Trash2, 
+  Edit3, 
+  MapPin, 
+  Plus, 
+  Camera, 
+  Image, 
+  Info, 
+  ChevronDown, 
+  ChevronUp, 
+  ChevronRight, 
+  ChevronLeft, 
+  Eye, 
+  Home, 
+  Utensils, 
+  Bath, 
+  Bed, 
+  Shirt, 
+  X, 
+  CheckCircle2,
+  Settings,
+  Target,
+  FileSpreadsheet
+} from 'lucide-vue-next'
 import { TYPICAL_DEFECTS_CATALOG } from '~/utils/checklist-defects-catalog'
 
 definePageMeta({
@@ -1731,7 +1857,19 @@ const inspectionAreas = ref<AreaItem[]>([
   { id: 'a-8', name: 'Entry', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' }
 ])
 
-// Helper para obtener el icono representativo del tipo de ambiente
+// Helper para obtener el componente de icono vectorial representativo del tipo de ambiente
+const getAreaIconComponent = (canonical: CanonicalChecklistArea) => {
+  switch (canonical) {
+    case 'Sala / Comedor': return Home
+    case 'Cocina': return Utensils
+    case 'Baño Principal': return Bath
+    case 'Dormitorio': return Bed
+    case 'Lavandería': return Shirt
+    case 'Balcón': return Maximize2
+    default: return MapPin
+  }
+}
+
 const getAreaIcon = (canonical: CanonicalChecklistArea): string => {
   switch (canonical) {
     case 'Sala / Comedor': return '🛋️'
@@ -2438,6 +2576,34 @@ const currentAreaChecklistGroups = computed(() => {
   return checklistGroupsStore.value[storeKey]
 })
 
+// Helper para obtener componente Lucide de especialidad
+const getCategoryIconComponent = (groupName: string) => {
+  const g = groupName.toLowerCase()
+  if (g.includes('arquitectura') || g.includes('acabado') || g.includes('pintura')) return Palette
+  if (g.includes('piso') || g.includes('revestimiento')) return Layers
+  if (g.includes('aluminio') || g.includes('vidrio') || g.includes('mampara') || g.includes('ventana')) return Maximize2
+  if (g.includes('eléctrica') || g.includes('luz') || g.includes('tensión')) return Zap
+  if (g.includes('sanitaria') || g.includes('baño') || g.includes('húmeda')) return Bath
+  if (g.includes('cocina') || g.includes('mobiliario') || g.includes('repostero')) return Utensils
+  if (g.includes('lavandería') || g.includes('calentamiento')) return Shirt
+  if (g.includes('dormitorio') || g.includes('clóset')) return Bed
+  if (g.includes('puerta') || g.includes('cerrajería')) return DoorClosed
+  if (g.includes('seguridad') || g.includes('incendio') || g.includes('alarma')) return ShieldAlert
+  if (g.includes('exterior') || g.includes('balcón') || g.includes('pluvial')) return Compass
+  if (g.includes('entrega') || g.includes('limpieza')) return Sparkles
+  return CheckCircle2
+}
+
+// Marcar todos los ítems pendientes de una categoría como Conforme (OK) en un solo tap
+const approveGroupAllOk = (group: ChecklistGroup) => {
+  group.items.forEach(it => {
+    if (it.status === 'PENDING') {
+      it.status = 'OK'
+    }
+  })
+  updateGroupCompletion(group)
+}
+
 const updateGroupCompletion = (group: ChecklistGroup) => {
   // Un grupo pasa a Revisado cuando todos sus sub-items dejan de estar en PENDING
   const wasCompleted = group.isCompleted
@@ -2532,7 +2698,7 @@ const triggerObsFromChecklistSubItem = (item: ChecklistSubItem, groupName: strin
   obsForm.value.title = ''
   
   // Mensaje en Detalle Técnico Adicional: Indicar NO-CONFORMIDAD objetiva según criterios de inspección
-  obsForm.value.description = `Hallazgo registrado en ${targetCategory} (${matchedSub || 'Componente'}): Condición observada en "${item.title}". No satisface el criterio de comprobación o requiere subsanación/evaluación técnica.`
+  obsForm.value.description = `Condición observada: "${item.title}". No satisface el criterio de comprobación o requiere subsanación/evaluación técnica.`
   obsForm.value.severity = 'MODERADA'
   
   openObservationModal()
@@ -2728,6 +2894,83 @@ const availableSubcategories = computed(() => {
   return checklistCatalog[obsForm.value.category] || []
 })
 
+// -------------------------------------------------------------
+// DICTADO POR VOZ NATIVO (WEB SPEECH API) - $0 COSTO
+// -------------------------------------------------------------
+const isVoiceListening = ref(false)
+const voiceTargetField = ref<'title' | 'description' | null>(null)
+let speechRecognitionInstance: any = null
+
+const toggleVoiceInput = (field: 'title' | 'description') => {
+  if (typeof window === 'undefined') return
+
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    alert('El reconocimiento de voz nativo no está disponible en este navegador. Utilice el teclado o el dictado de su tablet.')
+    return
+  }
+
+  if (isVoiceListening.value) {
+    if (speechRecognitionInstance) {
+      try {
+        speechRecognitionInstance.stop()
+      } catch (err) {
+        console.error('Error stopping speech recognition:', err)
+      }
+    }
+    isVoiceListening.value = false
+    voiceTargetField.value = null
+    return
+  }
+
+  try {
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'es-PE' // Español Perú / América Latina
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    recognition.onstart = () => {
+      isVoiceListening.value = true
+      voiceTargetField.value = field
+    }
+
+    recognition.onresult = (event: any) => {
+      if (event.results && event.results.length > 0) {
+        const transcript = event.results[0][0].transcript
+        if (field === 'title') {
+          obsForm.value.title = obsForm.value.title 
+            ? `${obsForm.value.title} ${transcript}` 
+            : transcript
+          onDefectInputChanged()
+        } else {
+          obsForm.value.description = obsForm.value.description 
+            ? `${obsForm.value.description} ${transcript}` 
+            : transcript
+        }
+      }
+    }
+
+    recognition.onerror = (event: any) => {
+      console.warn('Speech recognition error:', event.error)
+      isVoiceListening.value = false
+      voiceTargetField.value = null
+    }
+
+    recognition.onend = () => {
+      isVoiceListening.value = false
+      voiceTargetField.value = null
+    }
+
+    speechRecognitionInstance = recognition
+    recognition.start()
+  } catch (err) {
+    console.error('Speech recognition could not start:', err)
+    isVoiceListening.value = false
+    voiceTargetField.value = null
+  }
+}
+
 // Observaciones típicas calculadas en base a la categoría y subcategoría seleccionadas
 const suggestedDefectsList = computed(() => {
   const cat = obsForm.value.category
@@ -2748,7 +2991,7 @@ const selectDefectItem = (defectText: string) => {
   obsForm.value.title = defectText
   showDefectsDropdown.value = false
   if (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada')) {
-    obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${defectText}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
+    obsForm.value.description = `${defectText}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
   }
 }
 
@@ -2756,7 +2999,7 @@ const onDefectInputChanged = () => {
   // Si el usuario escribe una coincidencia exacta de sugerencias, actualizar el detalle si corresponde
   const matching = suggestedDefectsList.value.find(d => d.toLowerCase() === obsForm.value.title.trim().toLowerCase())
   if (matching && (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada'))) {
-    obsForm.value.description = `Hallazgo de no-conformidad en ${obsForm.value.category} (${obsForm.value.subcategory}): ${matching}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
+    obsForm.value.description = `${matching}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
   }
 }
 
@@ -4716,7 +4959,42 @@ const handleAppLogout = async () => {
 .cl-group-arrow-col {
   font-size: 0.85rem;
   color: #8b949e;
-  padding-left: 12px;
+  padding-left: 8px;
+  display: flex;
+  align-items: center;
+}
+.cl-group-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-approve-category-ok {
+  background: rgba(35, 134, 54, 0.2);
+  border: 1px solid rgba(46, 160, 67, 0.55);
+  color: #3fb950;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-approve-category-ok:hover {
+  background: #238636;
+  border-color: #2ea043;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(46, 160, 67, 0.4);
+}
+.lucide-cat-icon {
+  color: #79c0ff;
+}
+.inline-badge-icon {
+  margin-right: 3px;
+  vertical-align: text-bottom;
 }
 
 /* Sub-items (Puntos interiores evaluables) */
@@ -5498,21 +5776,65 @@ const handleAppLogout = async () => {
 }
 .defect-single-input {
   width: 100%;
-  padding-right: 38px; /* Espacio para el botón de flecha */
+  padding-right: 76px; /* Espacio para el cluster de botones (voz + flecha) */
 }
-.btn-toggle-custom-dropdown {
+.input-voice-active {
+  border-color: #f85149 !important;
+  box-shadow: 0 0 12px rgba(248, 81, 73, 0.45) !important;
+  animation: pulseBorder 1.5s infinite;
+}
+@keyframes pulseBorder {
+  0% { border-color: rgba(248, 81, 73, 0.5); }
+  50% { border-color: rgba(248, 81, 73, 1); }
+  100% { border-color: rgba(248, 81, 73, 0.5); }
+}
+.input-actions-cluster {
   position: absolute;
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-voice-dictation-trigger {
   width: 28px;
   height: 28px;
   background: #152233;
   border: 1px solid #283e58;
   border-radius: 4px;
   color: #79c0ff;
-  font-size: 0.9rem;
-  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.btn-voice-dictation-trigger:hover {
+  background: #1f3552;
+  border-color: #58a6ff;
+  color: #fff;
+}
+.btn-voice-dictation-trigger.is-listening {
+  background: rgba(248, 81, 73, 0.25);
+  border-color: #f85149;
+  color: #ff7b72;
+  animation: pulseListening 1.2s infinite;
+}
+@keyframes pulseListening {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.btn-toggle-custom-dropdown {
+  position: static;
+  transform: none;
+  width: 28px;
+  height: 28px;
+  background: #152233;
+  border: 1px solid #283e58;
+  border-radius: 4px;
+  color: #79c0ff;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -5523,6 +5845,76 @@ const handleAppLogout = async () => {
   background: #1f3552;
   border-color: #58a6ff;
   color: #fff;
+}
+
+/* Quick-Picks chips directos */
+.quick-picks-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.quick-picks-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.quick-picks-chips-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.btn-quick-pick-chip {
+  background: #101926;
+  border: 1px solid #253852;
+  color: #79c0ff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-quick-pick-chip:hover {
+  background: #18283e;
+  border-color: #58a6ff;
+  color: #fff;
+}
+.btn-quick-pick-chip.selected {
+  background: rgba(46, 160, 67, 0.2);
+  border-color: #2ea043;
+  color: #3fb950;
+}
+
+/* Botón dictado por voz para detalle técnico adicional */
+.btn-voice-mini-chip {
+  background: #152233;
+  border: 1px solid #283e58;
+  color: #79c0ff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-voice-mini-chip:hover {
+  background: #1f3552;
+  border-color: #58a6ff;
+  color: #fff;
+}
+.btn-voice-mini-chip.is-listening {
+  background: rgba(248, 81, 73, 0.25);
+  border-color: #f85149;
+  color: #ff7b72;
 }
 
 /* Panel desplegable que se expande directamente bajo la casilla y no se sale de la pantalla */

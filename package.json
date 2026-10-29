@@ -26,6 +26,7 @@
     "@aws-sdk/client-s3": "^3.1156.0",
     "@aws-sdk/s3-request-presigner": "^3.1156.0",
     "@types/node": "^26.6.4",
+    "lucide-vue-next": "^1.0.0",
     "typescript": "^7.0.2"
   },
   "devDependencies": {
