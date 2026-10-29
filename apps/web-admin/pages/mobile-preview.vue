@@ -1326,7 +1326,7 @@
                   v-model="obsForm.title" 
                   type="text" 
                   class="field-input defect-single-input" 
-                  :placeholder="isVoiceListening && voiceTargetField === 'title' ? 'Escuchando dictado por voz...' : 'Escriba o presione ▾ para desplegar opciones...'"
+                  :placeholder="isVoiceListening && voiceTargetField === 'title' ? 'Escuchando dictado por voz...' : 'Escriba o toque ▾ para ver sugerencias...'" 
                   :class="{ 'input-voice-active': isVoiceListening && voiceTargetField === 'title' }"
                   required 
                   @input="onDefectInputChanged"
@@ -1353,42 +1353,25 @@
                     class="btn-toggle-custom-dropdown" 
                     :class="{ active: showDefectsDropdown }"
                     @click="showDefectsDropdown = !showDefectsDropdown"
-                    title="Desplegar observaciones típicas directamente bajo la casilla"
+                    title="Desplegar sugerencias del catálogo"
                   >
                     <ChevronDown :size="15" />
                   </button>
                 </div>
               </div>
 
-              <!-- Quick-Picks chips para selección ultra-rápida en 1 solo tap -->
-              <div v-if="suggestedDefectsList.length > 0" class="quick-picks-container">
-                <span class="quick-picks-label">Típicos en 1 tap:</span>
-                <div class="quick-picks-chips-scroll">
-                  <button 
-                    v-for="(qp, qpIdx) in suggestedDefectsList.slice(0, 4)" 
-                    :key="qpIdx"
-                    type="button"
-                    class="btn-quick-pick-chip"
-                    :class="{ selected: obsForm.title === qp }"
-                    @click="selectDefectItem(qp)"
-                    :title="qp"
-                  >
-                    {{ qp.length > 32 ? qp.substring(0, 30) + '...' : qp }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Menú Desplegable personalizado directamente bajo la casilla (No se sale de la pantalla) -->
+              <!-- Menú Desplegable con Autocompletado y Filtrado Reactivo -->
               <div 
-                v-if="showDefectsDropdown && suggestedDefectsList.length > 0" 
+                v-if="showDefectsDropdown && filteredDefectsList.length > 0" 
                 class="custom-dropdown-panel"
               >
                 <div class="dropdown-header-tag">
-                  Observaciones típicas para: <strong>{{ obsForm.subcategory || obsForm.category }}</strong>
+                  <span>Catálogo de sugerencias: <strong>{{ obsForm.subcategory || obsForm.category }}</strong></span>
+                  <small v-if="obsForm.title.trim()">({{ filteredDefectsList.length }} coincidencias)</small>
                 </div>
                 <div class="dropdown-items-scroll">
                   <div 
-                    v-for="(defect, dIdx) in suggestedDefectsList" 
+                    v-for="(defect, dIdx) in filteredDefectsList" 
                     :key="dIdx" 
                     class="custom-dropdown-item"
                     :class="{ selected: obsForm.title === defect }"
@@ -2993,9 +2976,17 @@ const suggestedDefectsList = computed(() => {
   }
   // Si no hay por subcategoría exacta, combinar todas las del rubro de la categoría
   if (cat && TYPICAL_DEFECTS_CATALOG[cat]) {
-    return Object.values(TYPICAL_DEFECTS_CATALOG[cat]).flat().slice(0, 10)
+    return Object.values(TYPICAL_DEFECTS_CATALOG[cat]).flat().slice(0, 15)
   }
   return []
+})
+
+// Lista filtrada en tiempo real según lo que el usuario escribe (autocompletado reactivo)
+const filteredDefectsList = computed(() => {
+  const list = suggestedDefectsList.value
+  const query = obsForm.value.title.trim().toLowerCase()
+  if (!query) return list
+  return list.filter(item => item.toLowerCase().includes(query))
 })
 
 const showDefectsDropdown = ref(false)
@@ -3045,7 +3036,12 @@ const selectDefectItem = (defectText: string) => {
 }
 
 const onDefectInputChanged = () => {
-  // Si el usuario escribe una coincidencia exacta de sugerencias, actualizar el detalle si corresponde
+  // Abrir automáticamente el panel si el usuario está escribiendo para ofrecer autocompletado en vivo
+  if (obsForm.value.title.trim()) {
+    showDefectsDropdown.value = true
+  }
+
+  // Si el usuario escribe una coincidencia exacta de sugerencias, actualizar el detalle y severidad
   const matching = suggestedDefectsList.value.find(d => d.toLowerCase() === obsForm.value.title.trim().toLowerCase())
   if (matching && (!obsForm.value.description || obsForm.value.description.startsWith('No-conformidad detectada'))) {
     obsForm.value.description = `${matching}. Requiere resane, calibración o sustitución por el contratista previo al acta final.`
