@@ -600,7 +600,17 @@
               </div>
 
               <!-- Lienzo Interactivo Contextual con Zoom Focalizado en el Ambiente Activo -->
-              <div class="mini-blueprint-canvas" @click="handlePlanCanvasClick($event)">
+              <div 
+                class="mini-blueprint-canvas" 
+                :class="{ 'is-moving-mode': movingPinIndex !== null }"
+                @click="handlePlanCanvasClick($event)"
+              >
+                <!-- Banner de reubicación activa si se está moviendo un pin -->
+                <div v-if="movingPinIndex !== null" class="mini-canvas-relocating-overlay">
+                  <span>Toque el nuevo punto exacto en el plano para reubicar el Pin #{{ movingPinIndex + 1 }}</span>
+                  <button type="button" class="btn-cancel-mini-move" @click.stop="cancelPinMove">✕ Cancelar</button>
+                </div>
+
                 <div class="mini-blueprint-grid"></div>
                 <div class="floorplan-image-wrapper mini-mode" :style="currentAreaZoomStyle">
                   <img 
@@ -619,7 +629,9 @@
                       `sev-${marker.severity.toLowerCase()}`, 
                       { 
                         'highlight-zone': marker.area === activeSelectedArea,
-                        'faded-pin': marker.area !== activeSelectedArea
+                        'faded-pin': marker.area !== activeSelectedArea,
+                        'selected': selectedMarkerId === marker.id,
+                        'moving': movingPinIndex === mIdx
                       }
                     ]"
                     @click.stop="selectMarkerOnPlan(marker, mIdx)"
@@ -629,6 +641,40 @@
                       <span class="pin-idx">{{ getMarkerPinNumber(marker) }}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <!-- Mini barra de control cuando hay un pin seleccionado en Checklist -->
+              <div v-if="selectedMarkerItem && movingPinIndex === null" class="mini-plan-selected-toolbar">
+                <div class="mini-toolbar-info">
+                  <span class="mini-toolbar-badge">Pin #{{ getMarkerPinNumber(selectedMarkerItem) }}</span>
+                  <strong class="mini-toolbar-title">{{ selectedMarkerItem.title }}</strong>
+                </div>
+                <div class="mini-toolbar-actions">
+                  <button 
+                    type="button" 
+                    class="btn-mini-action-move" 
+                    @click="startPinMove(selectedMarkerItem)"
+                    title="Mover este pin a otra posición en el plano"
+                  >
+                    🔄 Reubicar Pin
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn-mini-action-edit" 
+                    @click="navigateToEditObservationFromPlan(selectedMarkerItem)"
+                    title="Editar datos técnicos de la observación"
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn-mini-action-close" 
+                    @click="selectedMarkerId = null"
+                    title="Cerrar selección"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
             </div>
@@ -2024,10 +2070,28 @@ const selectAreaFromPlan = (event: MouseEvent, areaName: string) => {
 }
 
 const handlePlanCanvasClick = (event: MouseEvent) => {
-  const canvas = (event.currentTarget as HTMLElement).querySelector('.blueprint-canvas') as HTMLElement || event.currentTarget as HTMLElement
-  const rect = canvas.getBoundingClientRect()
-  const x = Math.round(((event.clientX - rect.left) / rect.width) * 1000) / 10
-  const y = Math.round(((event.clientY - rect.top) / rect.height) * 1000) / 10
+  const currentTarget = event.currentTarget as HTMLElement
+  
+  // Buscar si el click fue dentro del contenedor del plano o de la imagen
+  const imgEl = currentTarget.querySelector('img.floorplan-render-img') as HTMLImageElement | null
+  let x = 50
+  let y = 50
+
+  if (imgEl) {
+    const imgRect = imgEl.getBoundingClientRect()
+    // Si la imagen tiene dimensiones válidas, calcular x e y con respecto a su bounding box real
+    if (imgRect.width > 0 && imgRect.height > 0) {
+      const rawX = ((event.clientX - imgRect.left) / imgRect.width) * 100
+      const rawY = ((event.clientY - imgRect.top) / imgRect.height) * 100
+      x = Math.round(Math.max(2, Math.min(98, rawX)) * 10) / 10
+      y = Math.round(Math.max(2, Math.min(98, rawY)) * 10) / 10
+    }
+  } else {
+    const canvas = currentTarget.querySelector('.blueprint-canvas') as HTMLElement || currentTarget
+    const rect = canvas.getBoundingClientRect()
+    x = Math.round(Math.max(2, Math.min(98, ((event.clientX - rect.left) / rect.width) * 100)) * 10) / 10
+    y = Math.round(Math.max(2, Math.min(98, ((event.clientY - rect.top) / rect.height) * 100)) * 10) / 10
+  }
 
   if (isPickingPinForModal.value) {
     pendingCoordinates.value = { x, y }
@@ -2039,6 +2103,8 @@ const handlePlanCanvasClick = (event: MouseEvent) => {
   if (movingPinIndex.value !== null && inspectionMarkers.value[movingPinIndex.value]) {
     inspectionMarkers.value[movingPinIndex.value].x = x
     inspectionMarkers.value[movingPinIndex.value].y = y
+    // Si estamos en Checklist, asegurar que el marcador adopta el ambiente activo si fue movido allí
+    inspectionMarkers.value[movingPinIndex.value].area = activeSelectedArea.value
     selectedMarkerId.value = inspectionMarkers.value[movingPinIndex.value].id
     movingPinIndex.value = null
     return
@@ -3110,15 +3176,28 @@ const navigateToEditObservationFromPlan = (marker: MarkerItem) => {
   }
 }
 
+const getDefaultCoordinatesForArea = (areaName: string): { x: number; y: number } => {
+  const norm = (areaName || activeSelectedArea.value).toLowerCase().trim()
+  const focus = areaZoomFocusMap[norm]
+  if (focus) {
+    // Añadir una pequeña variación sutil (±2%) para que no se apilen uno exactamente encima de otro
+    const jitterX = Math.round((Math.random() * 4 - 2) * 10) / 10
+    const jitterY = Math.round((Math.random() * 4 - 2) * 10) / 10
+    return {
+      x: Math.max(5, Math.min(95, focus.x + jitterX)),
+      y: Math.max(5, Math.min(95, focus.y + jitterY))
+    }
+  }
+  return { x: 50, y: 50 }
+}
+
 const openObservationModal = (coords?: { x: number; y: number }) => {
   editingObservationId.value = null
   if (coords) {
     pendingCoordinates.value = coords
   } else if (!pendingCoordinates.value) {
-    pendingCoordinates.value = {
-      x: 35 + Math.round(Math.random() * 30),
-      y: 30 + Math.round(Math.random() * 30)
-    }
+    // Usar el centro focal del área actualmente seleccionada en vez de coordenadas aleatorias en cualquier parte
+    pendingCoordinates.value = getDefaultCoordinatesForArea(activeSelectedArea.value)
   }
   capturedPhotosList.value = []
   showObsModal.value = true
@@ -3212,10 +3291,7 @@ const saveObservationWithPhoto = () => {
 
   // MODO CREACIÓN NUEVA OBSERVACIÓN
   const newObsId = `obs-${Date.now()}`
-  const coords = pendingCoordinates.value || {
-    x: 40 + Math.round(Math.random() * 20),
-    y: 35 + Math.round(Math.random() * 25)
-  }
+  const coords = pendingCoordinates.value || getDefaultCoordinatesForArea(activeSelectedArea.value)
 
   // Si no se tomó foto física en la demo, generar una evidencia fotográfica con hash verificado
   const photos = capturedPhotosList.value.length > 0 
@@ -4844,29 +4920,168 @@ const handleAppLogout = async () => {
 
 /* Pines en el Mini Plano */
 .plan-pin-marker.mini-pin {
-  width: 18px;
-  height: 18px;
-  margin-left: -9px;
-  margin-top: -9px;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  transition: transform 0.2s ease;
 }
 .pin-bubble.mini-bubble {
-  width: 18px;
-  height: 18px;
-  font-size: 0.62rem;
+  width: 22px;
+  height: 22px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* Enfoque limpio y elegante para los pines de la zona activa */
+.plan-pin-marker.mini-pin.highlight-zone {
+  z-index: 25;
 }
 .plan-pin-marker.mini-pin.highlight-zone .pin-bubble {
-  border: 2px solid #fff;
-  transform: scale(1.2);
-  box-shadow: 0 0 10px #ff9800;
-  animation: pulse-mini-pin 1.5s infinite;
+  border: 2px solid #ffffff;
+  transform: scale(1.08);
+  box-shadow: 0 0 8px rgba(0, 229, 163, 0.6);
 }
-@keyframes pulse-mini-pin {
-  0% { transform: scale(1.1); }
-  50% { transform: scale(1.3); }
-  100% { transform: scale(1.1); }
+
+/* Pin seleccionado en el Mini Plano */
+.plan-pin-marker.mini-pin.selected .pin-bubble {
+  border: 2px solid #ffffff;
+  transform: scale(1.25);
+  box-shadow: 0 0 12px #388bfd, 0 0 0 3px rgba(56, 139, 253, 0.35);
 }
+
+/* Pin en modo reubicación */
+.plan-pin-marker.mini-pin.moving .pin-bubble {
+  border: 2px dashed #00e5a3;
+  transform: scale(1.3);
+  animation: pulse-moving-pin 1s infinite alternate;
+}
+@keyframes pulse-moving-pin {
+  from { box-shadow: 0 0 6px #00e5a3; }
+  to { box-shadow: 0 0 16px #00e5a3; }
+}
+
 .plan-pin-marker.mini-pin.faded-pin {
   opacity: 0.35;
+  filter: grayscale(40%);
+}
+
+/* Overlay para modo reubicación en mini plano */
+.mini-canvas-relocating-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  background: rgba(14, 26, 42, 0.94);
+  border: 1px solid #00e5a3;
+  color: #00e5a3;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.2s ease;
+}
+.btn-cancel-mini-move {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-cancel-mini-move:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Toolbar que aparece cuando se toca un pin en el Mini Plano */
+.mini-plan-selected-toolbar {
+  padding: 8px 12px;
+  background: #111a26;
+  border-top: 1px solid #1f2d3f;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  animation: fadeIn 0.2s ease;
+}
+.mini-toolbar-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+.mini-toolbar-badge {
+  background: #003366;
+  color: #58a6ff;
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.mini-toolbar-title {
+  color: #e6edf3;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-mini-action-move {
+  background: #1f6feb;
+  border: none;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-mini-action-move:hover {
+  background: #388bfd;
+}
+.btn-mini-action-edit {
+  background: #238636;
+  border: none;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-mini-action-edit:hover {
+  background: #2ea043;
+}
+.btn-mini-action-close {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.btn-mini-action-close:hover {
+  color: #fff;
 }
 
 /* Lista de Items del Tour */
