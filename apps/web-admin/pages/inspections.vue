@@ -196,7 +196,17 @@
                   <span class="file-label-text">{{ uploadedPlanName || 'Seleccionar Archivo PDF / Imagen...' }}</span>
                 </label>
               </div>
-              <small v-if="uploadedPlanName" class="file-ok-tag">✓ Archivo cargado: {{ uploadedPlanName }}</small>
+              <div v-if="uploadedPlanName" class="admin-ai-scan-box">
+                <small class="file-ok-tag">✓ Archivo cargado: {{ uploadedPlanName }}</small>
+                <button 
+                  type="button" 
+                  class="btn-admin-ai-scan" 
+                  :disabled="isAdminScanningAi"
+                  @click="runAdminAiScan"
+                >
+                  {{ isAdminScanningAi ? '⏳ Analizando...' : '⚡ Detección con IA' }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -376,6 +386,8 @@ onMounted(() => {
 const newAreaInput = ref('')
 const uploadedPlanName = ref('')
 const uploadedPlanFile = ref<File | null>(null)
+const uploadedPlanBase64 = ref('')
+const isAdminScanningAi = ref(false)
 
 const form = ref({
   projectId: '22222222-0000-0000-0000-000000000001',
@@ -400,6 +412,37 @@ const handlePlanFileUpload = (event: Event) => {
     const file = target.files[0]
     uploadedPlanName.value = file.name
     uploadedPlanFile.value = file
+
+    // Convertir a base64 para envío a endpoint de análisis AI
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      uploadedPlanBase64.value = e.target?.result as string || ''
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+const runAdminAiScan = async () => {
+  if (!uploadedPlanBase64.value) return
+  isAdminScanningAi.value = true
+  try {
+    const res: any = await $fetch('/api/ai/scan-floorplan', {
+      method: 'POST',
+      body: {
+        fileName: uploadedPlanName.value,
+        imageBase64: uploadedPlanBase64.value
+      }
+    })
+
+    if (res?.success && Array.isArray(res.areas) && res.areas.length > 0) {
+      form.value.areas = res.areas.map((a: any) => a.name)
+      alert(`✓ Análisis de plano (${res.source === 'GEMINI_AI' ? 'Gemini AI' : 'Motor Heurístico'}): Se detectaron e integraron ${res.areas.length} ambientes automáticamente.`)
+    }
+  } catch (err) {
+    console.warn('Error en escaneo AI admin:', err)
+    alert('No se pudo conectar al servicio de IA. Puede seleccionar una tipología o añadir ambientes manualmente.')
+  } finally {
+    isAdminScanningAi.value = false
   }
 }
 
@@ -909,6 +952,30 @@ const createInspection = async () => {
   font-size: 0.75rem;
   margin-top: 4px;
   display: block;
+}
+.admin-ai-scan-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  background: #0d1e30;
+  border: 1px solid #1f4266;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.btn-admin-ai-scan {
+  background: #1f6feb;
+  border: none;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-admin-ai-scan:hover {
+  background: #388bfd;
 }
 .areas-header-manage {
   display: flex;

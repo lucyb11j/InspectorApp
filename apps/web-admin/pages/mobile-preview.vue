@@ -1348,31 +1348,149 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- MODAL EMERGENTE: SUBIR O CAMBIAR PLANO ARQUITECTÓNICO    -->
+    <!-- MODAL EMERGENTE: ASISTENTE HÍBRIDO DE PLANO (OFFLINE/SKETCH/IA) -->
     <!-- ======================================================== -->
     <div v-if="showUploadPlanModal" class="modal-backdrop-camera" @click.self="showUploadPlanModal = false">
-      <div class="modal-obs-window">
+      <div class="modal-obs-window modal-plan-assistant">
         <div class="modal-obs-header">
           <div>
-            <h3>Cargar Nuevo Plano Arquitectónico</h3>
-            <span class="modal-location-subtitle">Reemplace el plano en PDF o Imagen para actualizar las delimitaciones</span>
+            <h3>Asistente de Plano y Ambientes</h3>
+            <span class="modal-location-subtitle">Autonomía total: Cargar archivo, tomar foto a plano en papel o crear croquis técnico</span>
           </div>
           <button type="button" class="btn-close-modal-x" @click="showUploadPlanModal = false">✕</button>
         </div>
-        <div class="modal-obs-body">
-          <div class="form-group-custom">
-            <label>Seleccionar Archivo (PDF, PNG, JPG):</label>
-            <input type="file" accept="application/pdf,image/png,image/jpeg" class="field-input" @change="handleArchFileUpload" />
+
+        <div class="modal-obs-body plan-assistant-body">
+          <!-- 3 Vías de Entrada de Plano para el Inspector -->
+          <div class="plan-source-selector-grid">
+            <label class="source-card-option" :class="{ selected: planSourceMode === 'file' }">
+              <input type="radio" v-model="planSourceMode" value="file" class="hidden-radio" />
+              <div class="source-card-content">
+                <span class="source-icon">📁</span>
+                <strong>Subir Archivo</strong>
+                <small>PDF, PNG o JPG digital</small>
+              </div>
+            </label>
+
+            <label class="source-card-option" :class="{ selected: planSourceMode === 'camera' }">
+              <input type="radio" v-model="planSourceMode" value="camera" class="hidden-radio" />
+              <div class="source-card-content">
+                <span class="source-icon">📷</span>
+                <strong>Foto a Plano Físico</strong>
+                <small>Lámina en papel dada por dueño</small>
+              </div>
+            </label>
+
+            <label class="source-card-option" :class="{ selected: planSourceMode === 'sketch' }">
+              <input type="radio" v-model="planSourceMode" value="sketch" class="hidden-radio" />
+              <div class="source-card-content">
+                <span class="source-icon">📐</span>
+                <strong>Croquis Técnico</strong>
+                <small>Sin plano impreso (Modo Sketch)</small>
+              </div>
+            </label>
           </div>
-          <div v-if="uploadedArchFileName" class="uploaded-arch-file-info">
-            <p>✓ Archivo listo: <strong>{{ uploadedArchFileName }}</strong></p>
-            <small>Se calculará hash criptográfico SHA-256 e integrará con los ambientes de inspección.</small>
+
+          <!-- Opción 1: Archivo o Cámara -->
+          <div v-if="planSourceMode === 'file' || planSourceMode === 'camera'" class="plan-upload-zone">
+            <div class="form-group-custom">
+              <label>{{ planSourceMode === 'camera' ? 'Tomar Foto con la Cámara:' : 'Seleccionar Archivo:' }}</label>
+              <input 
+                type="file" 
+                :capture="planSourceMode === 'camera' ? 'environment' : undefined"
+                accept="application/pdf,image/png,image/jpeg" 
+                class="field-input" 
+                @change="handleArchFileUpload" 
+              />
+            </div>
+
+            <div v-if="uploadedArchFileName" class="uploaded-arch-file-info">
+              <p>✓ Plano capturado: <strong>{{ uploadedArchFileName }}</strong></p>
+              <!-- Botón Escanear con IA si está conectado a Internet -->
+              <div class="ai-scan-banner">
+                <div class="ai-scan-text">
+                  <span>🤖 <strong>Detección de Ambientes por IA (Gemini):</strong></span>
+                  <small>Escanea textos y centros focales automáticamente del plano.</small>
+                </div>
+                <button 
+                  type="button" 
+                  class="btn-trigger-ai-scan"
+                  :disabled="isScanningWithAi"
+                  @click="runAiPlanScan"
+                >
+                  {{ isScanningWithAi ? '⏳ Escaneando plano...' : '⚡ Escanear con IA' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Opción 2: Generador de Croquis Técnico (Si no hay plano físico) -->
+          <div v-else class="plan-sketch-zone">
+            <div class="sketch-tip-box">
+              <span>📐 <strong>Modo Croquis Técnico (Sin Plano):</strong></span>
+              <p>Se generará una cuadrícula técnica arquitectónica con zonas asignadas para situar pines y realizar el checklist con exactitud.</p>
+            </div>
+          </div>
+
+          <!-- Selector Rápido de Tipología de Ambientes (Garantía Offline) -->
+          <div class="typology-fast-selector">
+            <label class="typology-title">Tipología y Ambientes para el Tour:</label>
+            <div class="typology-buttons-row">
+              <button 
+                type="button" 
+                class="btn-typology-chip"
+                :class="{ active: selectedTypologyCode === 'studio' }"
+                @click="applyTypologyPreset('studio')"
+              >
+                Studio / 1 Dorm
+              </button>
+              <button 
+                type="button" 
+                class="btn-typology-chip"
+                :class="{ active: selectedTypologyCode === 'standard-2d' }"
+                @click="applyTypologyPreset('standard-2d')"
+              >
+                2 Dorms + 1 Baño
+              </button>
+              <button 
+                type="button" 
+                class="btn-typology-chip"
+                :class="{ active: selectedTypologyCode === 'familiar-3d' }"
+                @click="applyTypologyPreset('familiar-3d')"
+              >
+                3 Dorms + 2 Baños
+              </button>
+              <button 
+                type="button" 
+                class="btn-typology-chip"
+                :class="{ active: selectedTypologyCode === 'duplex' }"
+                @click="applyTypologyPreset('duplex')"
+              >
+                Dúplex / Penthouse
+              </button>
+            </div>
+
+            <!-- Lista de Ambientes que se configurarán en el Tour y Checklist -->
+            <div class="staged-areas-preview">
+              <span class="staged-areas-count">{{ stagedAreasList.length }} ambientes listos para el tour:</span>
+              <div class="staged-chips-wrap">
+                <span v-for="area in stagedAreasList" :key="area.name" class="staged-area-tag">
+                  {{ area.name }}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+
         <div class="modal-obs-footer">
           <button type="button" class="btn-cancel-modal" @click="showUploadPlanModal = false">Cancelar</button>
-          <button type="button" class="btn-save-modal" :disabled="!uploadedArchFileName" @click="saveUploadedArchPlan">
-            Guardar Plano en la Unidad
+          <button 
+            type="button" 
+            class="btn-save-modal" 
+            :disabled="planSourceMode !== 'sketch' && !uploadedArchFileName" 
+            @click="saveUploadedArchPlan"
+          >
+            ✓ Aplicar Plano y Activar Tour
           </button>
         </div>
       </div>
@@ -3674,6 +3792,123 @@ const removeArchArea = (index: number) => {
 }
 
 const uploadedArchFileUrl = ref<string>('')
+const planSourceMode = ref<'file' | 'camera' | 'sketch'>('file')
+const selectedTypologyCode = ref<string>('familiar-3d')
+const isScanningWithAi = ref(false)
+
+interface StagedArea {
+  name: string
+  canonicalArea: CanonicalChecklistArea
+  x: number
+  y: number
+  zoom: number
+}
+
+const stagedAreasList = ref<StagedArea[]>([
+  { name: 'Sala / Comedor', canonicalArea: 'Sala / Comedor', x: 40, y: 35, zoom: 1.9 },
+  { name: 'Cocina', canonicalArea: 'Cocina', x: 65, y: 30, zoom: 2.2 },
+  { name: 'Dormitorio Principal', canonicalArea: 'Dormitorio', x: 35, y: 75, zoom: 2.0 },
+  { name: 'Dormitorio 2', canonicalArea: 'Dormitorio', x: 25, y: 50, zoom: 2.1 },
+  { name: 'Baño Principal', canonicalArea: 'Baño Principal', x: 60, y: 70, zoom: 2.3 },
+  { name: 'Lavandería', canonicalArea: 'Lavandería', x: 80, y: 25, zoom: 2.3 },
+  { name: 'Balcón', canonicalArea: 'Balcón', x: 20, y: 25, zoom: 2.2 }
+])
+
+const applyTypologyPreset = (code: string) => {
+  selectedTypologyCode.value = code
+  if (code === 'studio') {
+    stagedAreasList.value = [
+      { name: 'Área Integrada (Sala/Dormitorio)', canonicalArea: 'Sala / Comedor', x: 45, y: 40, zoom: 1.8 },
+      { name: 'Kitchenette', canonicalArea: 'Cocina', x: 75, y: 30, zoom: 2.2 },
+      { name: 'Baño Completo', canonicalArea: 'Baño Principal', x: 30, y: 75, zoom: 2.4 },
+      { name: 'Balcón', canonicalArea: 'Balcón', x: 85, y: 65, zoom: 2.1 }
+    ]
+  } else if (code === 'standard-2d') {
+    stagedAreasList.value = [
+      { name: 'Sala / Comedor', canonicalArea: 'Sala / Comedor', x: 40, y: 30, zoom: 2.0 },
+      { name: 'Cocina', canonicalArea: 'Cocina', x: 70, y: 25, zoom: 2.2 },
+      { name: 'Dormitorio Principal', canonicalArea: 'Dormitorio', x: 30, y: 70, zoom: 2.1 },
+      { name: 'Dormitorio Secundario', canonicalArea: 'Dormitorio', x: 65, y: 70, zoom: 2.1 },
+      { name: 'Baño Principal', canonicalArea: 'Baño Principal', x: 50, y: 55, zoom: 2.3 },
+      { name: 'Lavandería', canonicalArea: 'Lavandería', x: 85, y: 25, zoom: 2.3 }
+    ]
+  } else if (code === 'familiar-3d') {
+    stagedAreasList.value = [
+      { name: 'Living Comedor', canonicalArea: 'Sala / Comedor', x: 34, y: 18, zoom: 2.0 },
+      { name: 'Balcón', canonicalArea: 'Balcón', x: 8, y: 48, zoom: 2.2 },
+      { name: 'Cocina', canonicalArea: 'Cocina', x: 88, y: 32, zoom: 2.2 },
+      { name: 'Comedor Diario', canonicalArea: 'Sala / Comedor', x: 68, y: 22, zoom: 2.2 },
+      { name: 'Patio / Lavandería', canonicalArea: 'Lavandería', x: 92, y: 72, zoom: 2.2 },
+      { name: 'Dormitorio Principal', canonicalArea: 'Dormitorio', x: 22, y: 80, zoom: 2.1 },
+      { name: 'Dormitorio 2', canonicalArea: 'Dormitorio', x: 22, y: 48, zoom: 2.1 },
+      { name: 'Dormitorio 3', canonicalArea: 'Dormitorio', x: 76, y: 82, zoom: 2.1 },
+      { name: 'Baño Principal', canonicalArea: 'Baño Principal', x: 49, y: 85, zoom: 2.3 }
+    ]
+  } else if (code === 'duplex') {
+    stagedAreasList.value = [
+      { name: 'Sala / Comedor Doble Altura', canonicalArea: 'Sala / Comedor', x: 35, y: 30, zoom: 1.9 },
+      { name: 'Cocina Abierta', canonicalArea: 'Cocina', x: 75, y: 25, zoom: 2.2 },
+      { name: 'Master Suite', canonicalArea: 'Dormitorio', x: 30, y: 75, zoom: 2.1 },
+      { name: 'Baño Suite', canonicalArea: 'Baño Principal', x: 50, y: 75, zoom: 2.3 },
+      { name: 'Estar Familiar (Piso 2)', canonicalArea: 'Sala / Comedor', x: 65, y: 45, zoom: 2.0 },
+      { name: 'Terraza y Parrilla', canonicalArea: 'Balcón', x: 85, y: 65, zoom: 2.2 }
+    ]
+  }
+}
+
+// Generador de SVG para Croquis Técnico cuando no existe plano físico
+const generateSketchFloorplanDataUrl = (): string => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+    <rect width="900" height="520" fill="#0d1724"/>
+    <defs>
+      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(88, 166, 255, 0.12)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="900" height="520" fill="url(#grid)"/>
+    <rect x="50" y="40" width="800" height="440" fill="rgba(16, 28, 45, 0.7)" stroke="#388bfd" stroke-width="3" rx="8"/>
+    <text x="450" y="30" fill="#58a6ff" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle">CROQUIS TÉCNICO DE CAMPO — DISTRIBUCIÓN ASISTIDA</text>
+    <rect x="70" y="60" width="360" height="180" fill="rgba(88, 166, 255, 0.08)" stroke="#58a6ff" stroke-width="2" stroke-dasharray="4"/>
+    <text x="250" y="155" fill="#79c0ff" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">SALA / COMEDOR</text>
+    <rect x="450" y="60" width="380" height="180" fill="rgba(0, 229, 163, 0.08)" stroke="#00e5a3" stroke-width="2" stroke-dasharray="4"/>
+    <text x="640" y="155" fill="#00e5a3" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">COCINA &amp; SERVICIOS</text>
+    <rect x="70" y="260" width="380" height="200" fill="rgba(255, 171, 0, 0.08)" stroke="#ffab00" stroke-width="2" stroke-dasharray="4"/>
+    <text x="260" y="365" fill="#ffab00" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">DORMITORIOS</text>
+    <rect x="470" y="260" width="360" height="200" fill="rgba(187, 134, 252, 0.08)" stroke="#bb86fc" stroke-width="2" stroke-dasharray="4"/>
+    <text x="650" y="365" fill="#bb86fc" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">BAÑOS &amp; BALCÓN</text>
+  </svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+const runAiPlanScan = async () => {
+  if (!uploadedArchFileUrl.value) return
+  isScanningWithAi.value = true
+  try {
+    const res: any = await $fetch('/api/ai/scan-floorplan', {
+      method: 'POST',
+      body: {
+        fileName: uploadedArchFileName.value,
+        imageBase64: uploadedArchFileUrl.value
+      }
+    })
+
+    if (res?.success && Array.isArray(res.areas) && res.areas.length > 0) {
+      stagedAreasList.value = res.areas.map((a: any) => ({
+        name: a.name,
+        canonicalArea: normalizeToCanonicalArea(a.canonicalArea || a.name),
+        x: a.x || 50,
+        y: a.y || 50,
+        zoom: a.zoom || 2.0
+      }))
+      alert(`✓ Escaneo completado (${res.source === 'GEMINI_AI' ? 'Gemini AI Vision' : 'Motor Heurístico'}): Se detectaron ${stagedAreasList.value.length} ambientes.`)
+    }
+  } catch (err: any) {
+    console.warn('Error en escaneo AI:', err)
+    alert('No se pudo conectar al servicio de IA en este momento. Se mantendrán las tipologías offline seleccionadas.')
+  } finally {
+    isScanningWithAi.value = false
+  }
+}
 
 const handleArchFileUpload = (event: Event) => {
   const target = event.target as HTMLInputElement
@@ -3686,14 +3921,43 @@ const handleArchFileUpload = (event: Event) => {
 }
 
 const saveUploadedArchPlan = () => {
-  if (uploadedArchFileName.value) {
+  if (planSourceMode.value === 'sketch') {
+    uploadedArchFileName.value = 'croquis_tecnico_campo.svg'
+    uploadedArchFileUrl.value = generateSketchFloorplanDataUrl()
+  }
+
+  if (uploadedArchFileName.value || planSourceMode.value === 'sketch') {
     currentArchPlan.value.fileName = uploadedArchFileName.value
     currentArchPlan.value.sha256 = '8f4b23c9e1a76d54029b8c173ae59d04bc7a61d8ef31b9c240a5e81d76ca23e1'
     if (uploadedArchFileUrl.value) {
       activePlanImageUrl.value = uploadedArchFileUrl.value
     }
+
+    // Actualizar dinámicamente los ambientes del Tour y Checklist con los configurados en el asistente
+    if (stagedAreasList.value.length > 0) {
+      inspectionAreas.value = stagedAreasList.value.map((st, idx) => ({
+        id: `area-custom-${idx}-${Date.now()}`,
+        name: st.name,
+        canonicalArea: st.canonicalArea,
+        cssClass: 'room-custom'
+      }))
+
+      // Actualizar mapa focal de zoom para cada ambiente detectado
+      stagedAreasList.value.forEach(st => {
+        areaZoomFocusMap[st.name.toLowerCase().trim()] = {
+          x: st.x,
+          y: st.y,
+          zoom: st.zoom
+        }
+      })
+
+      activeSelectedArea.value = inspectionAreas.value[0].name
+      userZoomModifier.value = 0
+      panOffset.value = { x: 0, y: 0 }
+    }
+
     showUploadPlanModal.value = false
-    alert(`Plano "${uploadedArchFileName.value}" vinculado correctamente a la unidad para la inspección.`)
+    alert(`✓ Plano "${uploadedArchFileName.value}" aplicado. Se configuraron ${inspectionAreas.value.length} ambientes en el Tour y Checklist.`)
   }
 }
 
@@ -7317,5 +7581,172 @@ const handleAppLogout = async () => {
   .unit-subtitle {
     font-size: 0.78rem;
   }
+}
+
+/* ESTILOS DEL ASISTENTE HÍBRIDO DE PLANO */
+.modal-plan-assistant {
+  max-width: 680px;
+}
+.plan-assistant-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.plan-source-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.source-card-option {
+  background: #111a26;
+  border: 1px solid #233448;
+  border-radius: 10px;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: block;
+  text-align: center;
+}
+.source-card-option.selected {
+  background: rgba(88, 166, 255, 0.12);
+  border-color: #58a6ff;
+  box-shadow: 0 0 12px rgba(88, 166, 255, 0.25);
+}
+.source-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.source-icon {
+  font-size: 1.4rem;
+}
+.source-card-content strong {
+  font-size: 0.82rem;
+  color: #fff;
+}
+.source-card-content small {
+  font-size: 0.68rem;
+  color: #8b949e;
+}
+.hidden-radio {
+  display: none;
+}
+.ai-scan-banner {
+  margin-top: 10px;
+  background: #0d1e30;
+  border: 1px solid #1f4266;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.ai-scan-text {
+  display: flex;
+  flex-direction: column;
+}
+.ai-scan-text span {
+  font-size: 0.8rem;
+  color: #79c0ff;
+}
+.ai-scan-text small {
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+.btn-trigger-ai-scan {
+  background: #1f6feb;
+  border: none;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-trigger-ai-scan:hover {
+  background: #388bfd;
+}
+.sketch-tip-box {
+  background: #0d1a29;
+  border: 1px dashed #388bfd;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 0.8rem;
+  color: #c9d1d9;
+}
+.sketch-tip-box span {
+  color: #58a6ff;
+}
+.sketch-tip-box p {
+  margin: 4px 0 0 0;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+.typology-fast-selector {
+  background: #0d1520;
+  border: 1px solid #1f2f44;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.typology-title {
+  font-size: 0.8rem;
+  color: #79c0ff;
+  font-weight: 700;
+}
+.typology-buttons-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-typology-chip {
+  background: #142030;
+  border: 1px solid #273b54;
+  color: #c9d1d9;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-typology-chip:hover {
+  background: #1b2c42;
+  border-color: #58a6ff;
+}
+.btn-typology-chip.active {
+  background: #004080;
+  border-color: #58a6ff;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(88, 166, 255, 0.35);
+}
+.staged-areas-preview {
+  margin-top: 4px;
+}
+.staged-areas-count {
+  font-size: 0.72rem;
+  color: #8b949e;
+  display: block;
+  margin-bottom: 6px;
+}
+.staged-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.staged-area-tag {
+  background: #111a26;
+  border: 1px solid #233448;
+  color: #00e5a3;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 </style>
