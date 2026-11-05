@@ -187,8 +187,9 @@
           </div>
 
           <div class="sub-header-actions">
-            <!-- Botón directo para Subir / Cambiar Plano de esta Inspección (Accesible en todo momento) -->
+            <!-- Botón directo para Subir / Cambiar Plano de esta Inspección (Visible solo en Plano y Checklist, no en Resumen) -->
             <button 
+              v-if="detailSubTab !== 'summary'"
               type="button" 
               class="btn-sub-header-plan" 
               @click="showUploadPlanModal = true"
@@ -209,9 +210,9 @@
               <Layers :size="15" class="tab-icon-svg" />
               <span>Ambientes ({{ inspectionAreas.length }})</span>
             </button>
-            <!-- En la pestaña Plano no va el botón Defecto; en Checklist y demás se llama '+ Nueva Observación' -->
+            <!-- En Resumen y Plano no va el botón Nueva Observación; en Checklist y Observaciones sí va -->
             <button 
-              v-if="detailSubTab !== 'plan'"
+              v-if="detailSubTab !== 'plan' && detailSubTab !== 'summary'"
               type="button" 
               class="btn-new-obs-action" 
               @click="openObservationModal()"
