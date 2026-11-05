@@ -187,6 +187,16 @@
           </div>
 
           <div class="sub-header-actions">
+            <!-- Botón directo para Subir / Cambiar Plano de esta Inspección (Accesible en todo momento) -->
+            <button 
+              type="button" 
+              class="btn-sub-header-plan" 
+              @click="showUploadPlanModal = true"
+              title="Subir o cambiar plano, tomar foto física o croquis de esta inspección"
+            >
+              📁 <span>Subir / Cambiar Plano</span>
+            </button>
+
             <!-- Botón para alternar panel lateral de ambientes (Solo en pestaña Plano) -->
             <button 
               v-if="detailSubTab === 'plan'"
@@ -278,14 +288,21 @@
             </div>
           </div>
 
-          <!-- Acciones Rápidas -->
+          <!-- Acciones Rápidas con Secuencia Lógica de Campo -->
           <div class="summary-bottom-actions">
+            <!-- 1. Primer Paso: Verificar / Subir Plano o Actualizar Arquitectura -->
+            <button type="button" class="btn-summary-cta plan-setup" @click="showUploadPlanModal = true">
+              📁 Subir / Cambiar Plano de la Unidad
+            </button>
+            <!-- 2. Segundo Paso: Ir al Plano Táctil e Insertar Pines -->
             <button type="button" class="btn-summary-cta primary" @click="detailSubTab = 'plan'">
               📐 Ir al Plano Táctil e Insertar Pines →
             </button>
+            <!-- 3. Tercer Paso: Abrir Checklist Técnica por Ambiente -->
             <button type="button" class="btn-summary-cta secondary" @click="detailSubTab = 'checklist'">
               ✓ Abrir Checklist Técnica por Ambiente →
             </button>
+            <!-- 4. Informe / Acta Oficial -->
             <NuxtLink :to="`/reports/${selectedInspection.id}`" class="btn-summary-cta ghost">
               📄 Ver Acta Oficial / Informe Técnico PDF
             </NuxtLink>
@@ -4426,6 +4443,25 @@ const handleAppLogout = async () => {
   background: #003366;
   color: #fff;
 }
+.btn-sub-header-plan {
+  background: rgba(88, 166, 255, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  color: #79c0ff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-sub-header-plan:hover {
+  background: rgba(88, 166, 255, 0.28);
+  border-color: #58a6ff;
+  color: #fff;
+}
 .btn-new-obs-action {
   background: #008080;
   border: none;
@@ -4552,6 +4588,17 @@ const handleAppLogout = async () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+.btn-summary-cta.plan-setup {
+  background: #1f3a5f;
+  border: 1px solid #58a6ff;
+  color: #79c0ff;
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.2);
+}
+.btn-summary-cta.plan-setup:hover {
+  background: #284d7d;
+  color: #fff;
+  border-color: #79c0ff;
 }
 .btn-summary-cta.primary { background: #003366; color: #fff; }
 .btn-summary-cta.secondary { background: #008080; color: #fff; }
