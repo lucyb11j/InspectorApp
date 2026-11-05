@@ -595,7 +595,35 @@
                   <small>Toque en el plano para situar un pin de observación en este ambiente</small>
                 </div>
                 <div class="mini-plan-pins-summary">
-                  <span class="mini-pins-badge">{{ currentAreaMarkers.length }} pines en zona</span>
+                  <!-- Controles de Zoom para Móvil/Tablet (+ / -) -->
+                  <div class="mini-zoom-actions">
+                    <button 
+                      type="button" 
+                      class="btn-zoom-mini" 
+                      @click.stop="zoomInChecklist" 
+                      title="Acercar plano"
+                    >
+                      <ZoomIn :size="14" />
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn-zoom-mini" 
+                      @click.stop="zoomOutChecklist" 
+                      title="Alejar plano"
+                    >
+                      <ZoomOut :size="14" />
+                    </button>
+                    <button 
+                      v-if="userZoomModifier !== 0" 
+                      type="button" 
+                      class="btn-zoom-mini-reset" 
+                      @click.stop="resetZoomChecklist" 
+                      title="Restablecer zoom del ambiente"
+                    >
+                      100%
+                    </button>
+                  </div>
+                  <span class="mini-pins-badge">{{ currentAreaMarkers.length }} pines</span>
                 </div>
               </div>
 
@@ -1691,7 +1719,9 @@ import {
   CheckCircle2,
   Settings,
   Target,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-vue-next'
 import { TYPICAL_DEFECTS_CATALOG } from '~/utils/checklist-defects-catalog'
 
@@ -2233,13 +2263,33 @@ const areaZoomFocusMap: Record<string, { x: number; y: number; zoom: number }> =
   'closet': { x: 28, y: 82, zoom: 2.4 }
 }
 
+// Nivel de zoom dinámico manual para el plano en checklist (+ / -)
+const userZoomModifier = ref(0) // -0.5 a +1.5
+
+const zoomInChecklist = () => {
+  if (userZoomModifier.value < 1.5) {
+    userZoomModifier.value = Math.round((userZoomModifier.value + 0.3) * 10) / 10
+  }
+}
+
+const zoomOutChecklist = () => {
+  if (userZoomModifier.value > -0.6) {
+    userZoomModifier.value = Math.round((userZoomModifier.value - 0.3) * 10) / 10
+  }
+}
+
+const resetZoomChecklist = () => {
+  userZoomModifier.value = 0
+}
+
 const currentAreaZoomStyle = computed(() => {
   const norm = activeSelectedArea.value.toLowerCase().trim()
   const focus = areaZoomFocusMap[norm] || { x: 50, y: 50, zoom: 1.8 }
+  const totalZoom = Math.max(1.0, Math.min(3.5, focus.zoom + userZoomModifier.value))
   return {
     transformOrigin: `${focus.x}% ${focus.y}%`,
-    transform: `scale(${focus.zoom})`,
-    transition: 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
+    transform: `scale(${totalZoom})`,
+    transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.3s cubic-bezier(0.25, 1, 0.5, 1)'
   }
 })
 
@@ -4868,6 +4918,47 @@ const handleAppLogout = async () => {
   font-size: 0.68rem;
   color: #8b949e;
 }
+.mini-plan-pins-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mini-zoom-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #0d1520;
+  border: 1px solid #1f2f44;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+.btn-zoom-mini {
+  background: transparent;
+  border: none;
+  color: #79c0ff;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-zoom-mini:hover {
+  background: #1b2838;
+  color: #fff;
+}
+.btn-zoom-mini-reset {
+  background: rgba(88, 166, 255, 0.15);
+  border: none;
+  color: #58a6ff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
 .mini-pins-badge {
   background: #1a283c;
   border: 1px solid #2e435f;
@@ -6903,6 +6994,110 @@ const handleAppLogout = async () => {
   }
   .measure-col {
     width: 100% !important;
+  }
+
+  /* Tour Guiado y Mini Plano en Pantallas Pequeñas / Celulares */
+  .guided-tour-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  .tour-room-headings h3 {
+    font-size: 1.05rem;
+  }
+  .tour-progress-middle {
+    max-width: 100%;
+  }
+  .tour-nav-controls {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+  .btn-tour-nav, .btn-tour-toggle-minimap {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 0.76rem;
+  }
+  .tour-mini-plan-card {
+    height: auto;
+  }
+  .mini-blueprint-canvas {
+    min-height: 280px;
+    max-height: 48vh;
+    padding: 6px;
+  }
+  .tour-steps-scroller {
+    padding: 6px 10px;
+    min-height: 48px;
+    gap: 6px;
+  }
+  .tour-step-pill {
+    padding: 6px 10px;
+    height: 34px;
+    font-size: 0.78rem;
+  }
+
+  /* Modal de Observación optimizado para pantalla táctil de celular */
+  .modal-backdrop-camera {
+    padding: 0;
+    align-items: flex-end; /* Sheet style desde la base en móvil */
+  }
+  .modal-obs-window {
+    max-width: 100%;
+    max-height: 94vh;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+  }
+  .modal-obs-header {
+    padding: 12px 14px;
+  }
+  .modal-obs-body {
+    padding: 14px;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .single-defect-input-wrap {
+    width: 100%;
+  }
+  .defect-single-input {
+    font-size: 0.95rem; /* Evita auto-zoom involuntario en iOS */
+    padding-right: 74px;
+  }
+  .btn-voice-dictation-trigger, .btn-toggle-custom-dropdown {
+    width: 32px;
+    height: 32px;
+  }
+  .camera-actions-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .btn-camera-trigger, .btn-gallery-trigger {
+    padding: 12px;
+    font-size: 0.88rem;
+  }
+  .severity-chips-group {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+  .sev-choice-chip {
+    padding: 8px 2px;
+    font-size: 0.7rem;
+  }
+  .modal-obs-footer {
+    padding: 12px 14px;
+    background: #0d141e;
+    display: flex;
+    gap: 10px;
+  }
+  .btn-cancel-modal, .btn-save-modal {
+    flex: 1;
+    padding: 12px 0;
+    text-align: center;
+    font-size: 0.9rem;
   }
 }
 
