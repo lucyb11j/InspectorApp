@@ -627,12 +627,24 @@
                 </div>
               </div>
 
-              <!-- Lienzo Interactivo Contextual con Zoom Focalizado en el Ambiente Activo -->
+              <!-- Lienzo Interactivo Contextual con Zoom Focalizado en el Ambiente Activo, Pinch-to-zoom y Arrastre Pan -->
               <div 
                 class="mini-blueprint-canvas" 
-                :class="{ 'is-moving-mode': movingPinIndex !== null }"
+                :class="{ 
+                  'is-moving-mode': movingPinIndex !== null,
+                  'is-panning': isPanningCanvas
+                }"
                 @click="handlePlanCanvasClick($event)"
+                @touchstart="handleTouchStart($event)"
+                @touchmove="handleTouchMove($event)"
+                @touchend="handleTouchEnd($event)"
+                @mousedown="handleMouseDownPan($event)"
               >
+                <!-- Hint interactivo de desplazamiento y zoom táctil -->
+                <div v-if="userZoomModifier !== 0 || panOffset.x !== 0 || panOffset.y !== 0" class="canvas-pan-hint">
+                  <Move :size="11" />
+                  <span>Arrastre para mover · Pellizque para zoom</span>
+                </div>
                 <!-- Banner de reubicación activa si se está moviendo un pin -->
                 <div v-if="movingPinIndex !== null" class="mini-canvas-relocating-overlay">
                   <span>Toque el nuevo punto exacto en el plano para reubicar el Pin #{{ movingPinIndex + 1 }}</span>
@@ -1721,7 +1733,8 @@ import {
   Target,
   FileSpreadsheet,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Move
 } from 'lucide-vue-next'
 import { TYPICAL_DEFECTS_CATALOG } from '~/utils/checklist-defects-catalog'
 
@@ -1839,6 +1852,52 @@ const filteredInspections = computed(() => {
 const openInspectionDetail = (insp: InspectionModel) => {
   selectedInspection.value = insp
   detailSubTab.value = 'summary'
+
+  // Si es la inspección de Edificio Miramar (Dpto 201), cargar su plano arquitectónico real y sus ambientes
+  if (insp.project.toLowerCase().includes('miramar') || insp.id === '55555555-0000-0000-0000-000000000001') {
+    activePlanImageUrl.value = '/miramar-floorplan.jpg'
+    inspectionAreas.value = [
+      { id: 'm-a1', name: 'Living Comedor', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+      { id: 'm-a2', name: 'Balcón', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
+      { id: 'm-a3', name: 'Comedor Diario', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+      { id: 'm-a4', name: 'Cocina', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
+      { id: 'm-a5', name: 'Patio', canonicalArea: 'Lavandería', cssClass: 'room-custom' },
+      { id: 'm-a6', name: 'Dependencia', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+      { id: 'm-a7', name: 'Ent. Ppal.', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+      { id: 'm-a8', name: 'Dormitorio Principal', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+      { id: 'm-a9', name: 'Dormitorio 2', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+      { id: 'm-a10', name: 'Dormitorio 3', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+      { id: 'm-a11', name: 'Baño Principal', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' }
+    ]
+    activeSelectedArea.value = 'Living Comedor'
+    inspectionMarkers.value = [
+      { id: 'mm-1', x: 26, y: 15, title: 'Fisura en muro lateral de sala', area: 'Living Comedor', severity: 'MENOR', obsId: 'obs-01' },
+      { id: 'mm-2', x: 88, y: 32, title: 'Presión deficiente en grifería de cocina', area: 'Cocina', severity: 'MODERADA', obsId: 'obs-02' },
+      { id: 'mm-3', x: 49, y: 88, title: 'Sellado de silicona en tina desgastado', area: 'Baño Principal', severity: 'MODERADA', obsId: 'obs-03' }
+    ]
+  } else {
+    activePlanImageUrl.value = '/demo-floorplan.png'
+    inspectionAreas.value = [
+      { id: 'a-1', name: 'Living Area', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+      { id: 'a-2', name: 'Kitchen', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
+      { id: 'a-3', name: 'Dining Area', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+      { id: 'a-4', name: 'Bedroom', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+      { id: 'a-5', name: 'Bath', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' },
+      { id: 'a-6', name: 'Closet', canonicalArea: 'Lavandería', cssClass: 'room-custom' },
+      { id: 'a-7', name: 'Patio', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
+      { id: 'a-8', name: 'Entry', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' }
+    ]
+    activeSelectedArea.value = 'Living Area'
+    inspectionMarkers.value = [
+      { id: 'm-1', x: 28, y: 38, title: 'Fisura capilar en muro norte', area: 'Living Area', severity: 'MENOR', obsId: 'obs-01' },
+      { id: 'm-2', x: 55, y: 24, title: 'Junta de cerámico desalineada', area: 'Kitchen', severity: 'MODERADA', obsId: 'obs-02' },
+      { id: 'm-3', x: 75, y: 62, title: 'Falta cordón de silicona antihongos', area: 'Bath', severity: 'MODERADA', obsId: 'obs-03' }
+    ]
+  }
+
+  // Resetear offsets y zooms interactivos
+  userZoomModifier.value = 0
+  panOffset.value = { x: 0, y: 0 }
 }
 
 const closeInspectionDetail = () => {
@@ -2100,6 +2159,12 @@ const selectAreaFromPlan = (event: MouseEvent, areaName: string) => {
 }
 
 const handlePlanCanvasClick = (event: MouseEvent) => {
+  // Si el usuario estaba arrastrando/paneando el plano con el dedo o mouse, ignorar click para no soltar un pin accidentalmente
+  if (hasMovedDuringPan.value) {
+    hasMovedDuringPan.value = false
+    return
+  }
+
   const currentTarget = event.currentTarget as HTMLElement
   
   // Buscar si el click fue dentro del contenedor del plano o de la imagen
@@ -2253,6 +2318,7 @@ const currentAreaStats = computed(() => {
 
 // Coordenadas focales (centro x%, y% y factor de escala) de cada ambiente para el tour guiado con zoom
 const areaZoomFocusMap: Record<string, { x: number; y: number; zoom: number }> = {
+  // Ambientes Condominio Los Cedros (demo original)
   'living area': { x: 50, y: 22, zoom: 1.9 },
   'entry': { x: 30, y: 30, zoom: 2.3 },
   'patio': { x: 74, y: 22, zoom: 2.2 },
@@ -2260,36 +2326,143 @@ const areaZoomFocusMap: Record<string, { x: number; y: number; zoom: number }> =
   'kitchen': { x: 54, y: 56, zoom: 2.3 },
   'bath': { x: 28, y: 52, zoom: 2.4 },
   'bedroom': { x: 55, y: 80, zoom: 1.9 },
-  'closet': { x: 28, y: 82, zoom: 2.4 }
+  'closet': { x: 28, y: 82, zoom: 2.4 },
+
+  // Ambientes Edificio Miramar (nuevo plano adjunto)
+  'living comedor': { x: 34, y: 18, zoom: 2.0 },
+  'balcón': { x: 8, y: 48, zoom: 2.2 },
+  'balcon': { x: 8, y: 48, zoom: 2.2 },
+  'comedor diario': { x: 68, y: 22, zoom: 2.2 },
+  'cocina': { x: 88, y: 32, zoom: 2.2 },
+  'dependencia': { x: 76, y: 54, zoom: 2.2 },
+  'ent. ppal.': { x: 51, y: 52, zoom: 2.4 },
+  'ent. ppal': { x: 51, y: 52, zoom: 2.4 },
+  'dormitorio principal': { x: 22, y: 80, zoom: 2.1 },
+  'dormitorio 2': { x: 22, y: 48, zoom: 2.1 },
+  'dormitorio 3': { x: 76, y: 82, zoom: 2.1 },
+  'baño principal': { x: 49, y: 85, zoom: 2.3 },
+  'bano principal': { x: 49, y: 85, zoom: 2.3 }
 }
 
-// Nivel de zoom dinámico manual para el plano en checklist (+ / -)
-const userZoomModifier = ref(0) // -0.5 a +1.5
+// Nivel de zoom dinámico manual para el plano en checklist (+ / - o pinch con dedos)
+const userZoomModifier = ref(0) // -0.8 a +2.5
+// Desplazamiento libre manual con dedo / ratón (pan)
+const panOffset = ref({ x: 0, y: 0 })
+const isPanningCanvas = ref(false)
+const panStart = ref({ x: 0, y: 0 })
+const initialPinchDistance = ref<number | null>(null)
+const initialZoomModifierOnPinch = ref(0)
+const hasMovedDuringPan = ref(false)
 
 const zoomInChecklist = () => {
-  if (userZoomModifier.value < 1.5) {
+  if (userZoomModifier.value < 2.5) {
     userZoomModifier.value = Math.round((userZoomModifier.value + 0.3) * 10) / 10
   }
 }
 
 const zoomOutChecklist = () => {
-  if (userZoomModifier.value > -0.6) {
+  if (userZoomModifier.value > -0.8) {
     userZoomModifier.value = Math.round((userZoomModifier.value - 0.3) * 10) / 10
   }
 }
 
 const resetZoomChecklist = () => {
   userZoomModifier.value = 0
+  panOffset.value = { x: 0, y: 0 }
+}
+
+// Gestos táctiles Touch (Pinch-to-zoom con dos dedos y arrastre Pan con 1 o 2 dedos)
+const handleTouchStart = (e: TouchEvent) => {
+  if (e.touches.length === 1) {
+    // 1 dedo: preparar posible arrastre Pan si no está en modo reubicar pin
+    isPanningCanvas.value = true
+    hasMovedDuringPan.value = false
+    panStart.value = {
+      x: e.touches[0].clientX - panOffset.value.x,
+      y: e.touches[0].clientY - panOffset.value.y
+    }
+  } else if (e.touches.length === 2) {
+    // 2 dedos: pinch-to-zoom
+    isPanningCanvas.value = false
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+    initialPinchDistance.value = Math.hypot(dx, dy)
+    initialZoomModifierOnPinch.value = userZoomModifier.value
+  }
+}
+
+const handleTouchMove = (e: TouchEvent) => {
+  if (e.touches.length === 1 && isPanningCanvas.value) {
+    const deltaX = Math.abs(e.touches[0].clientX - (panStart.value.x + panOffset.value.x))
+    const deltaY = Math.abs(e.touches[0].clientY - (panStart.value.y + panOffset.value.y))
+    if (deltaX > 5 || deltaY > 5) {
+      hasMovedDuringPan.value = true
+    }
+    panOffset.value = {
+      x: Math.round(e.touches[0].clientX - panStart.value.x),
+      y: Math.round(e.touches[0].clientY - panStart.value.y)
+    }
+  } else if (e.touches.length === 2 && initialPinchDistance.value !== null) {
+    hasMovedDuringPan.value = true
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+    const currentDist = Math.hypot(dx, dy)
+    const factor = (currentDist - initialPinchDistance.value) / 120
+    const newZoom = initialZoomModifierOnPinch.value + factor
+    userZoomModifier.value = Math.max(-0.8, Math.min(2.5, Math.round(newZoom * 10) / 10))
+  }
+}
+
+const handleTouchEnd = (e: TouchEvent) => {
+  if (e.touches.length === 0) {
+    isPanningCanvas.value = false
+    initialPinchDistance.value = null
+  }
+}
+
+// Soporte de arrastre Pan con Ratón (para desktop / laptop táctil)
+const handleMouseDownPan = (e: MouseEvent) => {
+  if (e.button !== 0) return // Solo clic principal
+  isPanningCanvas.value = true
+  hasMovedDuringPan.value = false
+  panStart.value = {
+    x: e.clientX - panOffset.value.x,
+    y: e.clientY - panOffset.value.y
+  }
+
+  const onMouseMove = (ev: MouseEvent) => {
+    if (!isPanningCanvas.value) return
+    const dx = Math.abs(ev.clientX - (panStart.value.x + panOffset.value.x))
+    const dy = Math.abs(ev.clientY - (panStart.value.y + panOffset.value.y))
+    if (dx > 4 || dy > 4) {
+      hasMovedDuringPan.value = true
+    }
+    panOffset.value = {
+      x: Math.round(ev.clientX - panStart.value.x),
+      y: Math.round(ev.clientY - panStart.value.y)
+    }
+  }
+
+  const onMouseUp = () => {
+    isPanningCanvas.value = false
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
 }
 
 const currentAreaZoomStyle = computed(() => {
   const norm = activeSelectedArea.value.toLowerCase().trim()
   const focus = areaZoomFocusMap[norm] || { x: 50, y: 50, zoom: 1.8 }
-  const totalZoom = Math.max(1.0, Math.min(3.5, focus.zoom + userZoomModifier.value))
+  const totalZoom = Math.max(0.7, Math.min(4.0, focus.zoom + userZoomModifier.value))
   return {
     transformOrigin: `${focus.x}% ${focus.y}%`,
-    transform: `scale(${totalZoom})`,
-    transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.3s cubic-bezier(0.25, 1, 0.5, 1)'
+    transform: `translate(${panOffset.value.x}px, ${panOffset.value.y}px) scale(${totalZoom})`,
+    transition: isPanningCanvas.value 
+      ? 'none' 
+      : 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), transform-origin 0.3s cubic-bezier(0.25, 1, 0.5, 1)'
   }
 })
 
@@ -4980,11 +5153,38 @@ const handleAppLogout = async () => {
   flex: none;
   background: #06090e;
   overflow: hidden;
-  cursor: crosshair;
+  cursor: grab;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 12px;
+  touch-action: none;
+  user-select: none;
+}
+.mini-blueprint-canvas.is-panning {
+  cursor: grabbing;
+}
+.mini-blueprint-canvas.is-moving-mode {
+  cursor: crosshair;
+}
+.canvas-pan-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(13, 21, 32, 0.88);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  color: #79c0ff;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 15;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .mini-blueprint-grid {
   position: absolute;
