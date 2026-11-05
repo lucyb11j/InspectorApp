@@ -4880,7 +4880,7 @@ const handleAppLogout = async () => {
     display: grid;
     grid-template-columns: minmax(520px, 48%) 1fr;
     gap: 20px;
-    align-items: stretch;
+    align-items: start;
   }
 }
 
@@ -4893,7 +4893,10 @@ const handleAppLogout = async () => {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto;
+  position: sticky;
+  top: 14px;
+  align-self: start;
 }
 .mini-plan-header {
   padding: 10px 14px;
@@ -4971,8 +4974,10 @@ const handleAppLogout = async () => {
 .mini-blueprint-canvas {
   position: relative;
   width: 100%;
-  flex: 1;
+  height: 480px;
   min-height: 480px;
+  max-height: 480px;
+  flex: none;
   background: #06090e;
   overflow: hidden;
   cursor: crosshair;
