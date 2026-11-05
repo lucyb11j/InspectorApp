@@ -121,3 +121,4 @@ Devuelve ÚNICAMENTE un arreglo JSON válido con este formato:
     areas
   }
 })
+

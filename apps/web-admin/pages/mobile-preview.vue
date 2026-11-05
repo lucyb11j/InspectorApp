@@ -1046,23 +1046,6 @@
               />
             </div>
           </div>
-
-          <!-- Barra de Gestión Rápida de Áreas del Plano -->
-          <div class="arch-areas-toolbar">
-            <div class="add-area-inline">
-              <input 
-                v-model="newArchAreaInput" 
-                type="text" 
-                class="modal-input-sm" 
-                placeholder="Añadir nuevo ambiente (ej: Lavandería, Balcón, Baño)..." 
-                @keyup.enter.prevent="addArchArea" 
-              />
-              <button type="button" class="btn-add-area" @click="addArchArea">+ Añadir Ambiente</button>
-            </div>
-            <p class="arch-help-note">
-              Los ambientes configurados aquí se sincronizan automáticamente con la lista de checklist y el plano táctil.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -1353,8 +1336,11 @@
     <div v-if="showUploadPlanModal" class="modal-backdrop-camera" @click.self="showUploadPlanModal = false">
       <div class="modal-obs-window modal-plan-assistant">
         <div class="modal-obs-header">
-          <div>
+          <div class="modal-title-with-target">
             <h3>Asistente de Plano y Ambientes</h3>
+            <span class="modal-inspection-target-pill">
+              🏢 Unidad: <strong>{{ targetPlanInspectionName }}</strong>
+            </span>
             <span class="modal-location-subtitle">Autonomía total: Cargar archivo, tomar foto a plano en papel o crear croquis técnico</span>
           </div>
           <button type="button" class="btn-close-modal-x" @click="showUploadPlanModal = false">✕</button>
@@ -3746,19 +3732,53 @@ const currentArchPlan = ref({
   type: 'PDF Vectorial'
 })
 
-const currentArchAreas = ref([
-  { id: 'arch-1', name: 'Sala / Comedor', cssClass: 'room-living', isEditing: false },
-  { id: 'arch-2', name: 'Cocina', cssClass: 'room-kitchen', isEditing: false },
-  { id: 'arch-3', name: 'Dormitorio Principal', cssClass: 'room-bed-main', isEditing: false },
-  { id: 'arch-4', name: 'Baño Principal', cssClass: 'room-bath-main', isEditing: false },
-  { id: 'arch-5', name: 'Balcón', cssClass: 'room-balcony', isEditing: false },
-  { id: 'arch-6', name: 'Lavandería', cssClass: 'room-custom', isEditing: false }
-])
+// Nombre de la inspección/unidad a la que se le subirá o cambiará el plano
+const targetPlanInspectionName = computed(() => {
+  if (selectedInspection.value) {
+    return `${selectedInspection.value.unit} — ${selectedInspection.value.project}`
+  }
+  const found = inspectionsList.value.find(i => i.id === selectedArchUnit.value)
+  return found ? `${found.unit} — ${found.project}` : 'Dpto 305 — Condominio Los Cedros'
+})
 
 const onArchUnitChange = () => {
   const found = inspectionsList.value.find(i => i.id === selectedArchUnit.value)
   if (found) {
     currentArchPlan.value.fileName = `plano_arquitectura_${found.unit.toLowerCase().replace(/\s+/g, '_')}.pdf`
+    
+    // Si cambia a Miramar, cargar su plano y ambientes correspondientes
+    if (found.project.toLowerCase().includes('miramar') || found.id === '55555555-0000-0000-0000-000000000001') {
+      activePlanImageUrl.value = '/miramar-floorplan.jpg'
+      currentArchPlan.value.sha256 = '8f4b23c9e1a76d54029b8c173ae59d04bc7a61d8ef31b9c240a5e81d76ca23e1'
+      inspectionAreas.value = [
+        { id: 'm-a1', name: 'Living Comedor', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+        { id: 'm-a2', name: 'Balcón', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
+        { id: 'm-a3', name: 'Comedor Diario', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+        { id: 'm-a4', name: 'Cocina', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
+        { id: 'm-a5', name: 'Patio', canonicalArea: 'Lavandería', cssClass: 'room-custom' },
+        { id: 'm-a6', name: 'Dependencia', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+        { id: 'm-a7', name: 'Ent. Ppal.', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+        { id: 'm-a8', name: 'Dormitorio Principal', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+        { id: 'm-a9', name: 'Dormitorio 2', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+        { id: 'm-a10', name: 'Dormitorio 3', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+        { id: 'm-a11', name: 'Baño Principal', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' }
+      ]
+      activeSelectedArea.value = 'Living Comedor'
+    } else {
+      activePlanImageUrl.value = '/demo-floorplan.png'
+      currentArchPlan.value.sha256 = 'a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0'
+      inspectionAreas.value = [
+        { id: 'a-1', name: 'Living Area', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+        { id: 'a-2', name: 'Kitchen', canonicalArea: 'Cocina', cssClass: 'room-kitchen' },
+        { id: 'a-3', name: 'Dining Area', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' },
+        { id: 'a-4', name: 'Bedroom', canonicalArea: 'Dormitorio', cssClass: 'room-bed-main' },
+        { id: 'a-5', name: 'Bath', canonicalArea: 'Baño Principal', cssClass: 'room-bath-main' },
+        { id: 'a-6', name: 'Closet', canonicalArea: 'Lavandería', cssClass: 'room-custom' },
+        { id: 'a-7', name: 'Patio', canonicalArea: 'Balcón', cssClass: 'room-balcony' },
+        { id: 'a-8', name: 'Entry', canonicalArea: 'Sala / Comedor', cssClass: 'room-living' }
+      ]
+      activeSelectedArea.value = 'Living Area'
+    }
   }
 }
 
@@ -7586,6 +7606,26 @@ const handleAppLogout = async () => {
 /* ESTILOS DEL ASISTENTE HÍBRIDO DE PLANO */
 .modal-plan-assistant {
   max-width: 680px;
+}
+.modal-title-with-target {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.modal-inspection-target-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(88, 166, 255, 0.15);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  color: #79c0ff;
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: 6px;
+  width: fit-content;
+}
+.modal-inspection-target-pill strong {
+  color: #ffffff;
 }
 .plan-assistant-body {
   display: flex;
